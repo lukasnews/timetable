@@ -62,7 +62,7 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
           <label className="field"><span className="label">🎂 Geburtstag (optional)</span>
             <input type="date" value={p.birthday ?? ''} onChange={(e) => set({ birthday: e.target.value || undefined })} /></label>
           <label className="field"><span className="label">🔔 ntfy-Topic für Erinnerungen</span>
-            <input value={p.ntfyTopic ?? ''} placeholder="z. B. mama" onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} /></label>
+            <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="z. B. mama" onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} /></label>
         </div>
         <Toggle checked={!!p.hasTimetable} onChange={(v) => set({ hasTimetable: v })} label="Hat einen Stundenplan" hint="Schulzeiten erscheinen im Kalender" />
       </div>
