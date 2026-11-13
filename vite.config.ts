@@ -2,8 +2,15 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const BUILD = (process.env.GITHUB_SHA ?? 'lokal').slice(0, 7);
+const BUILD_TIME = new Date().toISOString();
+
 export default defineConfig({
   base: './',
+  define: {
+    __BUILD__: JSON.stringify(BUILD),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
+  },
   plugins: [
     react(),
     VitePWA({
