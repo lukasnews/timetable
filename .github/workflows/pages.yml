@@ -1,8 +1,10 @@
 name: Veröffentlichen
 
+# Ablauf: Änderungen per PR nach main, danach wird dieser Branch auf main nachgezogen.
+# GitHub Pages ist für diesen Branch freigegeben, deshalb wird von hier veröffentlicht.
 on:
   push:
-    branches: [main]
+    branches: [claude/family-calendar-tablet-a84zoy]
   workflow_dispatch:
 
 permissions:
