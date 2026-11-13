@@ -2,7 +2,7 @@ name: Veröffentlichen
 
 on:
   push:
-    branches: [main, claude/family-calendar-tablet-a84zoy]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

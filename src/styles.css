@@ -341,6 +341,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 /* ---------- Kiosk ---------- */
 .kiosk .topbar { padding-top: 14px; }
 
+/* ---------- Installieren ---------- */
+.install-btn { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+
 /* ---------- Handy ---------- */
 @media (max-width: 640px) {
   .topbar { gap: 6px; padding: 8px 8px 4px; grid-template-columns: auto 1fr auto; }
@@ -349,6 +352,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .chip { padding: 2px; }
   .chip-name { display: none; }
   .top-right .icon-btn { width: 38px; }
+  .install-btn span { display: none; }
   .toolbar { padding: 2px 8px 6px; gap: 6px; }
   .range-title { font-size: 1rem; }
   .nav .btn { padding: 0 10px; }

@@ -10,6 +10,7 @@ import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
 import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, saveCloudConfig, type CloudConfig } from '../data/store';
 import { LocalStore } from '../data/localStore';
+import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
 
 export type SettingsTab = 'persons' | 'device' | 'sync' | 'general';
@@ -97,8 +98,20 @@ function DeviceTab() {
     }
     setDevice({ reminders: v });
   };
+  const inst = useInstall();
   return (
     <div className="settings-section">
+      <h3><Icon name="download" size={18} /> App installieren</h3>
+      {inst.installed ? (
+        <p className="hint">✓ Läuft als installierte App.</p>
+      ) : inst.canPrompt ? (
+        <button className="btn primary" onClick={inst.install}><Icon name="download" size={18} /> Auf diesem Gerät installieren</button>
+      ) : isIOS() ? (
+        <p className="hint">In Safari unten auf <b>Teilen</b> (□↑) tippen → <b>„Zum Home-Bildschirm“</b>.</p>
+      ) : (
+        <p className="hint">Im Browser-Menü (⋮) <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b> wählen.</p>
+      )}
+
       <h3>Ansicht</h3>
       <label className="field"><span className="label">Startansicht</span>
         <select value={device.defaultView} onChange={(e) => setDevice({ defaultView: e.target.value as typeof device.defaultView })}>
@@ -166,6 +179,8 @@ function SyncTab() {
   const [joinId, setJoinId] = useState('');
   const [err, setErr] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [takeLocal, setTakeLocal] = useState(true);
   const buildCfg = buildTimeFirebase();
   const link = cloud ? makeJoinLink(cloud) : '';
 
@@ -192,17 +207,23 @@ function SyncTab() {
     }
   };
 
-  const connect = (familyId: string, upload: boolean) => {
+  const connect = async (familyId: string, upload: boolean) => {
     setErr('');
     const firebase = firebaseFromInput();
     if (!firebase) return;
     const cfg: CloudConfig = { firebase, familyId };
     if (upload && store instanceof LocalStore) {
+      setBusy(true);
       try {
         const target = new FirebaseStore(cfg);
-        (['persons', 'events', 'timetables', 'meta'] as const).forEach((c) => store.all<{ id: string }>(c).forEach((it) => target.put(c, it)));
+        const items = (['persons', 'events', 'timetables', 'meta'] as const).flatMap((col) => store.all<{ id: string }>(col).map((item) => ({ col, item })));
+        await Promise.race([
+          target.upload(items),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Zeitüberschreitung – bitte Internetverbindung prüfen')), 30000)),
+        ]);
       } catch (e) {
-        setErr('Verbindung fehlgeschlagen: ' + String(e));
+        setBusy(false);
+        setErr('Hochladen fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e)));
         return;
       }
     }
@@ -241,7 +262,11 @@ function SyncTab() {
                 placeholder={'{\n  apiKey: "…",\n  authDomain: "…",\n  projectId: "…",\n  appId: "…"\n}'} /></label>
           )}
           <div className="choice-list">
-            <button className="btn primary big" onClick={() => connect(newFamilyId(), true)}>Neuen Familienkalender anlegen<small>Daten dieses Geräts werden hochgeladen</small></button>
+            <Toggle checked={takeLocal} onChange={setTakeLocal} label="Daten dieses Geräts übernehmen"
+              hint="Aus = leerer Kalender (ohne die Beispiel-Familie)" />
+            <button className="btn primary big" disabled={busy} onClick={() => connect(newFamilyId(), takeLocal)}>
+              {busy ? 'Wird hochgeladen …' : 'Neuen Familienkalender anlegen'}
+            </button>
           </div>
           <h3>Oder bestehendem Kalender beitreten</h3>
           <p className="hint">Am einfachsten: am anderen Gerät den QR-Code scannen. Alternativ Familien-ID eingeben:</p>

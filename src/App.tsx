@@ -10,6 +10,7 @@ import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
 import { addMinutes, diffMinutes, fromNative, uid } from './lib/dates';
 import type { CalEvent } from './types';
+import { useInstall } from './install';
 import { isNight, useClock, useIdle, useMedia, useReminders, useWakeLock } from './hooks';
 
 type Mode = ViewName | 'timetable';
@@ -81,6 +82,7 @@ export default function App() {
   useEffect(() => { if (device.kiosk) api()?.today(); }, [day, device.kiosk]);
 
   useReminders(events, persons, device);
+  const inst = useInstall();
 
   // Termin anlegen
   const newEvent = (start?: string, end?: string, allDay = false) => {
@@ -173,6 +175,9 @@ export default function App() {
         </div>
         <div className="top-right">
           {statusIcon}
+          {inst.canPrompt && !inst.installed && (
+            <button className="btn small install-btn" onClick={inst.install}><Icon name="download" size={16} /> <span>Installieren</span></button>
+          )}
           <button className="icon-btn" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
           <button className="icon-btn" onClick={() => openSettings('general')} aria-label="Einstellungen"><Icon name="gear" /></button>
         </div>
