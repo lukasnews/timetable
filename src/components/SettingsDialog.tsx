@@ -10,6 +10,7 @@ import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
 import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, saveCloudConfig, type CloudConfig } from '../data/store';
 import { LocalStore } from '../data/localStore';
+import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
 
 export type SettingsTab = 'persons' | 'device' | 'sync' | 'general';
@@ -97,8 +98,20 @@ function DeviceTab() {
     }
     setDevice({ reminders: v });
   };
+  const inst = useInstall();
   return (
     <div className="settings-section">
+      <h3><Icon name="download" size={18} /> App installieren</h3>
+      {inst.installed ? (
+        <p className="hint">✓ Läuft als installierte App.</p>
+      ) : inst.canPrompt ? (
+        <button className="btn primary" onClick={inst.install}><Icon name="download" size={18} /> Auf diesem Gerät installieren</button>
+      ) : isIOS() ? (
+        <p className="hint">In Safari unten auf <b>Teilen</b> (□↑) tippen → <b>„Zum Home-Bildschirm“</b>.</p>
+      ) : (
+        <p className="hint">Im Browser-Menü (⋮) <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b> wählen.</p>
+      )}
+
       <h3>Ansicht</h3>
       <label className="field"><span className="label">Startansicht</span>
         <select value={device.defaultView} onChange={(e) => setDevice({ defaultView: e.target.value as typeof device.defaultView })}>
