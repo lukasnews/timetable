@@ -1,23 +1,21 @@
 name: Veröffentlichen
 
-# Ablauf: Änderungen per PR nach main, danach wird dieser Branch auf main nachgezogen.
-# GitHub Pages ist für diesen Branch freigegeben, deshalb wird von hier veröffentlicht.
+# Bei jeder Änderung auf main: testen, bauen und das Ergebnis in den Branch gh-pages legen.
+# GitHub Pages zeigt den Branch gh-pages an (Settings → Pages → Deploy from a branch → gh-pages).
 on:
   push:
-    branches: [claude/family-calendar-tablet-a84zoy]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,17 +26,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - run: touch dist/.nojekyll
+      - uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true

@@ -20,12 +20,9 @@ Dauer: etwa 15 Minuten.
 
 ### Variante A: nur am Handy (GitHub Pages, automatisch)
 
-Bei jedem Push baut GitHub die App und veröffentlicht sie unter
-`https://lukasnews.github.io/timetable/`. Einmalig in GitHub (im Handy-Browser, „Desktop-Version“):
-
-1. **Settings → General → ganz unten „Danger Zone“ → Change visibility → Public**
-2. **Settings → Pages → Build and deployment → Source: „GitHub Actions“**
-3. **Actions → „Veröffentlichen“ → Run workflow** (oder einfach auf den nächsten Push warten)
+Bei jeder Änderung auf `main` baut GitHub die App und legt sie in den Branch `gh-pages`.
+Einmalig: **Settings → Pages → Source: „Deploy from a branch“ → Branch `gh-pages`, Ordner `/ (root)` → Save.**
+Adresse: `https://lukasnews.github.io/timetable/`
 
 ### Variante B: am Computer (Firebase Hosting)
 
