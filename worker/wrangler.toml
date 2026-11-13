@@ -1,0 +1,12 @@
+name = "familienkalender-erinnerungen"
+main = "index.ts"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+TIMEZONE = "Europe/Vienna"
+NTFY_SERVER = "https://ntfy.sh"
+# FIREBASE_API_KEY, FIREBASE_PROJECT_ID, FAMILY_ID, FIREBASE_REFRESH_TOKEN, FAMILY_TOPIC
+# bitte als Secret setzen:  npx wrangler secret put FAMILY_ID
