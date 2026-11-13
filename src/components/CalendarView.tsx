@@ -168,7 +168,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       moreLinkText={(n) => `+${n} weitere`}
       allDayText="Ganzt."
       slotMinTime={device.dayStart + ':00'}
-      slotMaxTime={(device.dayEnd === '24:00' ? '24:00' : device.dayEnd) + ':00'}
+      slotMaxTime={device.dayEnd + ':00'}
       scrollTime={new Date().getHours() > 1 ? `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00:00` : '07:00:00'}
       slotDuration="00:30:00"
       snapDuration="00:15:00"
