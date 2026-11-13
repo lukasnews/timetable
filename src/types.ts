@@ -104,6 +104,9 @@ export interface DeviceSettings {
   reminderPersons: string[];
   /** Stundenplan-Blöcke auch in der Monatsansicht */
   schoolInMonth: boolean;
+  /** Schulzeiten im Kalender anzeigen (Schalter in der Leiste) */
+  showSchool: boolean;
+  theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
 }

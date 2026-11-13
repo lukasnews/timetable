@@ -12,6 +12,9 @@ export interface OccProps {
   personIds: string[];
   location?: string;
   age?: number;
+  /** Position des Schul-Streifens (0, 1, 2 …) */
+  stripIndex?: number;
+  timeText?: string;
 }
 
 /** Ist ein Termin bei gewählten Personen sichtbar? Termine ohne Person = ganze Familie, immer sichtbar */
@@ -43,6 +46,8 @@ export function buildEvents(opts: {
   showHolidays: boolean;
   showSchoolHolidays: boolean;
   showSchool: boolean;
+  /** Woche/Tag: Schulzeit als schmaler Streifen (Hintergrund) statt als Termin */
+  schoolAsStrip: boolean;
 }): EventInput[] {
   const { events, persons, timetables, selected, from, to } = opts;
   const out: EventInput[] = [];
@@ -109,9 +114,10 @@ export function buildEvents(opts: {
 
   // Schulzeiten (nur Beginn–Ende)
   if (opts.showSchool) {
-    for (const tt of timetables) {
-      const p = byId.get(tt.id);
-      if (!p || !p.hasTimetable || !tt.showInCalendar || !selected.has(p.id)) continue;
+    const kids = persons.filter((p) => p.hasTimetable && selected.has(p.id));
+    kids.forEach((p, stripIndex) => {
+      const tt = timetables.find((t) => t.id === p.id);
+      if (!tt || !tt.showInCalendar) return;
       for (let d = from; d < to; d = addDays(d, 1)) {
         if (isSchoolFree(d)) continue;
         const ls = lessonsForDay(tt, d);
@@ -120,15 +126,16 @@ export function buildEvents(opts: {
         const end = ls.reduce((m, l) => (l.end > m ? l.end : m), ls[0].end);
         out.push({
           id: `school-${p.id}-${d}`,
-          title: 'Schule',
+          title: `Schule ${p.name}`,
           start: `${d}T${start}`,
           end: `${d}T${end}`,
           editable: false,
-          classNames: ['ev-school'],
-          extendedProps: { kind: 'school', personIds: [p.id] } satisfies OccProps,
+          display: opts.schoolAsStrip ? 'background' : 'auto',
+          classNames: opts.schoolAsStrip ? ['bg-school'] : ['ev-school'],
+          extendedProps: { kind: 'school', personIds: [p.id], stripIndex, timeText: `${start}–${end}` } satisfies OccProps,
         });
       }
-    }
+    });
   }
   return out;
 }

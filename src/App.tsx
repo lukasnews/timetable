@@ -76,7 +76,15 @@ export default function App() {
     setTimeout(() => { api()?.changeView(m); api()?.today(); });
   });
   const night = device.kiosk && device.nightMode && isNight(now, device.nightFrom, device.nightTo);
-  useEffect(() => { document.documentElement.classList.toggle('night', night); }, [night]);
+  const systemDark = useMedia('(prefers-color-scheme: dark)');
+  const dark = night || device.theme === 'dark' || (device.theme === 'auto' && systemDark);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('night', night);
+    root.classList.toggle('dark', dark);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1017' : '#f4f5fa');
+  }, [night, dark]);
+  const hasKids = persons.some((p) => p.hasTimetable);
   // Um Mitternacht auf den neuen Tag springen
   const day = now.toDateString();
   useEffect(() => { if (device.kiosk) api()?.today(); }, [day, device.kiosk]);
@@ -193,6 +201,12 @@ export default function App() {
           </div>
         )}
         {mode === 'timetable' && <h1 className="range-title">Stundenplan</h1>}
+        {mode !== 'timetable' && hasKids && (
+          <button className={'school-toggle' + (device.showSchool ? ' on' : '')} onClick={() => data.setDevice({ showSchool: !device.showSchool })}
+            aria-pressed={device.showSchool} title="Schulzeiten ein-/ausblenden">
+            <span aria-hidden="true">🏫</span><span className="long">Schule</span>
+          </button>
+        )}
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (

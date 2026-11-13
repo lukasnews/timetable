@@ -113,6 +113,14 @@ function DeviceTab() {
       )}
 
       <h3>Ansicht</h3>
+      <div className="field">
+        <span className="label">Farbschema</span>
+        <div className="seg">
+          {([['auto', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']] as const).map(([k, l]) => (
+            <button key={k} className={device.theme === k ? 'on' : ''} onClick={() => setDevice({ theme: k })}>{l}</button>
+          ))}
+        </div>
+      </div>
       <label className="field"><span className="label">Startansicht</span>
         <select value={device.defaultView} onChange={(e) => setDevice({ defaultView: e.target.value as typeof device.defaultView })}>
           <option value="auto">Automatisch (Tablet: Woche, Handy: Tag)</option>
@@ -127,7 +135,8 @@ function DeviceTab() {
         <label className="field"><span className="label">Tag endet</span>
           <input type="time" value={device.dayEnd} onChange={(e) => e.target.value && setDevice({ dayEnd: e.target.value })} /></label>
       </div>
-      <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="Schulzeiten auch in der Monatsansicht" />
+      <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
+      {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
 
       <h3>Kiosk-Modus (Wand-Tablet)</h3>
       <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute" />

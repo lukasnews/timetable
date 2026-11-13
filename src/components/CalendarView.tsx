@@ -49,9 +49,15 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     return buildEvents({
       events, persons, timetables, selected: props.selected, from: range.from, to: range.to,
       showHolidays: family.showHolidays, showSchoolHolidays: family.showSchoolHolidays,
-      showSchool: props.view !== 'dayGridMonth' || device.schoolInMonth,
+      showSchool: device.showSchool && (props.view !== 'dayGridMonth' || device.schoolInMonth),
+      schoolAsStrip: props.view !== 'dayGridMonth',
     });
-  }, [events, persons, timetables, props.selected, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth]);
+  }, [events, persons, timetables, props.selected, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth, device.showSchool]);
+
+  // Platz rechts im Tag für die Schul-Streifen
+  const stripCount = device.showSchool && props.view !== 'dayGridMonth'
+    ? new Set(fcEvents.filter((e) => (e.extendedProps as OccProps | undefined)?.kind === 'school').map((e) => (e.extendedProps as OccProps).stripIndex)).size
+    : 0;
 
   const onDatesSet = (arg: DatesSetArg) => {
     const from = fromNative(arg.start, true);
@@ -62,7 +68,18 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
 
   const renderContent = (arg: EventContentArg) => {
     const x = arg.event.extendedProps as OccProps;
-    if (arg.event.display === 'background') return <div className="bg-title">{arg.event.title}</div>;
+    if (arg.event.display === 'background') {
+      if (x.kind === 'school') {
+        const kid = byId.get(x.personIds[0]);
+        return (
+          <div className="school-strip" title={`${arg.event.title} ${x.timeText}`}>
+            {kid && <Avatar person={kid} size={18} />}
+            <span className="school-time">{x.timeText}</span>
+          </div>
+        );
+      }
+      return <div className="bg-title">{arg.event.title}</div>;
+    }
     const ps = (x.personIds ?? []).map((id) => byId.get(id)).filter(Boolean) as Person[];
     if (x.kind === 'holiday') return <div className="ev-inner"><span className="ev-title">🇦🇹 {arg.event.title}</span></div>;
     const title =
@@ -89,7 +106,15 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
 
   const onMount = (arg: EventMountArg) => {
     const x = arg.event.extendedProps as OccProps;
-    if (arg.event.display === 'background') return;
+    if (arg.event.display === 'background') {
+      if (x.kind === 'school') {
+        const kid = byId.get(x.personIds[0]);
+        // Position gehört an den Container (Harness), Farbe an den Streifen
+        arg.el.parentElement?.style.setProperty('--strip-i', String(x.stripIndex ?? 0));
+        if (kid) arg.el.style.setProperty('--pc', kid.color);
+      }
+      return;
+    }
     const ps = (x.personIds ?? []).map((id) => byId.get(id)).filter(Boolean) as Person[];
     arg.el.style.setProperty('--stripe', stripe(ps));
     arg.el.style.setProperty('--evbg', ps.length ? tint(ps[0].color, 0.8) : 'var(--family-bg)');
@@ -119,6 +144,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   const isPhone = typeof window !== 'undefined' && window.innerWidth < 640;
 
   return (
+    <div className="cal-inner" style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -169,5 +195,6 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
         api?.changeView('timeGridDay', date);
       }}
     />
+    </div>
   );
 });
