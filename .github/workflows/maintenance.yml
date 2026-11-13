@@ -1,0 +1,36 @@
+name: Wartung
+
+# Nur manuell: Actions → Wartung → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Was soll passieren?'
+        type: choice
+        options:
+          - delete-events
+      confirm:
+        description: 'Zur Sicherheit LÖSCHEN eintippen'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx esbuild reminders/maintenance.ts --bundle --platform=node --format=esm --outfile=.reminder-build/maintenance.mjs --log-level=warning
+      - run: node .reminder-build/maintenance.mjs
+        env:
+          FAMILY_ID: ${{ secrets.FAMILY_ID }}
+          ACTION: ${{ inputs.action }}
+          CONFIRM: ${{ inputs.confirm }}
