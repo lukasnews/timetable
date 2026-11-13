@@ -20,8 +20,9 @@ Dauer: etwa 15 Minuten.
 
 ### Variante A: nur am Handy (GitHub Pages, automatisch)
 
-Bei jeder Änderung auf `main` baut GitHub die App und legt sie in den Branch `gh-pages`.
-Einmalig: **Settings → Pages → Source: „Deploy from a branch“ → Branch `gh-pages`, Ordner `/ (root)` → Save.**
+Bei jeder Änderung auf `main` baut GitHub die App und legt sie in den Ordner `docs/` auf `main`
+(Commit „Build: …“ vom github-actions-Bot). Bitte `docs/` nicht von Hand bearbeiten.
+Einmalig: **Settings → Pages → Source: „Deploy from a branch“ → Branch `main`, Ordner `/docs` → Save.**
 Adresse: `https://lukasnews.github.io/timetable/`
 
 ### Variante B: am Computer (Firebase Hosting)
