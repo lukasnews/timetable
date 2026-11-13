@@ -47,6 +47,14 @@ async function main() {
   if (process.env.TEST === 'true') {
     const [persons, meta] = await Promise.all([list<Person>(cfg, token, 'persons'), list<any>(cfg, token, 'meta')]);
     const family = meta.find((m) => m.id === 'settings') as Partial<FamilySettings> | undefined;
+    const fid = cfg.familyId;
+    console.log(`Familie ${fid.slice(0, 4)}…${fid.slice(-3)} (${fid.length} Zeichen): ${persons.length} Person(en), Einstellungen ${family ? 'vorhanden' : 'fehlen'}`);
+    for (const p of persons) console.log(`  · ${p.name}: ${p.ntfyTopic ? 'Topic „' + p.ntfyTopic + '“' : 'kein Topic'}`);
+    console.log(`  · Familien-Topic: ${family?.ntfyFamilyTopic ? '„' + family.ntfyFamilyTopic + '“' : 'keins'}`);
+    if (!persons.length && !family) {
+      throw new Error('Unter dieser FAMILY_ID gibt es keine Daten. Bitte die Familien-ID aus ⚙️ → Synchronisation genau kopieren ' +
+        '(und prüfen, ob dort „Synchronisiert ✓“ steht – sonst ist das Gerät nicht mit der Cloud verbunden).');
+    }
     const targets = [
       ...persons.filter((p) => p.ntfyTopic).map((p) => ({ topic: p.ntfyTopic!, name: p.name })),
       ...(family?.ntfyFamilyTopic ? [{ topic: family.ntfyFamilyTopic, name: 'Familie' }] : []),

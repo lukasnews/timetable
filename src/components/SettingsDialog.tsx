@@ -294,6 +294,14 @@ function SyncTab() {
 
 function GeneralTab() {
   const { family, saveFamily } = useData();
+  const [famTopic, setFamTopic] = useState(family.ntfyFamilyTopic ?? '');
+  // Kurz nach dem Tippen automatisch speichern
+  useEffect(() => {
+    const v = famTopic.trim();
+    if (v === (family.ntfyFamilyTopic ?? '')) return;
+    const t = setTimeout(() => saveFamily({ ntfyFamilyTopic: v || undefined }), 600);
+    return () => clearTimeout(t);
+  }, [famTopic]); // eslint-disable-line react-hooks/exhaustive-deps
   const [updateMsg, setUpdateMsg] = useState('');
   const checkUpdate = async () => {
     setUpdateMsg('Suche …');
@@ -322,7 +330,9 @@ function GeneralTab() {
       <h3><Icon name="bell" size={18} /> Erinnerungen per ntfy</h3>
       <p className="hint">Jede Person bekommt Erinnerungen an das <b>ntfy-Topic in ihrem Profil</b>. Termine ohne Person gehen an das Familien-Topic (leer = an alle Personen mit Topic). Server und Token sind in GitHub hinterlegt (siehe SETUP.md).</p>
       <label className="field"><span className="label">Familien-Topic</span>
-        <input defaultValue={family.ntfyFamilyTopic ?? ''} placeholder="z. B. familie" onBlur={(e) => saveFamily({ ntfyFamilyTopic: e.target.value.trim() || undefined })} /></label>
+        <input value={famTopic} placeholder="z. B. familie" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          onChange={(e) => setFamTopic(e.target.value)} /></label>
+      {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
 
       <h3><Icon name="lock" size={18} /> PIN für Einstellungen</h3>
       <p className="hint">{family.pinHash ? 'Eine PIN ist gesetzt. Termine anlegen geht ohne PIN, Einstellungen und Stundenplan sind geschützt.' : 'Noch keine PIN gesetzt – Einstellungen sind frei zugänglich.'}</p>
