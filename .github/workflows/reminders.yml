@@ -1,0 +1,45 @@
+name: Erinnerungen
+
+# Prüft alle 5 Minuten, ob Erinnerungen fällig sind, und schickt sie per ntfy.
+# GitHub startet geplante Läufe oft mit einigen Minuten Verzögerung – verpasste
+# Zeitfenster werden beim nächsten Lauf nachgeholt (bis zu 2 Stunden).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Test-Nachricht an alle eingetragenen Topics schicken'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: .reminder-state
+          key: reminder-state-${{ github.run_id }}
+          restore-keys: reminder-state-
+      - run: npx esbuild reminders/run.ts --bundle --platform=node --format=esm --outfile=.reminder-build/run.mjs --log-level=warning
+      - run: node .reminder-build/run.mjs
+        env:
+          FAMILY_ID: ${{ secrets.FAMILY_ID }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          NTFY_SERVER: ${{ vars.NTFY_SERVER }}
+          TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.test && 'true' || 'false' }}
