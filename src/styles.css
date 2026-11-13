@@ -99,7 +99,17 @@ a { color: var(--accent); }
   display: flex; align-items: center; gap: 12px; padding: 4px 16px 10px; flex-wrap: wrap;
 }
 .nav { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
-.range-title { font-size: 1.25rem; font-weight: 700; margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.range-title {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0; margin-left: 6px; padding: 4px 10px; border-radius: 10px;
+  border: 0; background: transparent; cursor: pointer; color: var(--text); font-size: 1.4rem; font-weight: 800; letter-spacing: -0.01em;
+}
+.range-title:hover { background: var(--surface-2); }
+.rt-main { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-kw { flex: none; font-size: 0.7em; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 8px; border-radius: 8px; }
+.rt-badge { flex: none; font-size: 0.6em; font-weight: 700; color: var(--accent-text); background: var(--accent); padding: 3px 8px; border-radius: 999px; }
+.date-jump { position: absolute; opacity: 0; pointer-events: none; width: 1px !important; height: 1px; min-height: 0 !important; padding: 0 !important; border: 0 !important; }
+.nav { position: relative; }
+h1.range-title { cursor: default; }
 .clock { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .main { min-height: 0; padding: 0 16px 16px; }
 .cal-wrap { height: 100%; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 6px; overflow: hidden; }
@@ -259,6 +269,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 .fc .fc-col-header-cell-cushion, .fc .fc-daygrid-day-number { color: var(--text); text-decoration: none; font-weight: 600; }
 .fc .fc-col-header-cell { padding: 6px 0; }
+.fc .fc-col-header-cell-cushion { font-size: 0.95rem; padding: 2px; }
+.dh { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.1; gap: 2px; }
+.dh-wd { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.dh-d { font-size: 1.25rem; font-weight: 800; min-width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; }
+.dh.today .dh-wd { color: var(--accent); }
+.dh.today .dh-d { background: var(--accent); color: var(--accent-text); }
 .fc .fc-day-today .fc-daygrid-day-number { background: var(--accent); color: var(--accent-text); border-radius: 999px; min-width: 28px; text-align: center; margin: 2px; }
 .fc .fc-timegrid-slot { height: 2.2em; }
 .fc .fc-timegrid-slot-label-cushion { color: var(--muted); font-size: 0.8rem; }
@@ -370,7 +386,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .top-right .icon-btn { width: 38px; }
   .install-btn span { display: none; }
   .toolbar { padding: 2px 8px 6px; gap: 6px; }
-  .range-title { font-size: 1.05rem; }
+  .range-title { font-size: 1.2rem; padding: 4px 6px; margin-left: 2px; }
   .nav { flex-basis: 100%; }
   .toolbar .views { margin-left: auto; }
   .nav .btn { padding: 0 10px; }
