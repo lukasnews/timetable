@@ -16,7 +16,18 @@ Dauer: etwa 15 Minuten.
    Die angezeigte `firebaseConfig` (`apiKey`, `authDomain`, `projectId`, …) kopieren.
    Diese Werte sind nicht geheim – geschützt wird über die Familien-ID.
 
-## 2. App veröffentlichen (Firebase Hosting)
+## 2. App veröffentlichen
+
+### Variante A: nur am Handy (GitHub Pages, automatisch)
+
+Bei jedem Push baut GitHub die App und veröffentlicht sie unter
+`https://lukasnews.github.io/timetable/`. Einmalig in GitHub (im Handy-Browser, „Desktop-Version“):
+
+1. **Settings → General → ganz unten „Danger Zone“ → Change visibility → Public**
+2. **Settings → Pages → Build and deployment → Source: „GitHub Actions“**
+3. **Actions → „Veröffentlichen“ → Run workflow** (oder einfach auf den nächsten Push warten)
+
+### Variante B: am Computer (Firebase Hosting)
 
 ```bash
 npm install
