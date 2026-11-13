@@ -27,6 +27,7 @@ export class FirebaseStore implements Store {
   private pending = new Set<Collection>();
   private error = false;
   private authed = false;
+  private authReady: Promise<void>;
 
   constructor(private cfg: CloudConfig) {
     this.app = initializeApp(cfg.firebase, 'fk-' + cfg.familyId);
@@ -35,8 +36,11 @@ export class FirebaseStore implements Store {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
     const auth = getAuth(this.app);
+    let resolveAuth: () => void;
+    this.authReady = new Promise((r) => (resolveAuth = r));
     onAuthStateChanged(auth, (u) => {
       this.authed = !!u;
+      if (u) resolveAuth();
       if (!u) signInAnonymously(auth).catch((e) => {
         console.warn('Anonyme Anmeldung fehlgeschlagen', e);
         this.emitStatus();
@@ -64,6 +68,25 @@ export class FirebaseStore implements Store {
   }
 
   subscribe<T extends Item>(c: Collection, cb: (items: T[]) => void) {
+    let stopped = false;
+    let unsub = () => {};
+    let retry: number | undefined;
+    const start = () => {
+      if (stopped) return;
+      unsub = this.listen(c, cb, () => {
+        // Bei Fehler (z. B. Anmeldung noch nicht fertig) nach kurzer Pause neu verbinden
+        retry = window.setTimeout(start, 5000);
+      });
+    };
+    this.authReady.then(start);
+    return () => {
+      stopped = true;
+      clearTimeout(retry);
+      unsub();
+    };
+  }
+
+  private listen<T extends Item>(c: Collection, cb: (items: T[]) => void, onError: () => void) {
     return onSnapshot(
       this.col(c),
       { includeMetadataChanges: true },
@@ -78,6 +101,7 @@ export class FirebaseStore implements Store {
         console.error('Sync-Fehler', c, err);
         this.error = true;
         this.emitStatus();
+        onError();
       },
     );
   }
@@ -85,6 +109,13 @@ export class FirebaseStore implements Store {
   put<T extends Item>(c: Collection, item: T) {
     const clean = JSON.parse(JSON.stringify({ ...item, updatedAt: Date.now() }));
     setDoc(doc(this.col(c), item.id), clean).catch((e) => console.error('Speichern fehlgeschlagen', e));
+  }
+
+  /** Mehrere Einträge hochladen und warten, bis der Server sie bestätigt hat */
+  async upload(items: { col: Collection; item: Item }[]): Promise<void> {
+    await this.authReady;
+    await Promise.all(items.map(({ col, item }) =>
+      setDoc(doc(this.col(col), item.id), JSON.parse(JSON.stringify({ ...item, updatedAt: Date.now() })))));
   }
 
   remove(c: Collection, id: string) {
