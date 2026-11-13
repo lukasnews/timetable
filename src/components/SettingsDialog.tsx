@@ -292,6 +292,15 @@ function SyncTab() {
 
 function GeneralTab() {
   const { family, saveFamily } = useData();
+  const [updateMsg, setUpdateMsg] = useState('');
+  const checkUpdate = async () => {
+    setUpdateMsg('Suche …');
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) { location.reload(); return; }
+    await reg.update().catch(() => {});
+    if (reg.installing || reg.waiting) setUpdateMsg('Update wird geladen …');
+    else { setUpdateMsg('Neu laden …'); setTimeout(() => location.reload(), 500); }
+  };
   const [pin1, setPin1] = useState('');
   const [pin2, setPin2] = useState('');
   const [msg, setMsg] = useState('');
@@ -321,6 +330,10 @@ function GeneralTab() {
       </div>
 
       <h3><Icon name="info" size={18} /> Info</h3>
+      <div className="row">
+        <span className="hint">Version {__BUILD__} vom {new Date(__BUILD_TIME__).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' })}</span>
+        <button className="btn small" onClick={checkUpdate}>{updateMsg || 'Nach Update suchen'}</button>
+      </div>
       <p className="hint">Comic-Figuren von <a href="https://www.dicebear.com" target="_blank" rel="noreferrer">DiceBear</a>:</p>
       <ul className="credits">{Object.values(AVATAR_STYLES).map((s) => <li key={s.credit}>{s.credit}</li>)}</ul>
     </div>
