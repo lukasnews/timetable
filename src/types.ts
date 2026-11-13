@@ -88,6 +88,8 @@ export interface FamilySettings {
   pinHash?: string;
   showHolidays: boolean;
   showSchoolHolidays: boolean;
+  /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
+  ntfyFamilyTopic?: string;
   updatedAt?: number;
 }
 

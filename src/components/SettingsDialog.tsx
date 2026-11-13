@@ -317,6 +317,11 @@ function GeneralTab() {
       <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
         hint="Schulautonome Tage bitte als eigenen Termin eintragen." />
 
+      <h3><Icon name="bell" size={18} /> Erinnerungen per ntfy</h3>
+      <p className="hint">Jede Person bekommt Erinnerungen an das <b>ntfy-Topic in ihrem Profil</b>. Termine ohne Person gehen an das Familien-Topic (leer = an alle Personen mit Topic). Server und Token sind in GitHub hinterlegt (siehe SETUP.md).</p>
+      <label className="field"><span className="label">Familien-Topic</span>
+        <input defaultValue={family.ntfyFamilyTopic ?? ''} placeholder="z. B. familie" onBlur={(e) => saveFamily({ ntfyFamilyTopic: e.target.value.trim() || undefined })} /></label>
+
       <h3><Icon name="lock" size={18} /> PIN für Einstellungen</h3>
       <p className="hint">{family.pinHash ? 'Eine PIN ist gesetzt. Termine anlegen geht ohne PIN, Einstellungen und Stundenplan sind geschützt.' : 'Noch keine PIN gesetzt – Einstellungen sind frei zugänglich.'}</p>
       <div className="grid2">

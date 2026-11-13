@@ -56,34 +56,29 @@ Optional kann die Konfiguration fest eingebaut werden: `.env.example` nach `.env
 - Android: App über Chrome zum Startbildschirm hinzufügen. Für echten Kiosk-Betrieb eignet sich
   z. B. „Fully Kiosk Browser“ oder die Bildschirmfixierung von Android.
 
-## 5. Erinnerungen per ntfy (optional)
+## 5. Erinnerungen per ntfy (eigener Server)
 
-Am Handy kann jedes Gerät unter **Dieses Gerät → Erinnerungen** Benachrichtigungen zeigen,
-solange die App geöffnet ist. Damit Erinnerungen **immer** ankommen, gibt es einen kleinen
-Dienst, der alle 5 Minuten prüft und über [ntfy](https://ntfy.sh) Push-Nachrichten schickt.
+Die Erinnerungen verschickt GitHub Actions (kostenlos, weil das Repo öffentlich ist): Der Workflow
+**„Erinnerungen“** prüft alle 5 Minuten, was fällig ist, und schickt es an
+`https://ntfy.chaoten.online`. GitHub startet geplante Läufe oft ein paar Minuten verspätet,
+eine Erinnerung kann also etwas später kommen. Verpasste Zeitfenster werden nachgeholt, und doppelt
+geschickt wird nichts.
 
-1. Die **ntfy-App** am Handy installieren und ein Topic abonnieren, z. B. `familie-mama-x7k2q`
-   (möglichst schwer zu erraten, es ist öffentlich).
-2. In der Kalender-App im Profil der Person dasselbe Topic unter **ntfy-Topic** eintragen.
-3. Kostenloses Konto auf <https://dash.cloudflare.com> anlegen, dann:
+1. **Topics festlegen**, z. B. `mama`, `papa`, `familie`. Am Handy in der ntfy-App
+   (Server `https://ntfy.chaoten.online`) das jeweilige Topic abonnieren.
+2. **In der Kalender-App**
+   - im Profil jeder Person (⚙️ → Personen) das **ntfy-Topic** eintragen
+   - optional unter ⚙️ → Allgemein ein **Familien-Topic** für Termine ohne Person
+   - bei einem Termin unter **Erinnerung** z. B. „15 Minuten vorher“ wählen
+3. **In GitHub**: Settings → Secrets and variables → Actions → **New repository secret**
+   - `NTFY_TOKEN` = Zugriffstoken des ntfy-Servers (muss auf die Topics schreiben dürfen)
+   - `FAMILY_ID` = Familien-ID aus ⚙️ → Synchronisation
+   - optional als **Variable** (nicht Secret) `NTFY_SERVER`, falls sich die Server-Adresse ändert
+4. **Testen**: Actions → **Erinnerungen** → **Run workflow** (Häkchen „Test-Nachricht“ an).
+   An jedes eingetragene Topic geht eine Test-Nachricht. Wenn der Lauf rot wird, steht der Grund im Log:
+   `401/403` heißt, Token oder Rechte sind falsch, `400` heißt, das Payload-Format stimmt nicht.
 
-```bash
-cd worker
-npx wrangler login
-npx wrangler secret put FIREBASE_API_KEY      # apiKey aus der firebaseConfig
-npx wrangler secret put FIREBASE_PROJECT_ID   # projectId
-npx wrangler secret put FAMILY_ID             # aus Einstellungen → Synchronisation
-npx wrangler deploy
-```
-
-4. Einmalig ein dauerhaftes Token erzeugen:
-   `https://familienkalender-erinnerungen.<dein-name>.workers.dev/token?family=<FAMILY_ID>` öffnen,
-   den angezeigten Text kopieren und mit `npx wrangler secret put FIREBASE_REFRESH_TOKEN` speichern.
-5. Optional `FAMILY_TOPIC` setzen: Termine ohne Person („ganze Familie“) gehen dorthin.
-   Ohne `FAMILY_TOPIC` gehen sie an alle Personen mit Topic.
-
-Ein eigener ntfy-Server geht auch: `NTFY_SERVER` in `worker/wrangler.toml` ändern,
-für geschützte Topics `NTFY_TOKEN` als Secret setzen.
+Ganztägige Termine erinnern ab 08:00 Uhr am Tag. „1 Tag vorher“ bedeutet also 08:00 Uhr am Vortag.
 
 ## Entwicklung
 
