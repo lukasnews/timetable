@@ -17,17 +17,19 @@ export type SettingsTab = 'persons' | 'device' | 'sync' | 'general';
 
 export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>(initial);
-  const tabs: [SettingsTab, string, string][] = [
-    ['persons', 'Personen', 'users'],
-    ['device', 'Dieses Gerät', 'device'],
-    ['sync', 'Synchronisation', 'cloud'],
-    ['general', 'Allgemein', 'gear'],
+  const tabs: [SettingsTab, string, string, string][] = [
+    ['persons', 'Personen', 'Personen', 'users'],
+    ['device', 'Dieses Gerät', 'Gerät', 'device'],
+    ['sync', 'Synchronisation', 'Sync', 'cloud'],
+    ['general', 'Allgemein', 'Allgemein', 'gear'],
   ];
   return (
     <Modal title="Einstellungen" onClose={onClose} wide>
       <nav className="tabs">
-        {tabs.map(([k, l, i]) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><Icon name={i} size={18} /> <span>{l}</span></button>
+        {tabs.map(([k, l, short, i]) => (
+          <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+            <Icon name={i} size={18} /> <span className="long">{l}</span><span className="short">{short}</span>
+          </button>
         ))}
       </nav>
       {tab === 'persons' && <PersonsTab />}
