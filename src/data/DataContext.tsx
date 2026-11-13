@@ -20,6 +20,8 @@ export const DEFAULT_DEVICE: DeviceSettings = {
   reminders: false,
   reminderPersons: [],
   schoolInMonth: false,
+  showSchool: true,
+  theme: 'auto',
   dayStart: '06:00',
   dayEnd: '22:00',
 };

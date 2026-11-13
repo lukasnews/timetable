@@ -20,39 +20,26 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) { --dark: 1; }
-}
-
-:root.night,
-:root[data-theme='dark'] {
-  --bg: #0f1017;
-  --surface: #181a24;
-  --surface-2: #222532;
-  --text: #e6e7ef;
-  --muted: #9396ab;
-  --border: #2c2f3d;
+/* Dunkel: Klasse .dark wird von der App gesetzt (Automatisch / Hell / Dunkel / Nachtmodus) */
+:root.dark {
+  --bg: #0e0f15;
+  --surface: #171922;
+  --surface-2: #232633;
+  --text: #e8e9f1;
+  --muted: #9a9db2;
+  --border: #2b2e3c;
+  --accent: #818cf8;
+  --accent-text: #0e0f15;
+  --danger: #f87171;
+  --family: #64748b;
   --family-bg: #262a37;
-  --today: #262214;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --today: rgba(129, 140, 248, 0.08);
+  --holiday-bg: rgba(248, 113, 113, 0.1);
+  --ferien-bg: rgba(52, 211, 153, 0.08);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
-:root.night body { filter: brightness(0.7); }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #0f1017;
-    --surface: #181a24;
-    --surface-2: #222532;
-    --text: #e6e7ef;
-    --muted: #9396ab;
-    --border: #2c2f3d;
-    --family-bg: #262a37;
-    --today: #262214;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-    color-scheme: dark;
-  }
-}
+:root.night body { filter: brightness(0.75); }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -283,10 +270,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .fc .fc-event:not(.fc-bg-event)::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--stripe, var(--family)); z-index: 2;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .fc .fc-event:not(.fc-bg-event) { background: var(--evbg-dark, var(--family-bg)) !important; }
-}
-:root.night .fc .fc-event:not(.fc-bg-event) { background: var(--evbg-dark, var(--family-bg)) !important; }
+:root.dark .fc .fc-event:not(.fc-bg-event) { background: var(--evbg-dark, var(--family-bg)) !important; }
+:root.dark .fc .fc-event.ev-birthday { background: linear-gradient(90deg, #5b4a12, #5e2148) !important; }
+:root.dark .fc .fc-event.ev-birthday .ev-title { color: #fde68a; }
+:root.dark .bg-title { color: #34d399; }
+:root.dark .fc .fc-day-today .fc-daygrid-day-number { color: #0e0f15; }
+:root.dark .qr-box img { background: #fff; }
+:root.dark .modal-backdrop { background: rgba(0, 0, 0, 0.6); }
 .fc .fc-timegrid-event .fc-event-main, .fc .fc-daygrid-event .fc-event-main { padding: 0; color: var(--text); }
 .fc .fc-daygrid-dot-event, .fc .fc-daygrid-block-event { margin: 1px 3px; position: relative; }
 .ev-inner { display: flex; gap: 6px; padding: 3px 6px 3px 10px; align-items: flex-start; height: 100%; min-width: 0; position: relative; }
@@ -319,6 +309,25 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .fc-event-mirror { opacity: 0.8; }
 .fc .fc-highlight { border-radius: 6px; }
 
+/* Schulzeit als Streifen rechts im Tag (Woche/Tag) */
+.cal-inner { height: 100%; --strip-w: 22px; }
+.fc .fc-timegrid-col-events { margin-right: calc(var(--strips, 0) * (var(--strip-w) + 2px) + 2px); }
+.fc .fc-timegrid-bg-harness:has(.bg-school) { left: auto !important; right: calc(var(--strip-i, 0) * (var(--strip-w) + 2px) + 1px); width: var(--strip-w); }
+.fc .fc-bg-event.bg-school {
+  background: color-mix(in srgb, var(--pc) 22%, transparent);
+  border-left: 3px solid var(--pc);
+  border-radius: 6px; opacity: 1;
+}
+.school-strip { display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 2px; height: 100%; overflow: hidden; }
+.school-strip .avatar { width: 16px; height: 16px; }
+.school-time { writing-mode: vertical-rl; font-size: 0.65rem; font-weight: 600; color: var(--text); opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fc-timegrid .school-strip + .bg-title { display: none; }
+.school-toggle {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); font-weight: 600; color: var(--muted); opacity: 0.75;
+}
+.school-toggle.on { color: var(--text); opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+
 /* ---------- Stundenplan ---------- */
 .timetable { height: 100%; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .tt-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -327,11 +336,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .tt-day.today { outline: 3px solid var(--pc); }
 .tt-day h4 { text-align: center; padding: 4px 0 6px; }
 .tt-day .short { display: none; }
-.tt-lesson { background: var(--pcbg); border-left: 5px solid var(--pc); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; position: relative; }
+.tt-lesson { background: color-mix(in srgb, var(--pc) 16%, var(--surface)); border-left: 5px solid var(--pc); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; position: relative; }
 .tt-lesson .tag { position: absolute; top: 6px; right: 6px; }
-.tt-time { font-size: 0.75rem; color: #555; font-variant-numeric: tabular-nums; }
-.tt-lesson strong { color: #1c1d29; }
-.tt-lesson small { color: #555; }
+.tt-time { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tt-lesson strong { color: var(--text); }
+.tt-lesson small { color: var(--muted); }
 .tt-editor { background: var(--surface); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 12px; }
 .tt-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 24px; }
 .lesson-list { display: flex; flex-direction: column; gap: 8px; }
@@ -354,9 +363,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .top-right .icon-btn { width: 38px; }
   .install-btn span { display: none; }
   .toolbar { padding: 2px 8px 6px; gap: 6px; }
-  .range-title { font-size: 1rem; }
+  .range-title { font-size: 1.05rem; }
+  .nav { flex-basis: 100%; }
+  .toolbar .views { margin-left: auto; }
   .nav .btn { padding: 0 10px; }
-  .views .long { display: none; }
+  .views .long, .school-toggle .long { display: none; }
+  .school-toggle { padding: 0 10px; min-height: 38px; }
+  .cal-inner { --strip-w: 18px; }
   .views .short { display: inline; }
   .seg button { padding: 6px 10px; }
   .main { padding: 0 6px 6px; }
