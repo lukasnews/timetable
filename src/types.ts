@@ -111,4 +111,6 @@ export interface DeviceSettings {
   theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
+  /** Version der gespeicherten Geräte-Einstellungen */
+  v?: number;
 }

@@ -22,8 +22,8 @@ export const DEFAULT_DEVICE: DeviceSettings = {
   schoolInMonth: false,
   showSchool: true,
   theme: 'auto',
-  dayStart: '06:00',
-  dayEnd: '22:00',
+  dayStart: '00:00',
+  dayEnd: '24:00',
 };
 
 interface Data {
@@ -69,7 +69,14 @@ function createStore(): Store {
 
 function loadDevice(): DeviceSettings {
   try {
-    return { ...DEFAULT_DEVICE, ...JSON.parse(localStorage.getItem('fk.device') || '{}') };
+    const stored = JSON.parse(localStorage.getItem('fk.device') || '{}');
+    // v2: Standard ist jetzt der ganze Tag (früher 6–22 Uhr) – alte gespeicherte Werte übernehmen wir nicht
+    if (!stored.v || stored.v < 2) {
+      delete stored.dayStart;
+      delete stored.dayEnd;
+      stored.v = 2;
+    }
+    return { ...DEFAULT_DEVICE, ...stored };
   } catch {
     return DEFAULT_DEVICE;
   }

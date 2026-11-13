@@ -13,6 +13,8 @@ import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
 
+const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+
 export type SettingsTab = 'persons' | 'device' | 'sync' | 'general';
 
 export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; onClose: () => void }) {
@@ -133,9 +135,13 @@ function DeviceTab() {
       </label>
       <div className="grid2">
         <label className="field"><span className="label">Tag beginnt</span>
-          <input type="time" value={device.dayStart} onChange={(e) => e.target.value && setDevice({ dayStart: e.target.value })} /></label>
+          <select value={device.dayStart} onChange={(e) => setDevice({ dayStart: e.target.value })}>
+            {HOURS.filter((h) => h < device.dayEnd).map((h) => <option key={h} value={h}>{h} Uhr</option>)}
+          </select></label>
         <label className="field"><span className="label">Tag endet</span>
-          <input type="time" value={device.dayEnd} onChange={(e) => e.target.value && setDevice({ dayEnd: e.target.value })} /></label>
+          <select value={device.dayEnd} onChange={(e) => setDevice({ dayEnd: e.target.value })}>
+            {HOURS.filter((h) => h > device.dayStart).map((h) => <option key={h} value={h}>{h} Uhr</option>)}
+          </select></label>
       </div>
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
