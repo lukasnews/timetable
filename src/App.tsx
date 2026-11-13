@@ -11,7 +11,7 @@ import { applyChange, applyDelete, type Scope } from './lib/recurrence';
 import { addMinutes, diffMinutes, fromNative, uid } from './lib/dates';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
-import { isNight, useClock, useIdle, useMedia, useReminders, useWakeLock } from './hooks';
+import { isNight, slideIn, useClock, useIdle, useMedia, useReminders, useSwipe, useWakeLock } from './hooks';
 
 type Mode = ViewName | 'timetable';
 
@@ -65,6 +65,12 @@ export default function App() {
     if (m !== 'timetable') setTimeout(() => calRef.current?.getApi().changeView(m));
   };
   const api = () => calRef.current?.getApi();
+  const calWrap = useRef<HTMLDivElement>(null);
+  const go = (dir: 1 | -1) => {
+    if (dir > 0) api()?.next(); else api()?.prev();
+    slideIn(calWrap.current?.querySelector('.fc-view-harness'), dir);
+  };
+  useSwipe(calWrap, () => go(1), () => go(-1), mode !== 'timetable');
 
   // Kiosk
   const now = useClock();
@@ -194,9 +200,9 @@ export default function App() {
       <div className="toolbar">
         {mode !== 'timetable' && (
           <div className="nav">
-            <button className="icon-btn" onClick={() => api()?.prev()} aria-label="Zurück"><Icon name="left" /></button>
+            <button className="icon-btn" onClick={() => go(-1)} aria-label="Zurück"><Icon name="left" /></button>
             <button className="btn" onClick={() => api()?.today()}>Heute</button>
-            <button className="icon-btn" onClick={() => api()?.next()} aria-label="Weiter"><Icon name="right" /></button>
+            <button className="icon-btn" onClick={() => go(1)} aria-label="Weiter"><Icon name="right" /></button>
             <h1 className="range-title">{title}</h1>
           </div>
         )}
@@ -221,7 +227,7 @@ export default function App() {
         {mode === 'timetable' ? (
           <TimetableView requirePin={requirePin} />
         ) : (
-          <div className="cal-wrap">
+          <div className="cal-wrap" ref={calWrap}>
             <CalendarView ref={calRef} view={mode} selected={selected} onRange={(t) => setTitle(t)} onOpen={open} onCreate={newEvent} onChange={change} />
           </div>
         )}

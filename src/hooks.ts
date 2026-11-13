@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { CalEvent, DeviceSettings, Person } from './types';
 import { expand } from './lib/recurrence';
 import { addDays, addMinutes, fromNative, todayLocal } from './lib/dates';
@@ -95,4 +95,47 @@ export function useReminders(events: CalEvent[], persons: Person[], device: Devi
     const t = setInterval(check, 20000);
     return () => clearInterval(t);
   }, [events, persons, device.reminders, device.reminderPersons]);
+}
+
+/**
+ * Wischen nach links/rechts (nur Touch). Kurze, waagrechte Bewegungen –
+ * langes Drücken (Termin verschieben) und senkrechtes Scrollen werden ignoriert.
+ */
+export function useSwipe(ref: RefObject<HTMLElement | null>, onLeft: () => void, onRight: () => void, enabled = true) {
+  const cbs = useRef({ onLeft, onRight });
+  cbs.current = { onLeft, onRight };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !enabled) return;
+    let sx = 0, sy = 0, t0 = 0, active = false;
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 1) { active = false; return; }
+      // Nicht beim Ziehen/Größe ändern von Terminen
+      if ((e.target as HTMLElement).closest('.fc-event-resizer, .fc-event-dragging, .modal')) { active = false; return; }
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; t0 = Date.now(); active = true;
+    };
+    const end = (e: TouchEvent) => {
+      if (!active) return;
+      active = false;
+      if (document.querySelector('.fc-event-dragging, .fc-event-mirror')) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Date.now() - t0 > 700 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0) cbs.current.onLeft(); else cbs.current.onRight();
+    };
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchend', end, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchend', end);
+    };
+  }, [ref, enabled]);
+}
+
+/** Kurze Schiebe-Animation als Rückmeldung beim Blättern */
+export function slideIn(el: Element | null | undefined, dir: 1 | -1) {
+  el?.animate?.(
+    [{ transform: `translateX(${dir * 40}px)`, opacity: 0.3 }, { transform: 'translateX(0)', opacity: 1 }],
+    { duration: 220, easing: 'ease-out' },
+  );
 }
