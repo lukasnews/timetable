@@ -8,7 +8,7 @@ import { TimetableView } from './components/TimetableView';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
-import { addMinutes, diffMinutes, fromNative, uid } from './lib/dates';
+import { addMinutes, diffMinutes, fromNative, isoWeek, uid } from './lib/dates';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
 import { isNight, slideIn, useClock, useIdle, useMedia, useReminders, useSwipe, useWakeLock } from './hooks';
@@ -31,7 +31,8 @@ export default function App() {
   const defaultMode = (): ViewName =>
     device.defaultView === 'month' ? 'dayGridMonth' : device.defaultView === 'week' ? 'timeGridWeek' : device.defaultView === 'day' ? 'timeGridDay' : isPhone ? 'timeGridDay' : 'timeGridWeek';
   const [mode, setMode] = useState<Mode>(defaultMode);
-  const [title, setTitle] = useState('');
+  const [range, setRange] = useState<{ type: string; start: Date; end: Date } | null>(null);
+  const dateInput = useRef<HTMLInputElement>(null);
 
   // Personen-Filter (pro Gerät gemerkt)
   const [hidden, setHidden] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem('fk.hidden') || '[]')));
@@ -203,7 +204,13 @@ export default function App() {
             <button className="icon-btn" onClick={() => go(-1)} aria-label="Zurück"><Icon name="left" /></button>
             <button className="btn" onClick={() => api()?.today()}>Heute</button>
             <button className="icon-btn" onClick={() => go(1)} aria-label="Weiter"><Icon name="right" /></button>
-            <h1 className="range-title">{title}</h1>
+            <button className="range-title" onClick={() => { const el = dateInput.current; if (!el) return; try { el.showPicker(); } catch { el.click(); } }}
+              title="Datum wählen">
+              <RangeTitle range={range} compact={isPhone} />
+            </button>
+            <input ref={dateInput} type="date" className="date-jump" tabIndex={-1} aria-hidden="true"
+              value={range ? fromNative(range.start, true) : ''}
+              onChange={(e) => e.target.value && api()?.gotoDate(e.target.value)} />
           </div>
         )}
         {mode === 'timetable' && <h1 className="range-title">Stundenplan</h1>}
@@ -228,7 +235,7 @@ export default function App() {
           <TimetableView requirePin={requirePin} />
         ) : (
           <div className="cal-wrap" ref={calWrap}>
-            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(t) => setTitle(t)} onOpen={open} onCreate={newEvent} onChange={change} />
+            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} />
           </div>
         )}
       </main>
@@ -241,4 +248,36 @@ export default function App() {
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
   );
+}
+
+/** Gut lesbarer Titel: „Freitag, 13. November“ · „KW 46 · 9.–15. November“ · „November 2026“ */
+function RangeTitle({ range, compact }: { range: { type: string; start: Date; end: Date } | null; compact?: boolean }) {
+  if (!range) return null;
+  const { type, start } = range;
+  const end = new Date(range.end.getTime() - 86400000);
+  const now = new Date();
+  const yearSuffix = (d: Date) => (d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : '');
+  const month = (d: Date) => d.toLocaleDateString('de-AT', { month: compact ? 'short' : 'long' });
+  if (type === 'timeGridDay') {
+    const isToday = start.toDateString() === now.toDateString();
+    const wd = start.toLocaleDateString('de-AT', { weekday: compact ? 'short' : 'long' });
+    return (
+      <>
+        <span className="rt-main">{wd}, {start.getDate()}. {month(start)}{yearSuffix(start)}</span>
+        {isToday && <span className="rt-badge">Heute</span>}
+      </>
+    );
+  }
+  if (type === 'timeGridWeek') {
+    const span = start.getMonth() === end.getMonth()
+      ? `${start.getDate()}.–${end.getDate()}. ${month(end)}`
+      : `${start.getDate()}. ${month(start).replace('.', '').slice(0, 3)} – ${end.getDate()}. ${month(end).replace('.', '').slice(0, 3)}`;
+    return (
+      <>
+        <span className="rt-kw">KW {isoWeek(fromNative(start, true))}</span>
+        <span className="rt-main">{span}{yearSuffix(end)}</span>
+      </>
+    );
+  }
+  return <span className="rt-main">{start.toLocaleDateString('de-AT', { month: 'long' })} {start.getFullYear()}</span>;
 }

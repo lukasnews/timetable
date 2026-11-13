@@ -27,7 +27,7 @@ export interface ChangeInfo {
 interface Props {
   view: ViewName;
   selected: Set<string>;
-  onRange: (title: string, start: Date) => void;
+  onRange: (viewType: string, start: Date, end: Date) => void;
   onOpen: (eventId: string, occStart: string) => void;
   onCreate: (start: string, end: string, allDay: boolean) => void;
   onChange: (c: ChangeInfo) => void;
@@ -63,7 +63,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     const from = fromNative(arg.start, true);
     const to = fromNative(arg.end, true);
     setRange((r) => (r && r.from === from && r.to === to ? r : { from, to }));
-    props.onRange(arg.view.title, arg.view.currentStart);
+    props.onRange(arg.view.type, arg.view.currentStart, arg.view.currentEnd);
   };
 
   const renderContent = (arg: EventContentArg) => {
@@ -174,7 +174,16 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       snapDuration="00:15:00"
       slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
       eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
-      dayHeaderFormat={props.view === 'dayGridMonth' ? { weekday: 'short' } : isPhone ? { weekday: 'short', day: 'numeric' } : { weekday: 'short', day: 'numeric', month: 'numeric' }}
+      dayHeaderFormat={{ weekday: 'short' }}
+      dayHeaderContent={(arg) => {
+        if (props.view === 'dayGridMonth') return <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')}</span>;
+        return (
+          <span className={'dh' + (arg.isToday ? ' today' : '')}>
+            <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: props.view === 'timeGridDay' && !isPhone ? 'long' : 'short' }).replace('.', '')}</span>
+            <span className="dh-d">{arg.date.getDate()}</span>
+          </span>
+        );
+      }}
       events={fcEvents}
       datesSet={onDatesSet}
       eventContent={renderContent}
