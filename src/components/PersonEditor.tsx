@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Person } from '../types';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed, type AvatarStyleKey } from '../lib/avatars';
 import { Avatar, Icon, Modal, Toggle } from './ui';
+import { AvatarBuilder } from './AvatarBuilder';
 
 export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p: Person) => void; onDelete?: () => void; onClose: () => void }) {
   const [p, setP] = useState<Person>(props.person);
@@ -38,7 +39,7 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
           <span className="label">Comic-Stil</span>
           <div className="seg wrap">
             {(Object.keys(AVATAR_STYLES) as AvatarStyleKey[]).map((k) => (
-              <button key={k} type="button" className={p.avatar.style === k ? 'on' : ''} onClick={() => set({ avatar: { ...p.avatar, style: k } })}>
+              <button key={k} type="button" className={p.avatar.style === k ? 'on' : ''} onClick={() => set({ avatar: { style: k, seed: p.avatar.seed } })}>
                 {AVATAR_STYLES[k].label}
               </button>
             ))}
@@ -49,6 +50,7 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
           <span className="label">Figur auswählen
             <button type="button" className="btn small" onClick={() => setSeedBase(randomSeed())}><Icon name="dice" size={16} /> Neue Vorschläge</button>
           </span>
+          {p.avatar.opts && <small className="hint">Vorschläge zeigen deine Anpassungen; nicht angepasste Merkmale würfelt der Vorschlag.</small>}
           <div className="avatar-grid">
             {[p.avatar.seed, ...options].map((seed) => (
               <button key={seed} type="button" className={'avatar-opt' + (p.avatar.seed === seed ? ' on' : '')} onClick={() => set({ avatar: { ...p.avatar, seed } })}>
@@ -56,6 +58,11 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="field">
+          <span className="label builder-label">Anpassen <Avatar person={p} size={48} ring /></span>
+          <AvatarBuilder person={p} onChange={(opts) => set({ avatar: { ...p.avatar, opts } })} />
         </div>
 
         <div className="grid2">

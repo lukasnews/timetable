@@ -25,16 +25,96 @@ export const AVATAR_STYLES = {
 
 export type AvatarStyleKey = keyof typeof AVATAR_STYLES;
 
+/* ---------------- Baukasten ---------------- */
+
+export interface FeatureDef {
+  key: string;
+  label: string;
+  type: 'variant' | 'color';
+  values: string[];
+  /** Wahrscheinlichkeits-Option: erlaubt „keine“ (0) bzw. erzwingt das Merkmal (100) */
+  prob?: string;
+}
+
+const FEATURES: Partial<Record<AvatarStyleKey, { key: string; label: string; prob?: string }[]>> = {
+  adventurer: [
+    { key: 'skinColor', label: 'Haut' },
+    { key: 'hair', label: 'Frisur', prob: 'hairProbability' },
+    { key: 'hairColor', label: 'Haarfarbe' },
+    { key: 'eyes', label: 'Augen' },
+    { key: 'eyebrows', label: 'Brauen' },
+    { key: 'mouth', label: 'Mund' },
+    { key: 'glasses', label: 'Brille', prob: 'glassesProbability' },
+    { key: 'earrings', label: 'Ohrringe', prob: 'earringsProbability' },
+    { key: 'features', label: 'Extras', prob: 'featuresProbability' },
+  ],
+  avataaars: [
+    { key: 'skinColor', label: 'Haut' },
+    { key: 'top', label: 'Frisur', prob: 'topProbability' },
+    { key: 'hairColor', label: 'Haarfarbe' },
+    { key: 'facialHair', label: 'Bart', prob: 'facialHairProbability' },
+    { key: 'accessories', label: 'Brille', prob: 'accessoriesProbability' },
+    { key: 'eyes', label: 'Augen' },
+    { key: 'eyebrows', label: 'Brauen' },
+    { key: 'mouth', label: 'Mund' },
+    { key: 'clothing', label: 'Kleidung' },
+    { key: 'clothesColor', label: 'Kleidungsfarbe' },
+  ],
+  bigSmile: [
+    { key: 'skinColor', label: 'Haut' },
+    { key: 'hair', label: 'Frisur' },
+    { key: 'hairColor', label: 'Haarfarbe' },
+    { key: 'eyes', label: 'Augen' },
+    { key: 'mouth', label: 'Mund' },
+    { key: 'accessories', label: 'Extras', prob: 'accessoriesProbability' },
+  ],
+};
+
+/** Einstellbare Merkmale eines Stils (leer = Stil hat keinen Baukasten) */
+export function featuresFor(style: string): FeatureDef[] {
+  const defs = FEATURES[style as AvatarStyleKey];
+  if (!defs) return [];
+  const schema = (AVATAR_STYLES[style as AvatarStyleKey].style as any).schema?.properties ?? {};
+  return defs.flatMap((d) => {
+    const p = schema[d.key];
+    if (!p) return [];
+    const isColor = d.key.endsWith('Color');
+    const values: string[] = isColor ? (p.default ?? []) : (p.items?.enum ?? []);
+    if (!values.length) return [];
+    return [{ ...d, type: isColor ? 'color' : 'variant', values: isColor ? values : [...values].sort() } as FeatureDef];
+  });
+}
+
+function featureOptions(spec: AvatarSpec): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (!spec.opts) return out;
+  const defs = featuresFor(spec.style);
+  for (const [k, v] of Object.entries(spec.opts)) {
+    const d = defs.find((x) => x.key === k);
+    if (!d) continue;
+    if (v === null) {
+      if (d.prob) out[d.prob] = 0;
+    } else {
+      out[k] = [v];
+      if (d.prob) out[d.prob] = 100;
+    }
+  }
+  // Avataaars: Bart in Haarfarbe
+  if (spec.style === 'avataaars' && spec.opts.hairColor && !spec.opts.facialHairColor) out.facialHairColor = [spec.opts.hairColor];
+  return out;
+}
+
 const cache = new Map<string, string>();
 
 export function avatarUri(spec: AvatarSpec, bg?: string): string {
-  const key = `${spec.style}|${spec.seed}|${bg ?? ''}`;
+  const key = `${spec.style}|${spec.seed}|${bg ?? ''}|${spec.opts ? JSON.stringify(spec.opts) : ''}`;
   let uri = cache.get(key);
   if (!uri) {
     const def = AVATAR_STYLES[spec.style as AvatarStyleKey] ?? AVATAR_STYLES.adventurer;
-    const opts: Record<string, unknown> = { seed: spec.seed, radius: 50 };
+    const opts: Record<string, unknown> = { seed: spec.seed, radius: 50, ...featureOptions(spec) };
     if (bg) opts.backgroundColor = [bg.replace('#', '')];
     uri = createAvatar(def.style as any, opts).toDataUri();
+    if (cache.size > 2000) cache.clear();
     cache.set(key, uri);
   }
   return uri;
