@@ -1,0 +1,76 @@
+name: Erinnerungsdienst einrichten (Cloudflare)
+
+# Richtet den Cloudflare Worker ein bzw. aktualisiert ihn.
+# Benötigte Secrets: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID (dazu die vorhandenen FAMILY_ID, NTFY_TOKEN).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['reminders/**', 'src/lib/recurrence.ts', 'src/lib/dates.ts', 'src/types.ts']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      FAMILY_ID: ${{ secrets.FAMILY_ID }}
+      NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+    steps:
+      - name: Secrets prüfen
+        id: check
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID fehlen – Cloudflare noch nicht eingerichtet."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.check.outputs.ready == 'true'
+      - name: Firebase-Werte lesen und Zugang erzeugen
+        if: steps.check.outputs.ready == 'true'
+        id: fb
+        run: |
+          CFG=$(grep '^VITE_FIREBASE_CONFIG=' .env.production | cut -d= -f2-)
+          KEY=$(node -e "console.log(JSON.parse(process.argv[1]).apiKey)" "$CFG")
+          PID=$(node -e "console.log(JSON.parse(process.argv[1]).projectId)" "$CFG")
+          RT=$(curl -sf -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$KEY" -H 'content-type: application/json' -d '{"returnSecureToken":true}' | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).refreshToken))")
+          echo "::add-mask::$RT"
+          echo "key=$KEY" >> "$GITHUB_OUTPUT"
+          echo "pid=$PID" >> "$GITHUB_OUTPUT"
+          echo "rt=$RT" >> "$GITHUB_OUTPUT"
+      - name: Worker hochladen
+        if: steps.check.outputs.ready == 'true'
+        working-directory: reminders
+        run: npx --yes wrangler@4 deploy --var FIREBASE_API_KEY:${{ steps.fb.outputs.key }} --var FIREBASE_PROJECT_ID:${{ steps.fb.outputs.pid }}
+      - name: Secrets im Worker setzen
+        if: steps.check.outputs.ready == 'true'
+        working-directory: reminders
+        env:
+          RT: ${{ steps.fb.outputs.rt }}
+        run: |
+          node -e "console.log(JSON.stringify({FAMILY_ID:process.env.FAMILY_ID.trim(),NTFY_TOKEN:process.env.NTFY_TOKEN.trim(),FIREBASE_REFRESH_TOKEN:process.env.RT}))" > /tmp/secrets.json
+          npx --yes wrangler@4 secret bulk /tmp/secrets.json
+          rm /tmp/secrets.json
+          echo "SINCE=$(date +%s%3N)" >> "$GITHUB_ENV"
+      - name: Prüfen, ob Cloudflare läuft (bis zu 8 Minuten)
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          npx esbuild reminders/verify.ts --bundle --platform=node --format=esm --outfile=.reminder-build/verify.mjs --log-level=warning
+          node .reminder-build/verify.mjs

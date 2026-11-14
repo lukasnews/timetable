@@ -21,6 +21,10 @@ export interface ReminderState {
   id: 'reminders';
   lastRun?: string;
   sent?: string[];
+  /** Wer zuletzt geprüft hat: 'cloudflare' (Hauptweg) oder 'github' (Ersatz) */
+  by?: string;
+  /** Zeitpunkt (ms) des letzten Laufs */
+  at?: number;
 }
 
 export interface Notification {
@@ -83,6 +87,8 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
   const body = { fields: {
     lastRun: { stringValue: s.lastRun ?? '' },
     sent: { arrayValue: { values: (s.sent ?? []).map((x) => ({ stringValue: x })) } },
+    by: { stringValue: s.by ?? '' },
+    at: { integerValue: String(s.at ?? Date.now()) },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -167,7 +173,13 @@ export function dueNotifications(opts: {
   return out;
 }
 
-export async function run(cfg: Config, token: string, now = new Date(), log = console.log) {
+export interface RunOptions {
+  by?: string;
+  /** Ersatz-Lauf: überspringen, wenn ein anderer Dienst in den letzten Minuten geprüft hat */
+  skipIfActive?: { other: string; withinMin: number };
+}
+
+export async function run(cfg: Config, token: string, now = new Date(), log = console.log, opts: RunOptions = {}) {
   const to = localNow(cfg.timezone, now);
   const [events, persons, meta] = await Promise.all([
     list<CalEvent>(cfg, token, 'events'),
@@ -175,6 +187,10 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     list<any>(cfg, token, 'meta'),
   ]);
   const state = (meta.find((m) => m.id === 'reminders') ?? { id: 'reminders' }) as ReminderState;
+  if (opts.skipIfActive && state.by === opts.skipIfActive.other && state.at && now.getTime() - state.at < opts.skipIfActive.withinMin * 60000) {
+    log(`${opts.skipIfActive.other} ist aktiv (letzter Lauf ${Math.round((now.getTime() - state.at) / 60000)} min her) – nichts zu tun.`);
+    return;
+  }
   const family = meta.find((m) => m.id === 'settings') as Partial<FamilySettings> | undefined;
   const floor = localNow(cfg.timezone, new Date(now.getTime() - MAX_CATCHUP_MIN * 60000));
   const fallback = localNow(cfg.timezone, new Date(now.getTime() - 10 * 60000));
@@ -193,6 +209,6 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     }
   }
   log(`Zeitfenster ${from} – ${to}: ${due.length} Nachricht(en), ${errors.length} Fehler`);
-  await saveState(cfg, token, { id: 'reminders', lastRun: to, sent: [...sent].slice(-300) });
+  await saveState(cfg, token, { id: 'reminders', lastRun: to, sent: [...sent].slice(-300), by: opts.by, at: now.getTime() });
   if (errors.length) throw new Error(errors.join('\n'));
 }
