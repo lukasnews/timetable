@@ -2,7 +2,9 @@
  * Cloudflare Worker: prüft alle 5 Minuten fällige Erinnerungen und schickt sie per ntfy.
  * Eingerichtet und aktualisiert über .github/workflows/deploy-worker.yml.
  */
-import { run, refresh, type Config } from './core';
+import { list, run, refresh, type Config } from './core';
+import { toICS } from '../src/lib/ics';
+import type { CalEvent, FamilySettings, Person } from '../src/types';
 
 interface Env {
   FIREBASE_API_KEY: string;
@@ -52,6 +54,25 @@ export default {
       try {
         await check(env, (s) => lines.push(s));
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      } catch (e) {
+        return new Response('Fehler: ' + String(e), { status: 500 });
+      }
+    }
+    // Kalender abonnieren: /cal/<geheimer Schlüssel>.ics  (optional ?p=<Personen-ID>)
+    const m = url.pathname.match(/^\/cal\/([A-Za-z0-9]{16,64})(?:\.ics)?$/);
+    if (m) {
+      try {
+        const cfg = config(env);
+        const token = await idToken(cfg, env);
+        const settings = (await list<FamilySettings>(cfg, token, 'meta')).find((x) => x.id === 'settings');
+        if (!settings?.feedToken || settings.feedToken !== m[1]) return new Response('Nicht gefunden', { status: 404 });
+        const [events, persons] = await Promise.all([list<CalEvent>(cfg, token, 'events'), list<Person>(cfg, token, 'persons')]);
+        const pid = url.searchParams.get('p');
+        const mine = pid ? events.filter((e) => (!e.personIds?.length && !e.driverIds?.length) || e.personIds?.includes(pid) || e.driverIds?.includes(pid)) : events;
+        const fixed = mine.map((e) => ({ ...e, personIds: e.personIds ?? [] }));
+        return new Response(toICS(fixed, persons), {
+          headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'public, max-age=900' },
+        });
       } catch (e) {
         return new Response('Fehler: ' + String(e), { status: 500 });
       }

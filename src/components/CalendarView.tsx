@@ -108,6 +108,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
           {!arg.event.allDay && x.kind !== 'school' && !isList && <span className="ev-time">{arg.timeText}</span>}
           <span className="ev-title">{title}</span>
           {!compact && x.location && <span className="ev-loc">📍 {x.location}</span>}
+          {!compact && !!x.driverIds?.length && <span className="ev-loc">🚗 {x.driverIds.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}</span>}
         </span>
         {x.recurring && !compact && <span className="ev-rec" title="Serie">↻</span>}
       </div>

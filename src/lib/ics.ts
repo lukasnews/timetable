@@ -283,7 +283,8 @@ export function toICS(events: CalEvent[], persons: Person[]): string {
   const push = (ev: CalEvent, uid: string, extra: string[] = []) => {
     const who = names(ev.personIds);
     const title = ev.kind === 'birthday' ? `🎂 ${ev.title}` : ev.title;
-    const desc = [who ? `Für: ${who}` : '', ev.kind === 'birthday' && ev.birthYear ? `Geburtsjahr: ${ev.birthYear}` : '', ev.notes ?? ''].filter(Boolean).join('\n');
+    const drv = names(ev.driverIds ?? []);
+    const desc = [who ? `Für: ${who}` : '', drv ? `Fahrdienst: ${drv}` : '', ev.kind === 'birthday' && ev.birthYear ? `Geburtsjahr: ${ev.birthYear}` : '', ev.notes ?? ''].filter(Boolean).join('\n');
     lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`, dateProp('DTSTART', ev.start), dateProp('DTEND', ev.end), `SUMMARY:${escape(title)}`);
     if (ev.location) lines.push(`LOCATION:${escape(ev.location)}`);
     if (desc) lines.push(`DESCRIPTION:${escape(desc)}`);

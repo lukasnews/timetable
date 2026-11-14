@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { CalEvent, DeviceSettings, FamilySettings, Person, Timetable } from '../types';
+import type { CalEvent, DeviceSettings, EventTemplate, FamilySettings, Person, Timetable } from '../types';
 import type { Store, SyncStatus } from './store';
 import { loadCloudConfig, readJoinLink, saveCloudConfig } from './store';
 import { LocalStore } from './localStore';
@@ -35,6 +35,10 @@ interface Data {
   persons: Person[];
   events: CalEvent[];
   timetables: Timetable[];
+  templates: EventTemplate[];
+  saveTemplates: (t: EventTemplate[]) => void;
+  /** Adresse des Erinnerungsdienstes (für den Abo-Link), vom Einrichtungs-Workflow hinterlegt */
+  serviceUrl?: string;
   family: FamilySettings;
   device: DeviceSettings;
   setDevice: (d: Partial<DeviceSettings>) => void;
@@ -92,6 +96,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [persons, setPersons] = useState<Person[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [timetables, setTimetables] = useState<Timetable[]>([]);
+  const [templates, setTemplates] = useState<EventTemplate[]>([]);
+  const [serviceUrl, setServiceUrl] = useState<string | undefined>();
   const [family, setFamily] = useState<FamilySettings>(DEFAULT_FAMILY);
   const [device, setDeviceState] = useState<DeviceSettings>(loadDevice);
 
@@ -101,7 +107,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       store.subscribe<Person>('persons', (p) => setPersons([...p].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)))),
       store.subscribe<CalEvent>('events', setEvents),
       store.subscribe<Timetable>('timetables', setTimetables),
-      store.subscribe<FamilySettings>('meta', (m) => setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) })),
+      store.subscribe<any>('meta', (m) => {
+        setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
+        setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
+        setServiceUrl(m.find((x) => x.id === 'service')?.url || undefined);
+      }),
     ];
     return () => offs.forEach((o) => o());
   }, [store]);
@@ -121,6 +131,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       persons,
       events,
       timetables,
+      templates,
+      saveTemplates: (items) => store.put('meta', { id: 'templates', items }),
+      serviceUrl,
       family,
       device,
       setDevice,
@@ -145,7 +158,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveFamily: (f) => store.put('meta', { ...family, ...f, id: 'settings' }),
       switchStore: () => setStore(createStore()),
     }),
-    [store, status, persons, events, timetables, family, device, setDevice],
+    [store, status, persons, events, timetables, templates, serviceUrl, family, device, setDevice],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

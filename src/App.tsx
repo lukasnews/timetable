@@ -10,6 +10,7 @@ import { EventDetails } from './components/EventDetails';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
+import { findConflicts } from './lib/conflicts';
 import { addMinutes, diffMinutes, fromNative, isoWeek, uid } from './lib/dates';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
@@ -277,11 +278,13 @@ export default function App() {
       </main>
 
       {draft && (
-        <EventDialog draft={draft} persons={persons} onClose={() => setDraft(null)} onSave={save} onDelete={draft.isNew ? undefined : remove} />
+        <EventDialog draft={draft} persons={persons} events={events} templates={data.templates} onSaveTemplates={data.saveTemplates} onClose={() => setDraft(null)} onSave={save} onDelete={draft.isNew ? undefined : remove} />
       )}
       {detail && detailEvent && (
         <EventDetails event={detailEvent} persons={persons} start={detail.occStart}
           end={addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay)}
+          conflicts={findConflicts({ ...detailEvent, start: detail.occStart, end: addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay),
+            ...(detailEvent.recurrence ? { seriesId: detailEvent.id, originalStart: detail.occStart, id: detailEvent.id + '#occ' } : {}) }, events, persons)}
           onClose={() => setDetail(null)} onEdit={editFromDetail} />
       )}
       {searching && (

@@ -173,14 +173,15 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
     const names = persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
     const dayPart = days > 1 ? dateText(o.start.slice(0, 10) < from ? from : o.start.slice(0, 10), '') + ' ' : '';
     const t = ev.allDay ? '' : o.start.slice(11) + ' ';
-    return `${dayPart}${t}${ev.kind === 'birthday' ? '🎂 ' : ''}${ev.title}${names ? ` (${names})` : ''}`;
+    const drv = persons.filter((p) => ev.driverIds?.includes(p.id)).map((p) => p.name).join(', ');
+    return `${dayPart}${t}${ev.kind === 'birthday' ? '🎂 ' : ''}${ev.title}${names ? ` (${names})` : ''}${drv ? ` 🚗 ${drv}` : ''}`;
   };
   const targets = new Map<string, string | null>(); // topic → personId (null = alle)
   if (family?.ntfyFamilyTopic) targets.set(family.ntfyFamilyTopic, null);
   for (const p of persons) if (p.ntfyTopic && !targets.has(p.ntfyTopic)) targets.set(p.ntfyTopic, p.id);
   const out: Notification[] = [];
   for (const [topic, pid] of targets) {
-    const mine = occs.filter((o) => pid === null || !o.event.personIds.length || o.event.personIds.includes(pid));
+    const mine = occs.filter((o) => pid === null || (!o.event.personIds.length && !o.event.driverIds?.length) || o.event.personIds.includes(pid) || !!o.event.driverIds?.includes(pid));
     if (!mine.length) continue;
     out.push({ topic, title: opts.title, message: mine.slice(0, 40).map(line).join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
   }
@@ -238,15 +239,16 @@ export function dueNotifications(opts: {
     if (opts.sent.has(key)) continue;
 
     const ps = persons.filter((p) => ev.personIds?.includes(p.id));
-    let topics = ps.map((p) => p.ntfyTopic).filter(Boolean) as string[];
-    if (!topics.length) topics = topicsOf(persons, [], opts.family);
+    const drivers = persons.filter((p) => ev.driverIds?.includes(p.id));
+    let topics = [...ps, ...drivers].map((p) => p.ntfyTopic).filter(Boolean) as string[];
+    if (!ps.length && !drivers.length) topics = topicsOf(persons, [], opts.family);
     const occDay = o.start.slice(0, 10);
     const dayText = occDay === day ? 'Heute' : occDay === addDays(day, 1) ? 'Morgen' : occDay.split('-').reverse().join('.');
     const isBirthday = ev.kind === 'birthday';
     const age = isBirthday && ev.birthYear ? Number(occDay.slice(0, 4)) - ev.birthYear : undefined;
     const title = isBirthday ? `🎂 ${ev.title}${age ? ` wird ${age}` : ''}` : ev.title;
     const when = ev.allDay ? 'ganztägig' : `${o.start.slice(11)}–${o.end.slice(11)} Uhr`;
-    const message = [`${dayText}, ${when}`, ps.map((p) => p.name).join(', '), ev.location ? `📍 ${ev.location}` : '']
+    const message = [`${dayText}, ${when}`, ps.map((p) => p.name).join(', '), drivers.length ? `🚗 Fahrdienst: ${drivers.map((p) => p.name).join(', ')}` : '', ev.location ? `📍 ${ev.location}` : '']
       .filter(Boolean).join('\n');
     for (const topic of new Set(topics)) {
       out.push({

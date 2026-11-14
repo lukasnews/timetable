@@ -539,3 +539,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .toast .btn { flex: none; background: transparent; color: inherit; border-color: currentColor; }
 .only-phone { display: none !important; }
 @media (max-width: 640px) { .only-phone { display: inline-flex !important; } .seg.views button { padding: 6px 8px; } }
+
+/* ---------- Vorlagen, Fahrdienst, Konflikte ---------- */
+.tpl-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tpl-row::-webkit-scrollbar { display: none; }
+.link-btn { align-self: flex-start; border-style: dashed; color: var(--muted); }
+.conflicts { border: 1px solid #f59e0b; background: color-mix(in srgb, #f59e0b 12%, var(--surface)); border-radius: 12px; padding: 8px 12px; }
+.conflicts p { margin: 2px 0; font-size: 0.9rem; }
+.det-row.warn { color: #d97706; }

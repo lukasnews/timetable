@@ -83,6 +83,10 @@ Zusätzlich, jeweils einzeln schaltbar unter ⚙️ → Allgemein: **Tagesübers
 Profilen erinnern, wenn im Profil „An den Geburtstag erinnern“ gewählt ist. Der Dienst liest alle
 5 Minuten nur Termine mit Erinnerung, damit die kostenlose Firestore-Grenze nicht erreicht wird.
 
+**Kalender abonnieren:** Derselbe Dienst liefert unter `/cal/<Schlüssel>.ics` einen Abo-Link für Google-,
+Outlook- oder Apple-Kalender (nur lesen). Den Link erstellt man in der App unter ⚙️ → Daten. Die Adresse
+des Dienstes hinterlegt der Einrichtungs-Workflow automatisch.
+
 Ganztägige Termine erinnern ab 08:00 Uhr am Tag. „Am Vorabend“ bedeutet 18:00 Uhr am Vortag.
 Auf dem kostenlosen Cloudflare-Plan sind 5 zeitgesteuerte Auslöser pro Konto möglich, dieser Worker braucht einen.
 

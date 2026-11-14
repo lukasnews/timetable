@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { CalEvent, Person, Recurrence } from '../types';
+import type { CalEvent, EventTemplate, Person, Recurrence } from '../types';
+import { findConflicts } from '../lib/conflicts';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
-import { addDays, addMinutes, diffMinutes, weekdayMo0 } from '../lib/dates';
+import { addDays, addMinutes, diffMinutes, uid, weekdayMo0 } from '../lib/dates';
 
 export interface EditDraft {
   event: CalEvent;
@@ -31,8 +32,14 @@ export function EventDialog(props: {
   onSave: (e: CalEvent) => void;
   onDelete?: () => void;
   onClose: () => void;
+  /** alle Termine (für den Konflikt-Hinweis) */
+  events: CalEvent[];
+  templates: EventTemplate[];
+  onSaveTemplates: (t: EventTemplate[]) => void;
 }) {
   const [ev, setEv] = useState<CalEvent>(props.draft.event);
+  const [showDriver, setShowDriver] = useState(!!props.draft.event.driverIds?.length);
+  const [tplSaved, setTplSaved] = useState(false);
   const set = (p: Partial<CalEvent>) => setEv((e) => ({ ...e, ...p }));
 
   const date = ev.start.slice(0, 10);
@@ -76,6 +83,26 @@ export function EventDialog(props: {
   const togglePerson = (id: string) =>
     set({ personIds: ev.personIds.includes(id) ? ev.personIds.filter((x) => x !== id) : [...ev.personIds, id] });
 
+  const toggleDriver = (id: string) => {
+    const cur = ev.driverIds ?? [];
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    set({ driverIds: next.length ? next : undefined });
+  };
+  const applyTemplate = (t: EventTemplate) => {
+    const d = ev.start.slice(0, 10);
+    const start = t.allDay ? d : `${d}T${t.time ?? (ev.allDay ? '09:00' : ev.start.slice(11, 16))}`;
+    set({ title: t.title, allDay: t.allDay, start, end: addMinutes(start, t.durationMin, t.allDay), personIds: t.personIds.filter((id) => props.persons.some((p) => p.id === id)),
+      driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, reminderMinutes: t.reminderMinutes ?? null });
+    setShowDriver(!!t.driverIds?.length);
+  };
+  const saveAsTemplate = () => {
+    const t: EventTemplate = { id: uid(), title: ev.title.trim(), durationMin: diffMinutes(ev.start, ev.end), allDay: ev.allDay, time: ev.allDay ? undefined : ev.start.slice(11, 16),
+      personIds: ev.personIds, driverIds: ev.driverIds, location: ev.location || undefined, reminderMinutes: ev.reminderMinutes ?? null };
+    props.onSaveTemplates([...props.templates.filter((x) => x.title.toLowerCase() !== t.title.toLowerCase()), t]);
+    setTplSaved(true);
+  };
+  const conflicts = findConflicts(ev, props.events, props.persons, props.draft.event.seriesId ? [] : [props.draft.event.id]);
+
   const isBirthday = ev.kind === 'birthday';
   const valid = ev.title.trim().length > 0 && ev.end > ev.start;
 
@@ -105,6 +132,14 @@ export function EventDialog(props: {
         <input className="title-input" autoFocus={props.draft.isNew} placeholder={isBirthday ? 'Wer hat Geburtstag?' : 'Titel'}
           value={ev.title} onChange={(e) => set({ title: e.target.value })} />
 
+        {props.draft.isNew && props.templates.length > 0 && (
+          <div className="tpl-row" aria-label="Vorlagen">
+            {props.templates.map((t) => (
+              <button type="button" key={t.id} className="chip-tab" onClick={() => applyTemplate(t)}>{t.title}</button>
+            ))}
+          </div>
+        )}
+
         <div className="field">
           <span className="label">Für wen?</span>
           <div className="person-pick">
@@ -117,6 +152,30 @@ export function EventDialog(props: {
             {ev.personIds.length === 0 && <small className="hint">Niemand gewählt = ganze Familie</small>}
           </div>
         </div>
+
+        {!isBirthday && (showDriver ? (
+          <div className="field">
+            <span className="label">🚗 Fahrdienst (wer bringt / holt)</span>
+            <div className="person-pick">
+              {props.persons.map((p) => (
+                <button type="button" key={p.id} className={'pick' + (ev.driverIds?.includes(p.id) ? ' on' : '')}
+                  style={{ ['--pc' as string]: p.color }} onClick={() => toggleDriver(p.id)}>
+                  <Avatar person={p} size={26} /> {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <button type="button" className="btn small link-btn" onClick={() => setShowDriver(true)}>🚗 Fahrdienst hinzufügen</button>
+        ))}
+
+        {conflicts.length > 0 && (
+          <div className="conflicts" role="alert">
+            {conflicts.slice(0, 4).map((c) => (
+              <p key={c.person.id + c.title + c.start}>⚠️ <b>{c.person.name}</b> hat gleichzeitig „{c.title}“ ({c.start.slice(11)}–{c.end.slice(11)})</p>
+            ))}
+          </div>
+        )}
 
         <Toggle checked={isBirthday} label="🎂 Geburtstag" hint="Jährlich, ganztägig, mit Alter"
           onChange={(b) => b
@@ -174,6 +233,11 @@ export function EventDialog(props: {
         {!isBirthday && (
           <label className="field"><span className="label"><Icon name="pin" size={16} /> Ort</span>
             <input value={ev.location ?? ''} onChange={(e) => set({ location: e.target.value })} placeholder="optional" /></label>
+        )}
+        {!isBirthday && ev.title.trim() && !ev.recurrence && (
+          <button type="button" className="btn small link-btn" disabled={tplSaved} onClick={saveAsTemplate}>
+            {tplSaved ? '✓ Als Vorlage gespeichert' : '⭐ Als Vorlage speichern'}
+          </button>
         )}
         <label className="field"><span className="label">Notizen</span>
           <textarea rows={3} value={ev.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} placeholder="optional" /></label>
