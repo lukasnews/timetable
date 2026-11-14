@@ -95,7 +95,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     if (x.kind === 'ferien') return <div className="ev-inner" title={arg.event.title}><span className="ev-title">🏖️ {arg.event.title}</span></div>;
     const title =
       x.kind === 'birthday' || x.kind === 'personBirthday'
-        ? `🎂 ${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
+        ? `${x.kind === 'personBirthday' ? '🎂 ' : ''}${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
         : x.kind === 'school' ? `🏫 ${arg.timeText}` : arg.event.title;
     const compact = arg.view.type === 'dayGridMonth';
     const isList = arg.view.type.startsWith('list');
@@ -110,6 +110,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
           {!arg.event.allDay && x.kind !== 'school' && !isList && <span className="ev-time">{arg.timeText}</span>}
           <span className="ev-title">{title}</span>
           {!compact && x.location && <span className="ev-loc">📍 {x.location}</span>}
+          {!compact && x.bring && <span className="ev-loc">🎒 {x.bring}</span>}
           {!compact && !!x.driverIds?.length && <span className="ev-loc">🚗 {x.driverIds.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}</span>}
         </span>
         {x.recurring && !compact && <span className="ev-rec" title="Serie">↻</span>}

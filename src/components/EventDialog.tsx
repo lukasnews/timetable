@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CalEvent, EventTemplate, Person, Recurrence } from '../types';
 import { findConflicts } from '../lib/conflicts';
+import { CATEGORIES } from '../lib/categories';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { addDays, addMinutes, diffMinutes, uid, weekdayMo0 } from '../lib/dates';
@@ -92,12 +93,12 @@ export function EventDialog(props: {
     const d = ev.start.slice(0, 10);
     const start = t.allDay ? d : `${d}T${t.time ?? (ev.allDay ? '09:00' : ev.start.slice(11, 16))}`;
     set({ title: t.title, allDay: t.allDay, start, end: addMinutes(start, t.durationMin, t.allDay), personIds: t.personIds.filter((id) => props.persons.some((p) => p.id === id)),
-      driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, reminderMinutes: t.reminderMinutes ?? null });
+      driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, reminderMinutes: t.reminderMinutes ?? null, category: t.category, bring: t.bring });
     setShowDriver(!!t.driverIds?.length);
   };
   const saveAsTemplate = () => {
     const t: EventTemplate = { id: uid(), title: ev.title.trim(), durationMin: diffMinutes(ev.start, ev.end), allDay: ev.allDay, time: ev.allDay ? undefined : ev.start.slice(11, 16),
-      personIds: ev.personIds, driverIds: ev.driverIds, location: ev.location || undefined, reminderMinutes: ev.reminderMinutes ?? null };
+      personIds: ev.personIds, driverIds: ev.driverIds, location: ev.location || undefined, reminderMinutes: ev.reminderMinutes ?? null, category: ev.category, bring: ev.bring };
     props.onSaveTemplates([...props.templates.filter((x) => x.title.toLowerCase() !== t.title.toLowerCase()), t]);
     setTplSaved(true);
   };
@@ -172,8 +173,22 @@ export function EventDialog(props: {
         {conflicts.length > 0 && (
           <div className="conflicts" role="alert">
             {conflicts.slice(0, 4).map((c) => (
-              <p key={c.person.id + c.title + c.start}>⚠️ <b>{c.person.name}</b> hat gleichzeitig „{c.title}“ ({c.start.slice(11)}–{c.end.slice(11)})</p>
+              <p key={c.person.id + c.title + c.start}>⚠️ <b>{c.person.name}</b> {c.absent ? <>ist {c.title}</> : <>hat gleichzeitig „{c.title}“ ({c.start.slice(11)}–{c.end.slice(11)})</>}</p>
             ))}
+          </div>
+        )}
+
+        {!isBirthday && (
+          <div className="field">
+            <span className="label">Kategorie</span>
+            <div className="cat-row">
+              {CATEGORIES.map((c) => (
+                <button type="button" key={c.key} className={'cat-chip' + (ev.category === c.key ? ' on' : '')} title={c.label}
+                  onClick={() => set({ category: ev.category === c.key ? undefined : c.key })}>
+                  <span aria-hidden="true">{c.icon}</span> {c.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -196,6 +211,10 @@ export function EventDialog(props: {
             {ev.allDay && props.persons.some((p) => p.hasTimetable) && (
               <Toggle checked={!!ev.schoolFree} onChange={(v) => set({ schoolFree: v || undefined })} label="🏫 Schulfrei"
                 hint="Keine Schulzeit an diesen Tagen – für die gewählten Kinder, ohne Auswahl für alle" />
+            )}
+            {ev.allDay && ev.personIds.length > 0 && (
+              <Toggle checked={!!ev.absent} onChange={(v) => set({ absent: v || undefined })} label="🧳 Abwesend"
+                hint="Die gewählten Personen sind in dieser Zeit nicht da (Dienstreise, Urlaub, Kur …)" />
             )}
             <div className="dt-grid">
               <label className="field"><span className="label">Beginn</span>
@@ -233,6 +252,14 @@ export function EventDialog(props: {
         {!isBirthday && (
           <label className="field"><span className="label"><Icon name="pin" size={16} /> Ort</span>
             <input value={ev.location ?? ''} onChange={(e) => set({ location: e.target.value })} placeholder="optional" /></label>
+        )}
+        {!isBirthday && (
+          <label className="field"><span className="label">🎒 Mitbringen</span>
+            <input value={ev.bring ?? ''} onChange={(e) => set({ bring: e.target.value || undefined })} placeholder="optional, z. B. Turnsachen, Geschenk" /></label>
+        )}
+        {!isBirthday && (
+          <Toggle checked={!!ev.countdown} onChange={(v) => set({ countdown: v || undefined })} label="⏳ Countdown anzeigen"
+            hint="„Noch 12 Tage bis …“ in der Kopfzeile (wenn unter Gerät eingeschaltet)" />
         )}
         {!isBirthday && ev.title.trim() && !ev.recurrence && (
           <button type="button" className="btn small link-btn" disabled={tplSaved} onClick={saveAsTemplate}>

@@ -5,7 +5,10 @@
  */
 import { expand } from '../src/lib/recurrence';
 import { addDays, addMinutes } from '../src/lib/dates';
-import type { CalEvent, FamilySettings, Person } from '../src/types';
+import type { CalEvent, FamilySettings, Person, Timetable } from '../src/types';
+import { displayTitle } from '../src/lib/categories';
+import { lessonsForDay } from '../src/lib/calendarEvents';
+import { isSchoolFree } from '../src/lib/holidays';
 
 export interface Config {
   apiKey: string;
@@ -165,8 +168,19 @@ const dateText = (d: string, today: string) =>
     : new Date(d + 'T12:00:00Z').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'UTC' });
 
 /** Tages- bzw. Wochenübersicht: je Topic eine Nachricht mit den passenden Terminen */
-export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; from: string; days: number; title: string; appUrl?: string }): Notification[] {
+export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; from: string; days: number; title: string; appUrl?: string; timetables?: Timetable[] }): Notification[] {
   const { persons, family, from, days } = opts;
+  // Mitbringen aus dem Stundenplan (nur Tagesübersicht, nur an Schultagen)
+  const schoolBring = new Map<string, string[]>(); // personId → Zeilen
+  if (days === 1 && opts.timetables && !isSchoolFree(from)) {
+    const free = expand(opts.events.filter((e) => e.schoolFree), from, addDays(from, 1));
+    for (const tt of opts.timetables) {
+      const kid = persons.find((p) => p.id === tt.id && p.hasTimetable);
+      if (!kid || free.some((o) => !o.event.personIds.length || o.event.personIds.includes(kid.id))) continue;
+      const items = lessonsForDay(tt, from).filter((l) => l.bring).map((l) => `${l.bring} (${l.subject})`);
+      if (items.length) schoolBring.set(kid.id, [`🎒 ${kid.name}: ${items.join(', ')}`]);
+    }
+  }
   const occs = expand([...opts.events, ...profileBirthdays(persons)], from, addDays(from, days)).sort((a, b) => a.start.localeCompare(b.start));
   const line = (o: (typeof occs)[number]) => {
     const ev = o.event;
@@ -174,7 +188,7 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
     const dayPart = days > 1 ? dateText(o.start.slice(0, 10) < from ? from : o.start.slice(0, 10), '') + ' ' : '';
     const t = ev.allDay ? '' : o.start.slice(11) + ' ';
     const drv = persons.filter((p) => ev.driverIds?.includes(p.id)).map((p) => p.name).join(', ');
-    return `${dayPart}${t}${ev.kind === 'birthday' ? '🎂 ' : ''}${ev.title}${names ? ` (${names})` : ''}${drv ? ` 🚗 ${drv}` : ''}`;
+    return `${dayPart}${t}${displayTitle(ev)}${names ? ` (${names})` : ''}${drv ? ` 🚗 ${drv}` : ''}${ev.bring ? ` 🎒 ${ev.bring}` : ''}`;
   };
   const targets = new Map<string, string | null>(); // topic → personId (null = alle)
   if (family?.ntfyFamilyTopic) targets.set(family.ntfyFamilyTopic, null);
@@ -182,8 +196,11 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
   const out: Notification[] = [];
   for (const [topic, pid] of targets) {
     const mine = occs.filter((o) => pid === null || (!o.event.personIds.length && !o.event.driverIds?.length) || o.event.personIds.includes(pid) || !!o.event.driverIds?.includes(pid));
-    if (!mine.length) continue;
-    out.push({ topic, title: opts.title, message: mine.slice(0, 40).map(line).join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
+    // Mitbringen: an das Familien-Topic alle Kinder, sonst nur das eigene (Eltern ohne Stundenplan bekommen alle)
+    const me = pid ? persons.find((p) => p.id === pid) : undefined;
+    const bring = [...schoolBring.entries()].filter(([kid]) => pid === null || kid === pid || !me?.hasTimetable).flatMap(([, l]) => l);
+    if (!mine.length && !bring.length) continue;
+    out.push({ topic, title: opts.title, message: [...mine.slice(0, 40).map(line), ...bring].join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
   }
   return out;
 }
@@ -246,9 +263,9 @@ export function dueNotifications(opts: {
     const dayText = occDay === day ? 'Heute' : occDay === addDays(day, 1) ? 'Morgen' : occDay.split('-').reverse().join('.');
     const isBirthday = ev.kind === 'birthday';
     const age = isBirthday && ev.birthYear ? Number(occDay.slice(0, 4)) - ev.birthYear : undefined;
-    const title = isBirthday ? `🎂 ${ev.title}${age ? ` wird ${age}` : ''}` : ev.title;
+    const title = isBirthday ? `🎂 ${ev.title}${age ? ` wird ${age}` : ''}` : displayTitle(ev);
     const when = ev.allDay ? 'ganztägig' : `${o.start.slice(11)}–${o.end.slice(11)} Uhr`;
-    const message = [`${dayText}, ${when}`, ps.map((p) => p.name).join(', '), drivers.length ? `🚗 Fahrdienst: ${drivers.map((p) => p.name).join(', ')}` : '', ev.location ? `📍 ${ev.location}` : '']
+    const message = [`${dayText}, ${when}`, ps.map((p) => p.name).join(', '), drivers.length ? `🚗 Fahrdienst: ${drivers.map((p) => p.name).join(', ')}` : '', ev.bring ? `🎒 Mitbringen: ${ev.bring}` : '', ev.location ? `📍 ${ev.location}` : '']
       .filter(Boolean).join('\n');
     for (const topic of new Set(topics)) {
       out.push({
@@ -308,9 +325,9 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   const isSunday = new Date(today + 'T12:00:00Z').getUTCDay() === 0;
   const wantWeekly = !!family?.ntfyWeekly && isSunday && state.lastWeekly !== today && within('18:00');
   if (wantDaily || wantWeekly) {
-    const all = await list<CalEvent>(cfg, token, 'events');
+    const [all, timetables] = await Promise.all([list<CalEvent>(cfg, token, 'events'), list<Timetable>(cfg, token, 'timetables')]);
     if (wantDaily) {
-      for (const n of digest({ events: all, persons, family, from: today, days: 1, title: 'Heute im Kalender', appUrl: cfg.appUrl })) await send(n);
+      for (const n of digest({ events: all, persons, family, from: today, days: 1, title: 'Heute im Kalender', appUrl: cfg.appUrl, timetables })) await send(n);
       next.lastDaily = today;
     }
     if (wantWeekly) {

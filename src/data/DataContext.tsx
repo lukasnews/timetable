@@ -21,6 +21,7 @@ export const DEFAULT_DEVICE: DeviceSettings = {
   reminderPersons: [],
   schoolInMonth: false,
   showWeather: true,
+  showCountdown: true,
   locked: true,
   lockNeedsPin: false,
   showSchool: true,

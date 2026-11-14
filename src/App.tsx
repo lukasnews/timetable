@@ -11,7 +11,9 @@ import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
 import { findConflicts } from './lib/conflicts';
-import { addMinutes, diffMinutes, fromNative, isoWeek, uid } from './lib/dates';
+import { addDays, addMinutes, diffMinutes, fromNative, isoWeek, uid, weekdayMo0 } from './lib/dates';
+import { isSchoolFree } from './lib/holidays';
+import { nextCountdowns } from './lib/countdown';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
 import { isNight, slideIn, useClock, useIdle, useMedia, useReminders, useSwipe, useWakeLock } from './hooks';
@@ -118,6 +120,17 @@ export default function App() {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute('media'); m.setAttribute('content', dark ? '#0e0f15' : '#f4f5fa'); });
   }, [night, dark]);
   const hasKids = persons.some((p) => p.hasTimetable);
+  const countdowns = useMemo(() => nextCountdowns(events, fromNative(now, true), family.showSchoolHolidays && hasKids, isPhone ? 1 : 2),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events, now.toDateString(), family.showSchoolHolidays, hasKids, isPhone]);
+  // Wer ist heute abwesend? (für die Personen-Chips)
+  const absentToday = useMemo(() => {
+    const t = fromNative(now, true);
+    const out = new Map<string, string>();
+    for (const e of events) if (e.absent && e.start <= t && t < e.end) for (const id of e.personIds) out.set(id, e.title);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, now.toDateString()]);
   // Um Mitternacht auf den neuen Tag springen
   const day = now.toDateString();
   useEffect(() => { if (device.kiosk) api()?.today(); }, [day, device.kiosk]);
@@ -224,6 +237,7 @@ export default function App() {
               aria-pressed={selected.has(p.id)} title={`${p.name} – Doppelklick: nur ${p.name}`}>
               <Avatar person={p} size={isPhone ? 34 : 40} />
               <span className="chip-name">{p.name}</span>
+              {absentToday.has(p.id) && <span className="chip-absent" title={`Abwesend: ${absentToday.get(p.id)}`}>🧳</span>}
             </button>
           ))}
           {persons.length === 0 && <button className="btn" onClick={() => openSettings('persons')}>Personen anlegen</button>}
@@ -268,6 +282,13 @@ export default function App() {
             <Icon name={device.locked ? 'lock' : 'edit'} size={18} /><span className="long">{device.locked ? 'Gesperrt' : 'Bearbeiten'}</span>
           </button>
         )}
+        {device.showCountdown && countdowns.length > 0 && (
+          <span className="countdowns">
+            {countdowns.map((c) => (
+              <span key={c.title + c.date} className="countdown" title={c.date.split('-').reverse().join('.')}>⏳ <b>{c.days === 1 ? 'Morgen' : `${c.days} Tage`}</b> <span className="cd-title">bis {c.title}</span></span>
+            ))}
+          </span>
+        )}
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
@@ -280,7 +301,20 @@ export default function App() {
 
       <main className="main">
         {mode === 'timetable' ? (
-          <TimetableView requirePin={requirePin} printing={printing} onPrint={print} />
+          <TimetableView requirePin={requirePin} printing={printing} onPrint={print}
+            onOpenEvent={(id, occ) => setDetail({ eventId: id, occStart: occ })}
+            onAddTest={(kidId, l) => {
+              // nächster Schultag mit diesem Wochentag (heute zählt, wenn die Stunde noch nicht vorbei ist)
+              const now = new Date();
+              let d = fromNative(now, true);
+              for (let i = 0; i < 14; i++) {
+                if (weekdayMo0(d) === l.weekday && !isSchoolFree(d) && (i > 0 || fromNative(now, false).slice(11) < l.start)) break;
+                d = addDays(d, 1);
+              }
+              const start = `${d}T${l.start}`;
+              setDraft({ isNew: true, event: { id: uid(), title: `Schularbeit ${l.subject}`.trim(), start, end: `${d}T${l.end}`, allDay: false,
+                personIds: [kidId], kind: 'event', category: 'test', reminderMinutes: 2880 } });
+            }} />
         ) : (
           <div className="cal-wrap" ref={calWrap}>
             <h1 className="print-title">Familienkalender · <RangeTitle range={range} /></h1>

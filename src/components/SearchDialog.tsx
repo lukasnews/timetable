@@ -3,6 +3,7 @@ import type { CalEvent, Person } from '../types';
 import { Avatar, Icon, Modal } from './ui';
 import { expand, type Occurrence } from '../lib/recurrence';
 import { addDays, todayLocal } from '../lib/dates';
+import { displayTitle } from '../lib/categories';
 
 const norm = (s: string) => s.toLocaleLowerCase('de').normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -22,7 +23,7 @@ export function SearchDialog(props: { events: CalEvent[]; persons: Person[]; onP
     if (!terms.length) return { upcoming: [], past: [] };
     const nameOf = new Map(props.persons.map((p) => [p.id, norm(p.name)]));
     const hits = props.events.filter((e) => {
-      const hay = norm([e.title, e.location, e.notes, ...e.personIds.map((id) => nameOf.get(id) ?? '')].filter(Boolean).join(' '));
+      const hay = norm([e.title, e.location, e.notes, e.bring, ...e.personIds.map((id) => nameOf.get(id) ?? '')].filter(Boolean).join(' '));
       return terms.every((t) => hay.includes(t));
     });
     const occ = expand(hits, addDays(today, -730), addDays(today, 730));
@@ -51,7 +52,7 @@ export function SearchDialog(props: { events: CalEvent[]; persons: Person[]; onP
         <button className="search-row" onClick={() => props.onPick(o.start.slice(0, 10), o.event.id, o.occStart)}>
           <span className="sr-avatars">{ps.slice(0, 3).map((p) => <Avatar key={p.id} person={p} size={26} />)}</span>
           <span className="sr-text">
-            <strong>{o.event.kind === 'birthday' ? '🎂 ' : ''}{o.event.title}</strong>
+            <strong>{displayTitle(o.event)}</strong>
             <small>{fmt(o)}{o.recurring ? ' · Serie' : ''}{o.event.location ? ` · 📍 ${o.event.location}` : ''}</small>
           </span>
         </button>
