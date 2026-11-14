@@ -1,6 +1,7 @@
 import type { CalEvent, Person } from '../types';
 import { Avatar, Icon, Modal } from './ui';
 import { describe } from '../lib/recurrence';
+import { displayTitle } from '../lib/categories';
 import { addDays } from '../lib/dates';
 
 const REMINDER_TEXT: Record<number, string> = {
@@ -25,7 +26,7 @@ export function EventDetails(props: { event: CalEvent; start: string; end: strin
   const ps = ev.personIds.map((id) => props.persons.find((p) => p.id === id)).filter(Boolean) as Person[];
   const age = ev.kind === 'birthday' && ev.birthYear ? Number(props.start.slice(0, 4)) - ev.birthYear : undefined;
   return (
-    <Modal title={(ev.kind === 'birthday' ? '🎂 ' : '') + ev.title + (age ? ` (${age})` : '')} onClose={props.onClose}
+    <Modal title={displayTitle(ev) + (age ? ` (${age})` : '')} onClose={props.onClose}
       footer={<>
         <span className="spacer" />
         <button className="btn" onClick={props.onClose}>Schließen</button>
@@ -39,9 +40,11 @@ export function EventDetails(props: { event: CalEvent; start: string; end: strin
             <span key={p.id} className="pick on" style={{ ['--pc' as string]: p.color }}><Avatar person={p} size={26} /> {p.name}</span>
           )) : <span className="hint">Ganze Familie</span>}
         </div>
+        {ev.absent && <p className="det-row">🧳 Abwesend</p>}
+        {ev.bring && <p className="det-row">🎒 Mitbringen: {ev.bring}</p>}
         {!!ev.driverIds?.length && <p className="det-row">🚗 Fahrdienst: {ev.driverIds.map((id) => props.persons.find((p) => p.id === id)?.name).filter(Boolean).join(', ')}</p>}
         {props.conflicts?.map((c) => (
-          <p key={c.person.id + c.title + c.start} className="det-row warn">⚠️ {c.person.name} hat gleichzeitig „{c.title}“ ({c.start.slice(11)}–{c.end.slice(11)})</p>
+          <p key={c.person.id + c.title + c.start} className="det-row warn">⚠️ {c.absent ? <>{c.person.name} ist {c.title}</> : <>{c.person.name} hat gleichzeitig „{c.title}“ ({c.start.slice(11)}–{c.end.slice(11)})</>}</p>
         ))}
         {ev.location && <p className="det-row"><Icon name="pin" size={16} /> {ev.location}</p>}
         {ev.reminderMinutes != null && <p className="det-row"><Icon name="bell" size={16} /> {REMINDER_TEXT[ev.reminderMinutes] ?? `${ev.reminderMinutes} Minuten vorher`}</p>}

@@ -2,13 +2,19 @@ import { useEffect, useState } from 'react';
 import { useData } from '../data/DataContext';
 import type { Lesson, Timetable } from '../types';
 import { Avatar, Icon, Toggle } from './ui';
-import { WEEKDAYS, WEEKDAYS_SHORT, addMinutes, isoWeek, todayLocal, uid, weekdayMo0 } from '../lib/dates';
+import { WEEKDAYS, WEEKDAYS_SHORT, addDays, addMinutes, isoWeek, todayLocal, uid, weekdayMo0 } from '../lib/dates';
+import { expand } from '../lib/recurrence';
 import { tint } from '../lib/avatars';
 
 const empty = (id: string): Timetable => ({ id, lessons: [], showInCalendar: true });
 
-export function TimetableView({ requirePin, printing, onPrint }: { requirePin: () => Promise<boolean>; printing?: boolean; onPrint?: () => void }) {
-  const { persons, timetables, saveTimetable } = useData();
+export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpenEvent }: {
+  requirePin: () => Promise<boolean>; printing?: boolean; onPrint?: () => void;
+  /** Schularbeit/Test zu einer Stunde eintragen */
+  onAddTest?: (kidId: string, lesson: Lesson) => void;
+  onOpenEvent?: (eventId: string, occStart: string) => void;
+}) {
+  const { persons, timetables, saveTimetable, events } = useData();
   const kids = persons.filter((p) => p.hasTimetable);
   const [sel, setSel] = useState(kids[0]?.id);
   const [editing, setEditing] = useState(false);
@@ -22,6 +28,9 @@ export function TimetableView({ requirePin, printing, onPrint }: { requirePin: (
   const today = todayLocal();
   const todayWd = weekdayMo0(today);
   const currentWeek: 'A' | 'B' | undefined = tt.abWeeks ? ((isoWeek(today) % 2 === 0) === ((tt.evenWeekIs ?? 'A') === 'A') ? 'A' : 'B') : undefined;
+  // Kommende Schularbeiten/Tests dieses Kindes (nächste 60 Tage)
+  const tests = expand(events.filter((e) => e.category === 'test' && e.personIds.includes(kid.id)), today, addDays(today, 60))
+    .sort((a, b) => a.start.localeCompare(b.start));
   // Im Ausdruck beide Wochen (A/B) zeigen
   const showWeek = printing ? undefined : currentWeek;
 
@@ -44,6 +53,23 @@ export function TimetableView({ requirePin, printing, onPrint }: { requirePin: (
         </button>
       </div>
 
+      {!editing && tests.length > 0 && (
+        <div className="tt-tests">
+          <strong>📝 Nächste Schularbeiten und Tests</strong>
+          <ul>
+            {tests.map((o) => (
+              <li key={o.event.id + o.occStart}>
+                <button className="link" onClick={() => onOpenEvent?.(o.event.id, o.occStart)}>
+                  <span className="tt-test-date">{new Date(o.start.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' })}</span> {o.event.title}
+                  <small className="hint"> · in {Math.round((Date.parse(o.start.slice(0, 10)) - Date.parse(today)) / 86400000)} Tagen</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!editing && !printing && onAddTest && <p className="hint tt-tip">Tipp: Eine Stunde antippen, um eine Schularbeit oder einen Test einzutragen.</p>}
+
       {editing ? (
         <TimetableEditor tt={tt} onChange={saveTimetable} />
       ) : (
@@ -54,14 +80,19 @@ export function TimetableView({ requirePin, printing, onPrint }: { requirePin: (
               <div key={d} className={'tt-day' + (wd === todayWd ? ' today' : '')}>
                 <h4><span className="long">{d}</span><span className="short">{WEEKDAYS_SHORT[wd]}</span></h4>
                 {ls.length === 0 && <p className="hint">frei</p>}
-                {ls.map((l) => (
-                  <div key={l.id} className="tt-lesson">
-                    <span className="tt-time">{l.start}–{l.end}</span>
-                    <strong>{l.subject}</strong>
-                    {(l.teacher || l.room) && <small>{[l.teacher, l.room].filter(Boolean).join(' · ')}</small>}
-                    {l.week && <span className="tag tiny">{l.week}</span>}
-                  </div>
-                ))}
+                {ls.map((l) => {
+                  const test = tests.find((o) => weekdayMo0(o.start.slice(0, 10)) === wd && o.event.title.toLowerCase().includes(l.subject.toLowerCase()) && !!l.subject);
+                  return (
+                    <button key={l.id} type="button" className={'tt-lesson' + (test ? ' has-test' : '')} onClick={() => onAddTest?.(kid.id, l)} disabled={!onAddTest}>
+                      <span className="tt-time">{l.start}–{l.end}</span>
+                      <strong>{l.subject}</strong>
+                      {(l.teacher || l.room) && <small>{[l.teacher, l.room].filter(Boolean).join(' · ')}</small>}
+                      {l.bring && <small>🎒 {l.bring}</small>}
+                      {test && <small className="tt-test-badge">📝 {new Date(test.start.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { day: 'numeric', month: 'numeric' })}</small>}
+                      {l.week && <span className="tag tiny">{l.week}</span>}
+                    </button>
+                  );
+                })}
               </div>
             );
           })}
@@ -111,6 +142,7 @@ function TimetableEditor({ tt, onChange }: { tt: Timetable; onChange: (t: Timeta
             <input className="subj" value={l.subject} placeholder="Fach" onChange={(e) => setLesson(l.id, { subject: e.target.value })} />
             <input value={l.teacher ?? ''} placeholder="Lehrer/in" onChange={(e) => setLesson(l.id, { teacher: e.target.value || undefined })} />
             <input value={l.room ?? ''} placeholder="Klasse/Raum" onChange={(e) => setLesson(l.id, { room: e.target.value || undefined })} />
+            <input value={l.bring ?? ''} placeholder="🎒 Mitbringen" onChange={(e) => setLesson(l.id, { bring: e.target.value || undefined })} />
             {tt.abWeeks && (
               <select value={l.week ?? ''} onChange={(e) => setLesson(l.id, { week: (e.target.value || undefined) as Lesson['week'] })} aria-label="Woche">
                 <option value="">A+B</option><option value="A">A</option><option value="B">B</option>

@@ -1,6 +1,7 @@
 import type { EventInput } from '@fullcalendar/core';
 import type { CalEvent, Person, Timetable, Lesson } from '../types';
 import { expand } from './recurrence';
+import { displayTitle } from './categories';
 import { addDays, isoWeek, weekdayMo0 } from './dates';
 import { holidaysAT, rangesBetween, schoolHolidaysOOE, isSchoolFree } from './holidays';
 
@@ -12,6 +13,8 @@ export interface OccProps {
   personIds: string[];
   location?: string;
   driverIds?: string[];
+  bring?: string;
+  absent?: boolean;
   age?: number;
   /** Position des Schul-Streifens (0, 1, 2 …) */
   stripIndex?: number;
@@ -67,16 +70,18 @@ export function buildEvents(opts: {
       personIds: ev.personIds.filter((id) => byId.has(id)),
       location: ev.location,
       driverIds: (ev.driverIds ?? []).filter((id) => byId.has(id)),
+      bring: ev.bring,
+      absent: ev.absent,
       age,
     };
     out.push({
       id: `${ev.id}|${occ.occStart}`,
-      title: ev.title,
+      title: displayTitle(ev),
       start: occ.start,
       end: occ.end,
       allDay: ev.allDay,
       extendedProps: props,
-      classNames: isBirthday ? ['ev-birthday'] : [],
+      classNames: isBirthday ? ['ev-birthday'] : ev.absent ? ['ev-absent'] : [],
     });
   }
 

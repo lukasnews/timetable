@@ -67,6 +67,14 @@ export interface CalEvent {
   importSource?: string;
   /** Schulfrei: an diesen Tagen keine Schulzeit anzeigen (für die gewählten Personen bzw. alle) */
   schoolFree?: boolean;
+  /** Kategorie (Symbol vor dem Titel), siehe CATEGORIES */
+  category?: string;
+  /** Was mitzubringen ist (z. B. „Turnsachen“) */
+  bring?: string;
+  /** Countdown bis zu diesem Termin in der Kopfzeile anzeigen */
+  countdown?: boolean;
+  /** Abwesenheit der gewählten Personen (z. B. Dienstreise) */
+  absent?: boolean;
   createdAt?: number;
   /** Person, die zuletzt geändert hat (Geräte-Einstellung „Ich bin“) */
   changedBy?: string;
@@ -82,6 +90,8 @@ export interface Lesson {
   subject: string;
   teacher?: string;
   room?: string;
+  /** Was zu dieser Stunde mitzubringen ist (z. B. „Turnsachen“) */
+  bring?: string;
   /** Für A/B-Wochen: undefined = jede Woche */
   week?: 'A' | 'B';
 }
@@ -131,6 +141,8 @@ export interface DeviceSettings {
   schoolInMonth: boolean;
   /** Wetter im Kalender anzeigen */
   showWeather: boolean;
+  /** Countdown (Ferien, markierte Termine) in der Kopfzeile */
+  showCountdown: boolean;
   /** „Ich bin“: Person an diesem Gerät (für Änderungs-Nachrichten) */
   me?: string;
   /** Kalender gesperrt: kein Verschieben/Ändern per Ziehen, Tippen zeigt Details */
@@ -158,4 +170,6 @@ export interface EventTemplate {
   driverIds?: string[];
   location?: string;
   reminderMinutes?: number | null;
+  category?: string;
+  bring?: string;
 }

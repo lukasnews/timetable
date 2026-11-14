@@ -8,6 +8,7 @@ import { rrulestr } from 'rrule';
 import type { CalEvent, Freq, Person, Recurrence } from '../types';
 import { addDays, addMinutes, fmtLike, nowLocal, parseLocal, weekdayMo0 } from './dates';
 import { nthOfMonth } from './recurrence';
+import { displayTitle } from './categories';
 
 const TZ = 'Europe/Vienna';
 const DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
@@ -282,9 +283,9 @@ export function toICS(events: CalEvent[], persons: Person[]): string {
 
   const push = (ev: CalEvent, uid: string, extra: string[] = []) => {
     const who = names(ev.personIds);
-    const title = ev.kind === 'birthday' ? `🎂 ${ev.title}` : ev.title;
+    const title = displayTitle(ev);
     const drv = names(ev.driverIds ?? []);
-    const desc = [who ? `Für: ${who}` : '', drv ? `Fahrdienst: ${drv}` : '', ev.kind === 'birthday' && ev.birthYear ? `Geburtsjahr: ${ev.birthYear}` : '', ev.notes ?? ''].filter(Boolean).join('\n');
+    const desc = [who ? `Für: ${who}` : '', drv ? `Fahrdienst: ${drv}` : '', ev.bring ? `Mitbringen: ${ev.bring}` : '', ev.kind === 'birthday' && ev.birthYear ? `Geburtsjahr: ${ev.birthYear}` : '', ev.notes ?? ''].filter(Boolean).join('\n');
     lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`, dateProp('DTSTART', ev.start), dateProp('DTEND', ev.end), `SUMMARY:${escape(title)}`);
     if (ev.location) lines.push(`LOCATION:${escape(ev.location)}`);
     if (desc) lines.push(`DESCRIPTION:${escape(desc)}`);
