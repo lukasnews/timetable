@@ -112,6 +112,10 @@ export interface DeviceSettings {
   schoolInMonth: boolean;
   /** Wetter im Kalender anzeigen */
   showWeather: boolean;
+  /** Kalender gesperrt: kein Verschieben/Ändern per Ziehen, Tippen zeigt Details */
+  locked: boolean;
+  /** Entsperren nur mit PIN */
+  lockNeedsPin: boolean;
   /** Schulzeiten im Kalender anzeigen (Schalter in der Leiste) */
   showSchool: boolean;
   theme: 'auto' | 'light' | 'dark';

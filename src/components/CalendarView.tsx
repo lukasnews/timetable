@@ -35,6 +35,8 @@ interface Props {
   onChange: (c: ChangeInfo) => void;
   /** Klick auf einen Tag (Kopf/Zahl) → Tagesansicht */
   onNavDay: (date: Date) => void;
+  /** gesperrt: kein Ziehen, kein Anlegen durch Tippen */
+  locked: boolean;
 }
 
 function stripe(persons: Person[]): string {
@@ -179,8 +181,8 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       headerToolbar={false}
       height="100%"
       nowIndicator
-      editable
-      selectable
+      editable={!props.locked}
+      selectable={!props.locked}
       selectMirror
       eventResizableFromStart
       longPressDelay={350}

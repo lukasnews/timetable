@@ -6,6 +6,7 @@ import { EventDialog, type EditDraft } from './components/EventDialog';
 import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
 import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
+import { EventDetails } from './components/EventDetails';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -47,6 +48,7 @@ export default function App() {
   const [draft, setDraft] = useState<(EditDraft & { scope?: Scope; occStart?: string; series?: CalEvent }) | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [searching, setSearching] = useState(false);
+  const [detail, setDetail] = useState<{ eventId: string; occStart: string } | null>(null);
   const [scopeAsk, setScopeAsk] = useState<{ action: 'edit' | 'move' | 'delete'; resolve: (s: Scope | null) => void } | null>(null);
   const [pinAsk, setPinAsk] = useState<((ok: boolean) => void) | null>(null);
   const unlockedUntil = useRef(0);
@@ -80,7 +82,8 @@ export default function App() {
   const now = useClock();
   useWakeLock(device.kiosk && device.wakeLock);
   useIdle(device.idleReturnMinutes, device.kiosk, () => {
-    setDraft(null); setSettings(null); setScopeAsk(null);
+    setDraft(null); setSettings(null); setScopeAsk(null); setDetail(null); setSearching(false);
+    data.setDevice({ locked: true });
     const m = defaultMode();
     setMode(m);
     setTimeout(() => { api()?.changeView(m); api()?.today(); });
@@ -114,9 +117,10 @@ export default function App() {
   };
 
   // Termin öffnen
-  const open = async (eventId: string, occStart: string) => {
+  const open = async (eventId: string, occStart: string, force = false) => {
     const ev = events.find((e) => e.id === eventId);
     if (!ev) return;
+    if (device.locked && !force) return setDetail({ eventId, occStart });
     if (!ev.recurrence) return setDraft({ isNew: false, event: ev });
     const scope = await askScope('edit');
     setScopeAsk(null);
@@ -170,6 +174,19 @@ export default function App() {
     }
     data.apply(applyChange(ev, c.occStart, { start: c.start, end: c.end, allDay: c.allDay }, scope, events, uid));
   };
+
+  const toggleLock = async () => {
+    if (device.locked && device.lockNeedsPin && !(await requirePin())) return;
+    data.setDevice({ locked: !device.locked });
+  };
+  const editFromDetail = async () => {
+    if (!detail) return;
+    if (device.lockNeedsPin && !(await requirePin())) return;
+    const d = detail;
+    setDetail(null);
+    open(d.eventId, d.occStart, true);
+  };
+  const detailEvent = detail ? events.find((e) => e.id === detail.eventId) : undefined;
 
   const statusIcon = data.store.mode === 'local' ? null : (
     <span className={'sync ' + data.status} title={{ synced: 'Synchronisiert', pending: 'Synchronisiere …', offline: 'Offline', error: 'Sync-Fehler', local: '' }[data.status]}>
@@ -225,6 +242,12 @@ export default function App() {
             <span aria-hidden="true">🏫</span><span className="long">Schule</span>
           </button>
         )}
+        {mode !== 'timetable' && (
+          <button className={'lock-toggle' + (device.locked ? '' : ' on')} onClick={toggleLock} aria-pressed={!device.locked}
+            title={device.locked ? 'Gesperrt – tippen zum Bearbeiten' : 'Bearbeiten aktiv – tippen zum Sperren'}>
+            <Icon name={device.locked ? 'lock' : 'edit'} size={18} /><span className="long">{device.locked ? 'Gesperrt' : 'Bearbeiten'}</span>
+          </button>
+        )}
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
@@ -240,13 +263,18 @@ export default function App() {
           <TimetableView requirePin={requirePin} />
         ) : (
           <div className="cal-wrap" ref={calWrap}>
-            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
+            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
           </div>
         )}
       </main>
 
       {draft && (
         <EventDialog draft={draft} persons={persons} onClose={() => setDraft(null)} onSave={save} onDelete={draft.isNew ? undefined : remove} />
+      )}
+      {detail && detailEvent && (
+        <EventDetails event={detailEvent} persons={persons} start={detail.occStart}
+          end={addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay)}
+          onClose={() => setDetail(null)} onEdit={editFromDetail} />
       )}
       {searching && (
         <SearchDialog events={events} persons={persons} onClose={() => setSearching(false)}

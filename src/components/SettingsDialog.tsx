@@ -150,6 +150,8 @@ function DeviceTab() {
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
       <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter anzeigen" hint="Ort unter Allgemein → Wetter" />
+      <Toggle checked={device.lockNeedsPin} onChange={(v) => setDevice({ lockNeedsPin: v })} label="🔒 Entsperren nur mit PIN"
+        hint="Zum Bearbeiten (Verschieben, Ändern) muss die PIN eingegeben werden. Neue Termine über + gehen immer." />
 
       <h3>Kiosk-Modus (Wand-Tablet)</h3>
       <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute" />
