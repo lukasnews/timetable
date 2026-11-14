@@ -39,6 +39,28 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
+/* Eigener Darkmode auch im Stylesheet erkennbar (Browser mit erzwungenem Dunkelmodus,
+   z. B. Samsung Internet, nutzen dann diesen statt die Seite umzufärben). Auch für den ersten Aufbau. */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+  --bg: #0e0f15;
+  --surface: #171922;
+  --surface-2: #232633;
+  --text: #e8e9f1;
+  --muted: #9a9db2;
+  --border: #2b2e3c;
+  --accent: #818cf8;
+  --accent-text: #0e0f15;
+  --danger: #f87171;
+  --family: #64748b;
+  --family-bg: #262a37;
+  --today: rgba(129, 140, 248, 0.08);
+  --holiday-bg: rgba(248, 113, 113, 0.1);
+  --ferien-bg: rgba(52, 211, 153, 0.08);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+  }
+}
 :root.night body { filter: brightness(0.75); }
 
 * { box-sizing: border-box; }
