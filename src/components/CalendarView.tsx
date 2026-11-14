@@ -84,10 +84,11 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
           </div>
         );
       }
-      return <div className="bg-title">{arg.event.title}</div>;
+      return null;
     }
     const ps = (x.personIds ?? []).map((id) => byId.get(id)).filter(Boolean) as Person[];
-    if (x.kind === 'holiday') return <div className="ev-inner"><span className="ev-title">🇦🇹 {arg.event.title}</span></div>;
+    if (x.kind === 'holiday') return <div className="ev-inner" title={arg.event.title}><span className="ev-title">🇦🇹 {arg.event.title}</span></div>;
+    if (x.kind === 'ferien') return <div className="ev-inner" title={arg.event.title}><span className="ev-title">🏖️ {arg.event.title}</span></div>;
     const title =
       x.kind === 'birthday' || x.kind === 'personBirthday'
         ? `🎂 ${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
@@ -172,7 +173,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       initialView={props.view}
       locale={deLocale}
       firstDay={1}
-      weekNumbers
+      weekNumbers={!(isPhone && props.view === 'dayGridMonth')}
       weekText="KW"
       weekTextLong="Kalenderwoche"
       headerToolbar={false}
@@ -217,6 +218,10 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       datesSet={onDatesSet}
       eventContent={renderContent}
       eventDidMount={onMount}
+      eventOrder={(a: any, b: any) => {
+        const rank = (e: any) => ({ holiday: 0, ferien: 1 } as Record<string, number>)[e.extendedProps?.kind] ?? 2;
+        return rank(a) - rank(b);
+      }}
       eventClick={(arg: EventClickArg) => {
         const x = arg.event.extendedProps as OccProps;
         if (x.eventId) props.onOpen(x.eventId, x.occStart!);
