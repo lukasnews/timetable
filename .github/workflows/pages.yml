@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
@@ -42,3 +44,19 @@ jobs:
             git commit -m "Build: App nach docs/ aktualisiert"
             git push
           fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  # Übergang: direkte Veröffentlichung (Pages-Quelle „GitHub Actions“). Schlägt fehl, solange
+  # in den Einstellungen noch „Deploy from a branch“ gewählt ist – das ist dann unkritisch.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
