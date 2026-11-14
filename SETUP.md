@@ -58,27 +58,28 @@ Optional kann die Konfiguration fest eingebaut werden: `.env.example` nach `.env
 
 ## 5. Erinnerungen per ntfy (eigener Server)
 
-Die Erinnerungen verschickt GitHub Actions (kostenlos, weil das Repo öffentlich ist): Der Workflow
-**„Erinnerungen“** prüft alle 5 Minuten, was fällig ist, und schickt es an
-`https://ntfy.chaoten.online`. GitHub startet geplante Läufe oft ein paar Minuten verspätet,
-eine Erinnerung kann also etwas später kommen. Verpasste Zeitfenster werden nachgeholt, und doppelt
-geschickt wird nichts.
+Ein **Cloudflare Worker** prüft alle 5 Minuten, was fällig ist, und schickt es an
+`https://ntfy.chaoten.online`. GitHub Actions (Workflow „Erinnerungen“) ist nur der Ersatz und
+springt ein, wenn Cloudflare länger als 15 Minuten nicht geprüft hat. Doppelt verschickt wird
+nichts: Der Stand liegt in Firestore unter `meta/reminders`.
 
-1. **Topics festlegen**, z. B. `mama`, `papa`, `familie`. Am Handy in der ntfy-App
-   (Server `https://ntfy.chaoten.online`) das jeweilige Topic abonnieren.
-2. **In der Kalender-App**
-   - im Profil jeder Person (⚙️ → Personen) das **ntfy-Topic** eintragen
-   - optional unter ⚙️ → Allgemein ein **Familien-Topic** für Termine ohne Person
-   - bei einem Termin unter **Erinnerung** z. B. „15 Minuten vorher“ wählen
-3. **In GitHub**: Settings → Secrets and variables → Actions → **New repository secret**
-   - `NTFY_TOKEN` = Zugriffstoken des ntfy-Servers (muss auf die Topics schreiben dürfen)
-   - `FAMILY_ID` = Familien-ID aus ⚙️ → Synchronisation
-   - optional als **Variable** (nicht Secret) `NTFY_SERVER`, falls sich die Server-Adresse ändert
-4. **Testen**: Actions → **Erinnerungen** → **Run workflow** (Häkchen „Test-Nachricht“ an).
-   An jedes eingetragene Topic geht eine Test-Nachricht. Wenn der Lauf rot wird, steht der Grund im Log:
-   `401/403` heißt, Token oder Rechte sind falsch, `400` heißt, das Payload-Format stimmt nicht.
+1. **Topics festlegen**, z. B. `timetable-papa`. Am Handy in der ntfy-App
+   (Server `https://ntfy.chaoten.online`) abonnieren.
+2. **In der Kalender-App**: im Profil jeder Person das **ntfy-Topic** eintragen, optional unter
+   ⚙️ → Allgemein ein **Familien-Topic**. Beim Termin eine **Erinnerung** wählen.
+3. **GitHub-Secrets** (Settings → Secrets and variables → Actions):
+   - `NTFY_TOKEN`: Token des ntfy-Servers (muss auf die Topics schreiben dürfen)
+   - `FAMILY_ID`: aus ⚙️ → Synchronisation
+   - `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token →
+     Vorlage **„Edit Cloudflare Workers“** → Account auswählen → Create
+   - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare-Dashboard → Workers & Pages → rechts „Account ID“
+4. **Einrichten**: Actions → **„Erinnerungsdienst einrichten (Cloudflare)“** → Run workflow.
+   Der Workflow lädt den Worker hoch, übergibt die Secrets und wartet, bis Cloudflare das erste Mal
+   geprüft hat. Danach läuft er von selbst, und Änderungen an `reminders/` spielt er automatisch ein.
+5. **Testen**: Actions → **Erinnerungen** → Run workflow schickt eine Test-Nachricht an alle Topics.
 
-Ganztägige Termine erinnern ab 08:00 Uhr am Tag. „1 Tag vorher“ bedeutet also 08:00 Uhr am Vortag.
+Ganztägige Termine erinnern ab 08:00 Uhr am Tag. „Am Vorabend“ bedeutet 18:00 Uhr am Vortag.
+Auf dem kostenlosen Cloudflare-Plan sind 5 zeitgesteuerte Auslöser pro Konto möglich, dieser Worker braucht einen.
 
 ## Entwicklung
 

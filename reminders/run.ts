@@ -66,7 +66,8 @@ async function main() {
     }
     return;
   }
-  await run(cfg, token);
+  // Ersatz für Cloudflare: nur arbeiten, wenn Cloudflare seit 15 Minuten nicht geprüft hat
+  await run(cfg, token, new Date(), console.log, { by: 'github', skipIfActive: { other: 'cloudflare', withinMin: 15 } });
 }
 
 main().catch((e) => {
