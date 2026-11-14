@@ -48,6 +48,8 @@ export interface CalEvent {
   end: string;
   allDay: boolean;
   personIds: string[];
+  /** Fahrdienst (optional): wer bringt/holt */
+  driverIds?: string[];
   location?: string;
   notes?: string;
   /** Minuten vor Beginn, null = keine Erinnerung */
@@ -101,6 +103,8 @@ export interface FamilySettings {
   showSchoolHolidays: boolean;
   /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
   ntfyFamilyTopic?: string;
+  /** Geheimer Schlüssel für den Abo-Link (Kalender in Google/Outlook abonnieren) */
+  feedToken?: string;
   /** Tagesübersicht per ntfy: Uhrzeit "HH:mm" (leer = aus) */
   ntfyDaily?: string;
   /** Wochenübersicht am Sonntag um 18:00 */
@@ -140,4 +144,18 @@ export interface DeviceSettings {
   dayEnd: string;
   /** Version der gespeicherten Geräte-Einstellungen */
   v?: number;
+}
+
+/** Vorlage für häufige Termine */
+export interface EventTemplate {
+  id: string;
+  title: string;
+  durationMin: number;
+  allDay: boolean;
+  /** Übliche Beginnzeit "HH:mm" (optional) */
+  time?: string;
+  personIds: string[];
+  driverIds?: string[];
+  location?: string;
+  reminderMinutes?: number | null;
 }

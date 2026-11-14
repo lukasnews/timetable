@@ -24,8 +24,15 @@ const REMINDERS: [number | null, string][] = [
   [1440, '1 Tag vorher'],
 ];
 
+function newFeedToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return [...bytes].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+}
+
 export function DataTab() {
-  const { events, persons, timetables, family, store, apply } = useData();
+  const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl } = useData();
+  const [feedPerson, setFeedPerson] = useState('');
+  const [copied, setCopied] = useState(false);
   const backupRef = useRef<HTMLInputElement>(null);
   const [restore, setRestore] = useState<Backup | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -148,6 +155,47 @@ export function DataTab() {
       <h3><Icon name="download" size={18} /> Export</h3>
       <p className="hint">Alle eigenen Termine (ohne importierte) als .ics-Datei, z. B. für Google- oder Outlook-Kalender oder als Sicherung. Geburtstage aus den Profilen sind dabei.</p>
       <button className="btn" onClick={exportIcs}><Icon name="download" size={18} /> Termine exportieren</button>
+
+      <h3><Icon name="repeat" size={18} /> Kalender abonnieren</h3>
+      <p className="hint">Ein Link, über den Google-, Outlook- oder Apple-Kalender eure Termine laufend anzeigen (nur lesen). Diese Kalender holen Änderungen selbst ab – meist alle paar Stunden, bei Google bis zu einem Tag.</p>
+      {!serviceUrl ? (
+        <p className="hint">Der Abo-Link steht bereit, sobald der Erinnerungsdienst (Cloudflare) das nächste Mal eingerichtet wurde.</p>
+      ) : !family.feedToken ? (
+        <button className="btn" onClick={() => saveFamily({ feedToken: newFeedToken() })}>Abo-Link erstellen</button>
+      ) : (() => {
+        const link = `${serviceUrl}/cal/${family.feedToken}.ics${feedPerson ? `?p=${feedPerson}` : ''}`;
+        return (
+          <>
+            <label className="field"><span className="label">Welche Termine?</span>
+              <select value={feedPerson} onChange={(e) => { setFeedPerson(e.target.value); setCopied(false); }}>
+                <option value="">Alle Termine</option>
+                {persons.map((p) => <option key={p.id} value={p.id}>Nur {p.name} (+ Familientermine)</option>)}
+              </select>
+            </label>
+            <input readOnly value={link} className="mono" onFocus={(e) => e.target.select()} />
+            <div className="row">
+              <button className="btn primary" onClick={() => navigator.clipboard?.writeText(link).then(() => setCopied(true))}>{copied ? '✓ Kopiert' : 'Link kopieren'}</button>
+              <a className="btn" href={link.replace(/^https:/, 'webcal:')}>Im Kalender öffnen</a>
+              <button className="btn danger" onClick={() => saveFamily({ feedToken: newFeedToken() })}>Neuen Link erzeugen</button>
+            </div>
+            <small className="hint">Google Kalender: am Computer „Weitere Kalender → Per URL“. Wer den Link kennt, kann die Termine lesen – „Neuen Link erzeugen“ macht den alten ungültig.</small>
+          </>
+        );
+      })()}
+
+      <h3>⭐ Vorlagen</h3>
+      {templates.length === 0 ? (
+        <p className="hint">Noch keine. Beim Anlegen eines Termins auf „Als Vorlage speichern“ tippen – danach erscheint sie bei neuen Terminen zum Antippen.</p>
+      ) : (
+        <ul className="source-list">
+          {templates.map((t) => (
+            <li key={t.id}>
+              <span><strong>{t.title}</strong> <small className="hint">{t.allDay ? 'ganztägig' : `${t.time ?? ''} · ${t.durationMin} min`}{t.personIds.length ? ' · ' + t.personIds.map((id) => persons.find((p) => p.id === id)?.name).filter(Boolean).join(', ') : ''}</small></span>
+              <button className="btn small danger" onClick={() => saveTemplates(templates.filter((x) => x.id !== t.id))}><Icon name="trash" size={16} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h3><Icon name="cloud" size={18} /> Komplett-Sicherung</h3>
       <p className="hint">Alles in einer Datei: Personen mit Figuren, Termine, Stundenpläne und Einstellungen. Zum Aufheben – und zum Wiederherstellen, falls etwas schiefgeht.</p>

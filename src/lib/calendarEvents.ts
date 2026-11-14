@@ -11,6 +11,7 @@ export interface OccProps {
   recurring?: boolean;
   personIds: string[];
   location?: string;
+  driverIds?: string[];
   age?: number;
   /** Position des Schul-Streifens (0, 1, 2 …) */
   stripIndex?: number;
@@ -55,7 +56,7 @@ export function buildEvents(opts: {
 
   for (const occ of expand(events, from, to)) {
     const ev = occ.event;
-    if (!visibleFor(ev.personIds, selected, persons)) continue;
+    if (!visibleFor([...ev.personIds, ...(ev.driverIds ?? [])], selected, persons)) continue;
     const isBirthday = ev.kind === 'birthday';
     const age = isBirthday && ev.birthYear ? Number(occ.start.slice(0, 4)) - ev.birthYear : undefined;
     const props: OccProps = {
@@ -65,6 +66,7 @@ export function buildEvents(opts: {
       recurring: occ.recurring,
       personIds: ev.personIds.filter((id) => byId.has(id)),
       location: ev.location,
+      driverIds: (ev.driverIds ?? []).filter((id) => byId.has(id)),
       age,
     };
     out.push({

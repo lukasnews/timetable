@@ -58,7 +58,23 @@ jobs:
       - name: Worker hochladen
         if: steps.check.outputs.ready == 'true'
         working-directory: reminders
-        run: npx --yes wrangler@4 deploy --var FIREBASE_API_KEY:${{ steps.fb.outputs.key }} --var FIREBASE_PROJECT_ID:${{ steps.fb.outputs.pid }}
+        run: |
+          npx --yes wrangler@4 deploy --var FIREBASE_API_KEY:${{ steps.fb.outputs.key }} --var FIREBASE_PROJECT_ID:${{ steps.fb.outputs.pid }} 2>&1 | tee /tmp/deploy.log
+          URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' /tmp/deploy.log | head -1)
+          echo "WORKER_URL=$URL" >> "$GITHUB_ENV"
+      - name: Adresse des Dienstes für den Abo-Link hinterlegen
+        if: steps.check.outputs.ready == 'true' && env.WORKER_URL != ''
+        env:
+          KEY: ${{ steps.fb.outputs.key }}
+          PID: ${{ steps.fb.outputs.pid }}
+          RT: ${{ steps.fb.outputs.rt }}
+        run: |
+          FID=$(echo -n "$FAMILY_ID" | tr -d '[:space:]')
+          IDT=$(curl -sf -X POST "https://securetoken.googleapis.com/v1/token?key=$KEY" -d "grant_type=refresh_token&refresh_token=$RT" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).id_token))")
+          curl -sf -o /dev/null -X PATCH "https://firestore.googleapis.com/v1/projects/$PID/databases/(default)/documents/families/$FID/meta/service" \
+            -H "Authorization: Bearer $IDT" -H 'content-type: application/json' \
+            -d "{\"fields\":{\"url\":{\"stringValue\":\"$WORKER_URL\"}}}"
+          echo "Adresse hinterlegt."
       - name: Secrets im Worker setzen
         if: steps.check.outputs.ready == 'true'
         working-directory: reminders
