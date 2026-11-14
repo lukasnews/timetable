@@ -8,6 +8,8 @@
 export interface AvatarSpec {
   style: string;
   seed: string;
+  /** Baukasten: gewählte Merkmale (null = „keine“, z. B. keine Brille) – Rest bestimmt der Seed */
+  opts?: Record<string, string | null>;
 }
 
 export interface Person {
