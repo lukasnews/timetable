@@ -20,6 +20,7 @@ const REMINDERS: [number | null, string][] = [
   [30, '30 Minuten vorher'],
   [60, '1 Stunde vorher'],
   [120, '2 Stunden vorher'],
+  [840, 'Am Vorabend, 18:00 (ganztägig)'],
   [1440, '1 Tag vorher'],
   [2880, '2 Tage vorher'],
 ];

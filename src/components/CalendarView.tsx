@@ -3,6 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import listPlugin from '@fullcalendar/list';
 import deLocale from '@fullcalendar/core/locales/de';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventDropArg, EventMountArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
@@ -12,8 +13,9 @@ import { buildEvents, type OccProps } from '../lib/calendarEvents';
 import { fromNative } from '../lib/dates';
 import { tint } from '../lib/avatars';
 import { Avatar } from './ui';
+import { useWeather, weatherIcon, weatherText, type DayWeather } from '../lib/weather';
 
-export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay';
+export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay' | 'listUpcoming';
 
 export interface ChangeInfo {
   eventId: string;
@@ -31,6 +33,8 @@ interface Props {
   onOpen: (eventId: string, occStart: string) => void;
   onCreate: (start: string, end: string, allDay: boolean) => void;
   onChange: (c: ChangeInfo) => void;
+  /** Klick auf einen Tag (Kopf/Zahl) → Tagesansicht */
+  onNavDay: (date: Date) => void;
 }
 
 function stripe(persons: Person[]): string {
@@ -43,6 +47,8 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   const { events, persons, timetables, family, device } = useData();
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const byId = useMemo(() => new Map(persons.map((p) => [p.id, p])), [persons]);
+  const weather = useWeather(family.weather, device.showWeather);
+  const wx = (d: Date): DayWeather | undefined => weather[fromNative(d, true)];
 
   const fcEvents = useMemo(() => {
     if (!range) return [];
@@ -87,6 +93,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
         ? `🎂 ${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
         : x.kind === 'school' ? `🏫 ${arg.timeText}` : arg.event.title;
     const compact = arg.view.type === 'dayGridMonth';
+    const isList = arg.view.type.startsWith('list');
     return (
       <div className={'ev-inner' + (compact ? ' compact' : '')}>
         {ps.length > 0 && (
@@ -95,7 +102,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
           </span>
         )}
         <span className="ev-text">
-          {!arg.event.allDay && x.kind !== 'school' && <span className="ev-time">{arg.timeText}</span>}
+          {!arg.event.allDay && x.kind !== 'school' && !isList && <span className="ev-time">{arg.timeText}</span>}
           <span className="ev-title">{title}</span>
           {!compact && x.location && <span className="ev-loc">📍 {x.location}</span>}
         </span>
@@ -147,7 +154,21 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     <div className="cal-inner" style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
-      plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+      plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+      views={{ listUpcoming: { type: 'list', duration: { days: 30 } } }}
+      listDayFormat={{ weekday: 'long', day: 'numeric', month: 'long' }}
+      listDaySideFormat={false}
+      noEventsContent="Keine Termine in den nächsten 30 Tagen"
+      dayCellContent={(arg) => {
+        if (arg.view.type !== 'dayGridMonth') return arg.dayNumberText;
+        const w = wx(arg.date);
+        return (
+          <span className="dc">
+            {w && <span className="dc-wx" title={`${weatherText(w.code)} ${w.min}°/${w.max}°`}>{weatherIcon(w.code)}</span>}
+            <span className="dc-num">{arg.dayNumberText}</span>
+          </span>
+        );
+      }}
       initialView={props.view}
       locale={deLocale}
       firstDay={1}
@@ -176,11 +197,19 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
       dayHeaderFormat={{ weekday: 'short' }}
       dayHeaderContent={(arg) => {
+        if (arg.view.type.startsWith('list')) return arg.text;
         if (props.view === 'dayGridMonth') return <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')}</span>;
+        if (props.view === 'listUpcoming') return arg.text;
+        const w = wx(arg.date);
         return (
           <span className={'dh' + (arg.isToday ? ' today' : '')}>
             <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: props.view === 'timeGridDay' && !isPhone ? 'long' : 'short' }).replace('.', '')}</span>
             <span className="dh-d">{arg.date.getDate()}</span>
+            {w && (
+              <span className="dh-wx" title={weatherText(w.code)}>
+                {weatherIcon(w.code)} {w.max}°{props.view === 'timeGridDay' && <span className="dh-min"> / {w.min}°</span>}
+              </span>
+            )}
           </span>
         );
       }}
@@ -199,10 +228,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       eventDrop={toChange}
       eventResize={toChange}
       navLinks
-      navLinkDayClick={(date) => {
-        const api = (ref as React.RefObject<FullCalendar>)?.current?.getApi();
-        api?.changeView('timeGridDay', date);
-      }}
+      navLinkDayClick={(date) => props.onNavDay(date)}
     />
     </div>
   );
