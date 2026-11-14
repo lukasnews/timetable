@@ -31,7 +31,7 @@ function config(env: Env): Config {
     ntfyServer: env.NTFY_SERVER || 'https://ntfy.chaoten.online',
     ntfyToken: env.NTFY_TOKEN,
     timezone: 'Europe/Vienna',
-    appUrl: env.APP_URL || 'https://lukasnews.github.io/timetable/',
+    appUrl: env.APP_URL || 'https://timetable.chaoten.online/',
   };
 }
 
