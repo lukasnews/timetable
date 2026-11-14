@@ -5,6 +5,7 @@ import { CalendarView, type ChangeInfo, type ViewName } from './components/Calen
 import { EventDialog, type EditDraft } from './components/EventDialog';
 import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
 import { TimetableView } from './components/TimetableView';
+import { SearchDialog } from './components/SearchDialog';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -19,6 +20,7 @@ const VIEW_LABELS: [Mode, string, string][] = [
   ['dayGridMonth', 'Monat', 'M'],
   ['timeGridWeek', 'Woche', 'W'],
   ['timeGridDay', 'Tag', 'T'],
+  ['listUpcoming', 'Liste', 'L'],
   ['timetable', 'Stundenplan', '📚'],
 ];
 
@@ -44,6 +46,7 @@ export default function App() {
   // Dialoge
   const [draft, setDraft] = useState<(EditDraft & { scope?: Scope; occStart?: string; series?: CalEvent }) | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
+  const [searching, setSearching] = useState(false);
   const [scopeAsk, setScopeAsk] = useState<{ action: 'edit' | 'move' | 'delete'; resolve: (s: Scope | null) => void } | null>(null);
   const [pinAsk, setPinAsk] = useState<((ok: boolean) => void) | null>(null);
   const unlockedUntil = useRef(0);
@@ -193,7 +196,8 @@ export default function App() {
           {inst.canPrompt && !inst.installed && (
             <button className="btn small install-btn" onClick={inst.install}><Icon name="download" size={16} /> <span>Installieren</span></button>
           )}
-          <button className="icon-btn" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
+          <button className="icon-btn" onClick={() => setSearching(true)} aria-label="Suchen"><Icon name="search" /></button>
+          <button className="icon-btn hide-phone" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
           <button className="icon-btn" onClick={() => openSettings('general')} aria-label="Einstellungen"><Icon name="gear" /></button>
         </div>
       </header>
@@ -235,13 +239,17 @@ export default function App() {
           <TimetableView requirePin={requirePin} />
         ) : (
           <div className="cal-wrap" ref={calWrap}>
-            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} />
+            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
           </div>
         )}
       </main>
 
       {draft && (
         <EventDialog draft={draft} persons={persons} onClose={() => setDraft(null)} onSave={save} onDelete={draft.isNew ? undefined : remove} />
+      )}
+      {searching && (
+        <SearchDialog events={events} persons={persons} onClose={() => setSearching(false)}
+          onPick={(date) => { setSearching(false); setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', date)); }} />
       )}
       {settings && <SettingsDialog tab={settings} onClose={() => setSettings(null)} />}
       {scopeAsk && <ScopeDialog action={scopeAsk.action} onPick={(s) => scopeAsk.resolve(s)} />}
@@ -278,6 +286,10 @@ function RangeTitle({ range, compact }: { range: { type: string; start: Date; en
         <span className="rt-main">{span}{yearSuffix(end)}</span>
       </>
     );
+  }
+  if (type === 'listUpcoming') {
+    const f = (d: Date) => `${d.getDate()}. ${d.toLocaleDateString('de-AT', { month: 'short' })}`;
+    return <span className="rt-main">{f(start)} – {f(end)}</span>;
   }
   return <span className="rt-main">{start.toLocaleDateString('de-AT', { month: 'long' })} {start.getFullYear()}</span>;
 }

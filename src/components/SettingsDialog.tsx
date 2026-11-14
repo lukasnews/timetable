@@ -12,10 +12,12 @@ import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, saveClou
 import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
+import { DataTab } from './DataTab';
+import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
-export type SettingsTab = 'persons' | 'device' | 'sync' | 'general';
+export type SettingsTab = 'persons' | 'device' | 'sync' | 'data' | 'general';
 
 export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; onClose: () => void }) {
   const [tab, setTab] = useState<SettingsTab>(initial);
@@ -23,6 +25,7 @@ export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; on
     ['persons', 'Personen', 'Personen', 'users'],
     ['device', 'Dieses Gerät', 'Gerät', 'device'],
     ['sync', 'Synchronisation', 'Sync', 'cloud'],
+    ['data', 'Import/Export', 'Daten', 'book'],
     ['general', 'Allgemein', 'Allgemein', 'gear'],
   ];
   return (
@@ -37,6 +40,7 @@ export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; on
       {tab === 'persons' && <PersonsTab />}
       {tab === 'device' && <DeviceTab />}
       {tab === 'sync' && <SyncTab />}
+      {tab === 'data' && <DataTab />}
       {tab === 'general' && <GeneralTab />}
     </Modal>
   );
@@ -145,6 +149,7 @@ function DeviceTab() {
       </div>
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
+      <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter anzeigen" hint="Ort unter Allgemein → Wetter" />
 
       <h3>Kiosk-Modus (Wand-Tablet)</h3>
       <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute" />
@@ -333,6 +338,8 @@ function GeneralTab() {
       <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
         hint="Schulautonome Tage bitte als eigenen Termin eintragen." />
 
+      <WeatherPlace />
+
       <h3><Icon name="bell" size={18} /> Erinnerungen per ntfy</h3>
       <p className="hint">Jede Person bekommt Erinnerungen an das <b>ntfy-Topic in ihrem Profil</b>. Termine ohne Person gehen an das Familien-Topic (leer = an alle Personen mit Topic). Server und Token sind in GitHub hinterlegt (siehe SETUP.md).</p>
       <label className="field"><span className="label">Familien-Topic</span>
@@ -360,5 +367,44 @@ function GeneralTab() {
       <p className="hint">Comic-Figuren von <a href="https://www.dicebear.com" target="_blank" rel="noreferrer">DiceBear</a>:</p>
       <ul className="credits">{Object.values(AVATAR_STYLES).map((s) => <li key={s.credit}>{s.credit}</li>)}</ul>
     </div>
+  );
+}
+
+function WeatherPlace() {
+  const { family, saveFamily } = useData();
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<(Place & { region?: string })[]>([]);
+  const [err, setErr] = useState('');
+  const cur = family.weather ?? DEFAULT_PLACE;
+  const search = async () => {
+    setErr('');
+    try {
+      const r = await searchPlaces(q.trim());
+      setResults(r);
+      if (!r.length) setErr('Kein Ort gefunden.');
+    } catch {
+      setErr('Ortssuche nicht erreichbar – bitte Internetverbindung prüfen.');
+    }
+  };
+  return (
+    <>
+      <h3>🌤️ Wetter</h3>
+      <p className="hint">Ort für die Vorhersage: <b>{cur.name}</b>{family.weather ? '' : ' (Standard)'}. Ein-/ausschalten pro Gerät unter „Gerät“.</p>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); if (q.trim()) search(); }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ort suchen, z. B. Wels" />
+        <button className="btn" disabled={!q.trim()}>Suchen</button>
+      </form>
+      {err && <small className="error">{err}</small>}
+      {results.length > 0 && (
+        <ul className="source-list">
+          {results.map((r) => (
+            <li key={`${r.lat},${r.lon}`}>
+              <span><strong>{r.name}</strong> <small className="hint">{r.region}</small></span>
+              <button className="btn small" onClick={() => { saveFamily({ weather: { name: r.name, lat: r.lat, lon: r.lon } }); setResults([]); setQ(''); }}>Wählen</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }

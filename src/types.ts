@@ -57,6 +57,8 @@ export interface CalEvent {
   /** Ausnahme einer Serie: Verweis auf die Serie + ursprünglicher Start */
   seriesId?: string;
   originalStart?: string;
+  /** Importiert aus einer .ics-Datei/URL: Herkunft (zum gemeinsamen Entfernen) */
+  importSource?: string;
   updatedAt?: number;
 }
 
@@ -90,6 +92,8 @@ export interface FamilySettings {
   showSchoolHolidays: boolean;
   /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
   ntfyFamilyTopic?: string;
+  /** Ort für die Wettervorhersage */
+  weather?: { name: string; lat: number; lon: number };
   updatedAt?: number;
 }
 
@@ -106,6 +110,8 @@ export interface DeviceSettings {
   reminderPersons: string[];
   /** Stundenplan-Blöcke auch in der Monatsansicht */
   schoolInMonth: boolean;
+  /** Wetter im Kalender anzeigen */
+  showWeather: boolean;
   /** Schulzeiten im Kalender anzeigen (Schalter in der Leiste) */
   showSchool: boolean;
   theme: 'auto' | 'light' | 'dark';
