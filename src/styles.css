@@ -547,3 +547,42 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .conflicts { border: 1px solid #f59e0b; background: color-mix(in srgb, #f59e0b 12%, var(--surface)); border-radius: 12px; padding: 8px 12px; }
 .conflicts p { margin: 2px 0; font-size: 0.9rem; }
 .det-row.warn { color: #d97706; }
+
+/* ---------- Drucken ---------- */
+.print-title { display: none; }
+@page { size: A4 landscape; margin: 10mm; }
+/* Druckmodus (Klasse .printing kurz vor dem Druckdialog) und echter Druck: hell, ohne Bedienelemente */
+:root.printing, :root.printing.dark, :root.printing:not(.light) {
+  --bg: #ffffff; --surface: #ffffff; --surface-2: #f1f2f6; --text: #111318; --muted: #555a6b; --border: #c9cdd8;
+  --accent: #4f46e5; --accent-text: #ffffff; --family: #94a3b8; --family-bg: #eef1f6; --today: transparent;
+  --holiday-bg: rgba(239, 68, 68, 0.08); --ferien-bg: rgba(16, 185, 129, 0.08); --shadow: none; color-scheme: light;
+}
+:root.printing.dark .fc .fc-event:not(.fc-bg-event) { background: var(--evbg, var(--family-bg)) !important; }
+:root.printing .ev-title, :root.printing .tt-lesson strong { color: #111318; }
+:root.printing body { filter: none; }
+:root.printing .app { height: auto; display: block; }
+:root.printing .topbar, :root.printing .toolbar, :root.printing .toast, :root.printing .tt-head, :root.printing .modal-backdrop { display: none !important; }
+:root.printing .main { padding: 0; }
+:root.printing .cal-wrap { height: auto; box-shadow: none; padding: 0; overflow: visible; border-radius: 0; }
+:root.printing .cal-inner { height: auto; }
+:root.printing .print-title { display: flex; align-items: center; gap: 8px; font-size: 14pt; margin: 0 0 3mm; }
+:root.printing .print-title .rt-badge { display: none; }
+:root.printing .fc { font-size: 11px; }
+:root.printing .fc .fc-timegrid-slot { height: 14px; line-height: 13px; }
+:root.printing .fc .fc-timegrid-slot-label-cushion { font-size: 9px; }
+:root.printing .dh-d { font-size: 14px; min-width: 24px; height: 24px; }
+:root.printing .fc .fc-col-header-cell { padding: 2px 0; }
+:root.printing .print-title { margin-bottom: 3mm; font-size: 14pt; }
+:root.printing .fc .fc-timegrid-now-indicator-line, :root.printing .fc .fc-timegrid-now-indicator-arrow { display: none; }
+:root.printing .fc .fc-scroller { overflow: visible !important; height: auto !important; }
+:root.printing .timetable { overflow: visible; height: auto; }
+:root.printing .tt-day, :root.printing .tt-lesson, :root.printing .fc-event { break-inside: avoid; }
+:root.printing .tt-day { box-shadow: none; border: 1px solid var(--border); }
+:root.printing .tt-day.today { outline: none; }
+:root.printing .tt-grid { grid-template-columns: repeat(5, 1fr); }
+:root.printing .tt-day .long { display: inline; }
+:root.printing .tt-day .short { display: none; }
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html, body, #root { height: auto; }
+}

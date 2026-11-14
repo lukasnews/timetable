@@ -7,7 +7,7 @@ import { tint } from '../lib/avatars';
 
 const empty = (id: string): Timetable => ({ id, lessons: [], showInCalendar: true });
 
-export function TimetableView({ requirePin }: { requirePin: () => Promise<boolean> }) {
+export function TimetableView({ requirePin, printing, onPrint }: { requirePin: () => Promise<boolean>; printing?: boolean; onPrint?: () => void }) {
   const { persons, timetables, saveTimetable } = useData();
   const kids = persons.filter((p) => p.hasTimetable);
   const [sel, setSel] = useState(kids[0]?.id);
@@ -22,10 +22,12 @@ export function TimetableView({ requirePin }: { requirePin: () => Promise<boolea
   const today = todayLocal();
   const todayWd = weekdayMo0(today);
   const currentWeek: 'A' | 'B' | undefined = tt.abWeeks ? ((isoWeek(today) % 2 === 0) === ((tt.evenWeekIs ?? 'A') === 'A') ? 'A' : 'B') : undefined;
-  const showWeek = currentWeek;
+  // Im Ausdruck beide Wochen (A/B) zeigen
+  const showWeek = printing ? undefined : currentWeek;
 
   return (
     <div className="timetable" style={{ ['--pc' as string]: kid.color, ['--pcbg' as string]: tint(kid.color, 0.85) }}>
+      <h1 className="print-title">Stundenplan {kid.name}</h1>
       <div className="tt-head">
         <div className="seg">
           {kids.map((k) => (
@@ -36,6 +38,7 @@ export function TimetableView({ requirePin }: { requirePin: () => Promise<boolea
         </div>
         {currentWeek && <span className="tag">Diese Woche: {currentWeek}-Woche</span>}
         <span className="spacer" />
+        {!editing && onPrint && <button className="btn" onClick={onPrint}><Icon name="print" size={18} /> <span className="long">Drucken</span></button>}
         <button className={'btn' + (editing ? ' primary' : '')} onClick={async () => { if (editing) setEditing(false); else if (await requirePin()) setEditing(true); }}>
           <Icon name="edit" size={18} /> {editing ? 'Fertig' : 'Bearbeiten'}
         </button>

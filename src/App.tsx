@@ -50,6 +50,16 @@ export default function App() {
   const [draft, setDraft] = useState<(EditDraft & { scope?: Scope; occStart?: string; series?: CalEvent }) | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [searching, setSearching] = useState(false);
+  // Drucken: Ansicht kurz in den Druckmodus schalten (volle Höhe, helle Farben), dann den Druckdialog öffnen
+  const [printing, setPrinting] = useState(false);
+  const print = () => {
+    setSettings(null);
+    setPrinting(true);
+    const done = () => { setPrinting(false); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    setTimeout(() => { api()?.updateSize(); setTimeout(() => window.print(), 250); }, 150);
+  };
+  useEffect(() => { document.documentElement.classList.toggle('printing', printing); }, [printing]);
   const [detail, setDetail] = useState<{ eventId: string; occStart: string } | null>(null);
   // „Rückgängig“-Leiste nach Löschen/Verschieben
   const [undo, setUndo] = useState<{ text: string; m: import('./lib/recurrence').Mutation } | null>(null);
@@ -224,6 +234,7 @@ export default function App() {
             <button className="btn small install-btn" onClick={inst.install}><Icon name="download" size={16} /> <span>Installieren</span></button>
           )}
           <button className="icon-btn" onClick={() => setSearching(true)} aria-label="Suchen"><Icon name="search" /></button>
+          <button className="icon-btn hide-phone" onClick={print} aria-label="Drucken"><Icon name="print" /></button>
           <button className="icon-btn hide-phone" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
           <button className="icon-btn" onClick={() => openSettings('general')} aria-label="Einstellungen"><Icon name="gear" /></button>
         </div>
@@ -269,10 +280,11 @@ export default function App() {
 
       <main className="main">
         {mode === 'timetable' ? (
-          <TimetableView requirePin={requirePin} />
+          <TimetableView requirePin={requirePin} printing={printing} onPrint={print} />
         ) : (
           <div className="cal-wrap" ref={calWrap}>
-            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
+            <h1 className="print-title">Familienkalender · <RangeTitle range={range} /></h1>
+            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
           </div>
         )}
       </main>
@@ -295,7 +307,7 @@ export default function App() {
             setDetail({ eventId, occStart });
           }} />
       )}
-      {settings && <SettingsDialog tab={settings} onClose={() => setSettings(null)} />}
+      {settings && <SettingsDialog tab={settings} onClose={() => setSettings(null)} onPrint={print} />}
       {undo && (
         <div className="toast" role="status">
           <span>{undo.text}</span>

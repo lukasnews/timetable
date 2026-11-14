@@ -37,6 +37,8 @@ interface Props {
   onNavDay: (date: Date) => void;
   /** gesperrt: kein Ziehen, kein Anlegen durch Tippen */
   locked: boolean;
+  /** Druckansicht: volle Höhe, alle Termine, Tageszeit 6–22 Uhr */
+  printing?: boolean;
 }
 
 function stripe(persons: Person[]): string {
@@ -180,7 +182,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       weekText="KW"
       weekTextLong="Kalenderwoche"
       headerToolbar={false}
-      height="100%"
+      height={props.printing ? 'auto' : '100%'}
       nowIndicator
       editable={!props.locked}
       selectable={!props.locked}
@@ -189,11 +191,11 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       longPressDelay={350}
       eventLongPressDelay={350}
       selectLongPressDelay={500}
-      dayMaxEvents={isPhone ? 3 : 5}
+      dayMaxEvents={props.printing ? false : isPhone ? 3 : 5}
       moreLinkText={(n) => `+${n} weitere`}
       allDayText="Ganzt."
-      slotMinTime={device.dayStart + ':00'}
-      slotMaxTime={device.dayEnd + ':00'}
+      slotMinTime={(props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart) + ':00'}
+      slotMaxTime={(props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd) + ':00'}
       scrollTime={new Date().getHours() > 1 ? `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00:00` : '07:00:00'}
       slotDuration="00:30:00"
       snapDuration="00:15:00"
