@@ -227,7 +227,7 @@ export default function App() {
   );
 
   return (
-    <div className={'app' + (device.kiosk ? ' kiosk' : '')}>
+    <div className={'app' + (device.kiosk ? ' kiosk' : '') + (mode === 'timetable' ? ' mode-timetable' : '')}>
       <header className="topbar">
         <button className="fab" onClick={() => newEvent()} aria-label="Neuer Termin"><Icon name="plus" size={28} /></button>
         <div className="chips" role="toolbar" aria-label="Personen filtern">

@@ -498,7 +498,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .modal-foot .spacer { display: none; }
   .modal-foot .btn { flex: 1; padding: 0 8px; min-height: 48px; }
   .hide-phone { display: none !important; }
-  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; overflow: visible; margin: 0 -8px 12px; }
+  .tabs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; overflow: visible; margin: 0 -8px 12px; }
   .tabs button { flex-direction: column; gap: 3px; padding: 8px 2px 6px; font-size: 0.75rem; justify-content: center; }
   .tabs .long { display: none; }
   .tabs .short { display: inline; }
@@ -625,4 +625,69 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 @media (min-width: 641px) and (max-width: 1100px) {
   .countdown .cd-title { display: none; }
+}
+
+/* ================= Übersichtlichkeit (Dialoge, Einstellungen, Liste, Handy) ================= */
+/* Datum/Uhrzeit: Uhrzeit nicht über die volle Breite (schlug die allgemeine Input-Regel) */
+.dt input[type='date']:not(#x) { flex: 1 1 auto; min-width: 0; width: auto; }
+.dt input[type='time']:not(#x) { flex: 0 0 120px; width: 120px; }
+.dt-grid { grid-template-columns: 1fr; }
+.modal.wide .dt-grid { grid-template-columns: 1fr 1fr; }
+.form-group { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--surface-2) 40%, var(--surface)); }
+.group-title { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; display: flex; align-items: center; gap: 6px; margin: 0; }
+.form-group .toggle-row { padding: 2px 0; }
+.form-more { border: 1px solid var(--border); border-radius: 14px; }
+.form-more > summary { list-style: none; cursor: pointer; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+.form-more > summary::-webkit-details-marker { display: none; }
+.form-more > summary > span::before { content: '▸ '; color: var(--muted); }
+.form-more[open] > summary > span::before { content: '▾ '; }
+.form-more > summary small { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-more-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+.form { gap: 12px; }
+
+/* Einstellungen: Abschnitte klar getrennt */
+.settings-section > h3 { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 10px; }
+.settings-section > h3:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.settings-section > .hint { margin-top: -6px; }
+
+/* Liste: linksbündig, schmale Zeitspalte */
+.fc .fc-list-event-title, .fc .fc-list-event-title .ev-inner { text-align: left; justify-content: flex-start; }
+.fc .fc-list-day-cushion { text-align: left; }
+.fc .fc-list-day-text { text-transform: none; }
+.fc .fc-list-event-time { width: 92px; min-width: 92px; font-size: 0.85rem; }
+
+@media (max-width: 640px) {
+  .dt-grid { grid-template-columns: 1fr; }
+  .cat-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
+  .cat-row::-webkit-scrollbar { display: none; }
+  .cat-chip { flex: none; }
+  .fc .fc-list-event-time { width: 64px; min-width: 64px; font-size: 0.78rem; white-space: normal; }
+  .fc .fc-list-event td { padding: 6px 6px; }
+  .fc .fc-list-day-cushion { padding: 6px 10px; }
+  /* Monat am Handy: Titel statt abgeschnittener Uhrzeit */
+  .fc-dayGridMonth-view .ev-inner.compact .ev-avatars, .fc-dayGridMonth-view .ev-inner.compact .ev-time { display: none; }
+  .fc-dayGridMonth-view .ev-inner.compact { padding-left: 7px; }
+  .fc-dayGridMonth-view .ev-title { font-size: 0.7rem; }
+}
+
+/* Stundenplan am Handy: ein Tag, volle Breite */
+.tt-days { width: 100%; }
+.tt-days button { flex: 1; justify-content: center; }
+.tt-days button.is-today:not(.on) { color: var(--accent); }
+.tt-grid.one-day { grid-template-columns: 1fr !important; }
+.tt-grid.one-day .tt-day h4 { display: none; }
+.tt-grid.one-day .tt-lesson { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-left-width: 5px; }
+.tt-grid.one-day .tt-lesson strong { font-size: 1rem; flex: 1; min-width: 40%; }
+.tt-grid.one-day .tt-time { font-size: 0.85rem; min-width: 92px; }
+.tt-grid.one-day .tt-lesson small { font-size: 0.8rem; width: 100%; padding-left: 102px; }
+@media (max-width: 640px) {
+  .tt-head { gap: 8px; }
+  .tt-head .btn { padding: 0 12px; }
+  .tt-head .seg button { padding: 6px 10px; }
+  .mode-timetable .countdowns { display: none; }
+}
+
+@media (max-width: 640px) {
+  .recurrence .seg { flex-wrap: nowrap; }
+  .recurrence .seg button { padding: 6px 8px; font-size: 0.85rem; flex: 1; justify-content: center; }
 }
