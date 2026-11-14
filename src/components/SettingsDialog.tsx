@@ -13,6 +13,7 @@ import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
+import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -330,11 +331,8 @@ function GeneralTab() {
   const [updateMsg, setUpdateMsg] = useState('');
   const checkUpdate = async () => {
     setUpdateMsg('Suche …');
-    const reg = await navigator.serviceWorker?.getRegistration();
-    if (!reg) { location.reload(); return; }
-    await reg.update().catch(() => {});
-    if (reg.installing || reg.waiting) setUpdateMsg('Update wird geladen …');
-    else { setUpdateMsg('Neu laden …'); setTimeout(() => location.reload(), 500); }
+    const r = await checkForUpdate();
+    setUpdateMsg(r === 'reload' ? 'Update wird geladen …' : 'Aktuell ✓');
   };
   const [pin1, setPin1] = useState('');
   const [pin2, setPin2] = useState('');
