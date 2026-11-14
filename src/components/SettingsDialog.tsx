@@ -150,6 +150,13 @@ function DeviceTab() {
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
       <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter anzeigen" hint="Ort unter Allgemein → Wetter" />
+      <label className="field"><span className="label">Ich bin (an diesem Gerät)</span>
+        <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
+          <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>
+          {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <small className="hint">Für Änderungs-Nachrichten: zeigt, wer etwas eingetragen hat, und du bekommst deine eigenen Änderungen nicht.</small>
+      </label>
       <Toggle checked={device.lockNeedsPin} onChange={(v) => setDevice({ lockNeedsPin: v })} label="🔒 Entsperren nur mit PIN"
         hint="Zum Bearbeiten (Verschieben, Ändern) muss die PIN eingegeben werden. Neue Termine über + gehen immer." />
 
@@ -353,6 +360,15 @@ function GeneralTab() {
         <input value={famTopic} placeholder="z. B. familie" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onChange={(e) => setFamTopic(e.target.value)} /></label>
       {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
+      <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
+        hint="Jeden Morgen eine Nachricht mit den Terminen des Tages (nur wenn es welche gibt)" />
+      {!!family.ntfyDaily && (
+        <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
+          <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
+      )}
+      <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+      <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Bei neuen und geänderten Terminen benachrichtigen"
+        hint="An die betroffenen Personen. Wer unter Gerät → „Ich bin“ eingetragen ist, bekommt die eigenen Änderungen nicht." />
 
       <h3><Icon name="lock" size={18} /> PIN für Einstellungen</h3>
       <p className="hint">{family.pinHash ? 'Eine PIN ist gesetzt. Termine anlegen geht ohne PIN, Einstellungen und Stundenplan sind geschützt.' : 'Noch keine PIN gesetzt – Einstellungen sind frei zugänglich.'}</p>

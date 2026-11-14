@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { dueNotifications, localNow, run, type Config } from './core';
+import { changeNotifications, digest, dueNotifications, localNow, run, type Config } from './core';
 import type { CalEvent, Person } from '../src/types';
 
 const persons: Person[] = [
@@ -45,6 +45,37 @@ describe('Fällige Erinnerungen', () => {
   });
 });
 
+describe('Geburtstag aus Profil, Übersicht, Änderungen', () => {
+  const ps: Person[] = [
+    { ...persons[0], birthday: '1990-11-14', birthdayReminder: 840 },
+    persons[1],
+  ];
+  it('Profil-Geburtstag erinnert am Vorabend an alle', () => {
+    const r = dueNotifications({ events: [], persons: ps, from: '2026-11-13T17:55', to: '2026-11-13T18:00', sent: new Set() });
+    expect(r.map((x) => x.n.topic).sort()).toEqual(['mama', 'papa']);
+    expect(r[0].n.title).toBe('🎂 Mama wird 36');
+    expect(dueNotifications({ events: [], persons: [{ ...ps[0], birthdayReminder: null }], from: '2026-11-13T17:55', to: '2026-11-13T18:00', sent: new Set() })).toHaveLength(0);
+  });
+  it('Tagesübersicht je Person nur eigene + Familientermine', () => {
+    const evs = [ev({}), ev({ id: 'e2', title: 'Müll', personIds: [], allDay: true, start: '2026-11-13', end: '2026-11-14' }), ev({ id: 'e3', title: 'Papa-Termin', personIds: ['papa'], start: '2026-11-13T18:00', end: '2026-11-13T19:00' })];
+    const d = digest({ events: evs, persons, from: '2026-11-13', days: 1, title: 'Heute' });
+    const mama = d.find((n) => n.topic === 'mama')!.message;
+    expect(mama).toContain('10:00 Zahnärztin (Mama)');
+    expect(mama).toContain('Müll');
+    expect(mama).not.toContain('Papa-Termin');
+    expect(digest({ events: [], persons, from: '2026-11-13', days: 1, title: 'Heute' })).toHaveLength(0);
+  });
+  it('Änderung: nicht an die Person, die geändert hat', () => {
+    const e = ev({ personIds: ['mama', 'papa'], changedBy: 'papa', createdAt: 2000, updatedAt: 2000 });
+    const n = changeNotifications({ changed: [e], persons, since: 1000, today: '2026-11-13' });
+    expect(n.map((x) => x.topic)).toEqual(['mama']);
+    expect(n[0].title).toBe('Neu: Zahnärztin');
+    expect(n[0].message).toContain('eingetragen von Papa');
+    const old = changeNotifications({ changed: [{ ...e, createdAt: 500 }], persons, since: 1000, today: '2026-11-13' });
+    expect(old[0].title).toBe('Geändert: Zahnärztin');
+  });
+});
+
 describe('Lauf gegen gemockte APIs', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('sendet JSON an ntfy mit Token und speichert den Stand', async () => {
@@ -52,9 +83,9 @@ describe('Lauf gegen gemockte APIs', () => {
     const calls: { url: string; init?: RequestInit }[] = [];
     vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
-      if (url.includes('/events')) return new Response(JSON.stringify({ documents: [{ name: 'x/e1', fields: {
+      if (url.endsWith(':runQuery')) return new Response(JSON.stringify([{ document: { name: 'x/e1', fields: {
         title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
-        personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } }] }));
+        personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }, { readTime: 'x' }]));
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
       if (url.endsWith('/meta')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
       return new Response('{}');

@@ -77,7 +77,11 @@ export function useReminders(events: CalEvent[], persons: Person[], device: Devi
       last.current = now;
       if (since >= now) return;
       const today = todayLocal();
-      const occs = expand(events.filter((e) => e.reminderMinutes != null), addDays(today, -1), addDays(today, 4));
+      const bdays: CalEvent[] = persons.filter((p) => p.birthday && p.birthdayReminder != null).map((p) => ({
+        id: 'bday-' + p.id, title: '🎂 ' + p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [],
+        reminderMinutes: p.birthdayReminder, recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
+      }));
+      const occs = expand([...events.filter((e) => e.reminderMinutes != null), ...bdays], addDays(today, -1), addDays(today, 4));
       for (const o of occs) {
         const ev = o.event;
         const start = o.event.allDay ? `${o.start}T08:00` : o.start;

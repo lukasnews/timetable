@@ -117,11 +117,14 @@ export function buildEvents(opts: {
   // Schulzeiten (nur Beginn–Ende)
   if (opts.showSchool) {
     const kids = persons.filter((p) => p.hasTimetable && selected.has(p.id));
+    const free = expand(events.filter((e) => e.schoolFree), from, to);
+    const isFreeFor = (pid: string, d: string) =>
+      free.some((o) => o.start.slice(0, 10) <= d && (o.event.allDay ? d < o.end : d <= o.end.slice(0, 10)) && (!o.event.personIds.length || o.event.personIds.includes(pid)));
     kids.forEach((p, stripIndex) => {
       const tt = timetables.find((t) => t.id === p.id);
       if (!tt || !tt.showInCalendar) return;
       for (let d = from; d < to; d = addDays(d, 1)) {
-        if (isSchoolFree(d)) continue;
+        if (isSchoolFree(d) || isFreeFor(p.id, d)) continue;
         const ls = lessonsForDay(tt, d);
         if (!ls.length) continue;
         const start = ls.reduce((m, l) => (l.start < m ? l.start : m), ls[0].start);

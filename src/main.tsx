@@ -1,6 +1,5 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 import './install';
 import { importDeviceSettings, migrateIfNeeded } from './migrate';
 import { DataProvider } from './data/DataContext';
@@ -11,16 +10,24 @@ importDeviceSettings();
 migrateIfNeeded();
 
 // Updates: regelmäßig und beim Zurückkehren in die App nach einer neuen Version suchen.
-// Ist eine da, wird sie automatisch aktiviert und die Seite neu geladen.
-registerSW({
-  immediate: true,
-  onRegisteredSW(_url, reg) {
-    if (!reg) return;
+// Eine neue Version wird erst aktiviert, wenn kein Fenster (Termin, Einstellungen …) offen ist –
+// damit keine Eingabe verloren geht.
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return; // erste Installation: kein Neuladen nötig
+    const reloadWhenIdle = () => {
+      if (document.querySelector('.modal-backdrop')) { setTimeout(reloadWhenIdle, 3000); return; }
+      location.reload();
+    };
+    reloadWhenIdle();
+  });
+  navigator.serviceWorker.register('./sw.js').then((reg) => {
     const check = () => { if (navigator.onLine) reg.update().catch(() => {}); };
     setInterval(check, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
-  },
-});
+  }).catch(() => {});
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

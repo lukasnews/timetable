@@ -13,7 +13,7 @@ function fmt(o: Occurrence): string {
 }
 
 /** Suche in Titel, Ort, Notizen und Personennamen. Serien erscheinen einmal (nächstes Vorkommen). */
-export function SearchDialog(props: { events: CalEvent[]; persons: Person[]; onPick: (date: string) => void; onClose: () => void }) {
+export function SearchDialog(props: { events: CalEvent[]; persons: Person[]; onPick: (date: string, eventId: string, occStart: string) => void; onClose: () => void }) {
   const [q, setQ] = useState('');
   const today = todayLocal();
 
@@ -48,7 +48,7 @@ export function SearchDialog(props: { events: CalEvent[]; persons: Person[]; onP
     const ps = o.event.personIds.map((id) => props.persons.find((p) => p.id === id)).filter(Boolean) as Person[];
     return (
       <li key={o.event.id + o.occStart}>
-        <button className="search-row" onClick={() => props.onPick(o.start.slice(0, 10))}>
+        <button className="search-row" onClick={() => props.onPick(o.start.slice(0, 10), o.event.id, o.occStart)}>
           <span className="sr-avatars">{ps.slice(0, 3).map((p) => <Avatar key={p.id} person={p} size={26} />)}</span>
           <span className="sr-text">
             <strong>{o.event.kind === 'birthday' ? '🎂 ' : ''}{o.event.title}</strong>

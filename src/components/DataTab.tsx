@@ -1,6 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { useData } from '../data/DataContext';
-import type { CalEvent } from '../types';
+import type { CalEvent, FamilySettings, Person, Timetable } from '../types';
+
+interface Backup {
+  format: 'familienkalender-backup';
+  version: number;
+  exportedAt: string;
+  persons: Person[];
+  events: CalEvent[];
+  timetables: Timetable[];
+  settings?: FamilySettings;
+}
 import { parseICS, toICS, type ImportResult } from '../lib/ics';
 import { todayLocal } from '../lib/dates';
 import { Avatar, Icon, Toggle } from './ui';
@@ -15,7 +25,9 @@ const REMINDERS: [number | null, string][] = [
 ];
 
 export function DataTab() {
-  const { events, persons, apply } = useData();
+  const { events, persons, timetables, family, store, apply } = useData();
+  const backupRef = useRef<HTMLInputElement>(null);
+  const [restore, setRestore] = useState<Backup | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
@@ -80,23 +92,55 @@ export function DataTab() {
       if (rem === -120) rem = e.allDay ? 840 : 1440;
       return { ...e, personIds, reminderMinutes: rem };
     });
-    apply({ put: list, del: [] });
-    setMsg(`✓ ${list.length} Termin(e) aus „${preview.source}“ importiert.`);
+    // Abgleich: künftige Termine derselben Quelle, die in der neuen Datei fehlen, entfernen
+    const ids = new Set(list.map((e) => e.id));
+    const stale = events.filter((e) => e.importSource === preview.source && !ids.has(e.id) && (e.recurrence || e.end.slice(0, 10) >= today)).map((e) => e.id);
+    apply({ put: list, del: stale });
+    setMsg(`✓ ${list.length} Termin(e) aus „${preview.source}“ importiert${stale.length ? `, ${stale.length} veraltete entfernt` : ''}.`);
     setPreview(null);
   };
 
-  const exportIcs = async () => {
-    const ics = toICS(events.filter((e) => !e.importSource), persons);
-    const name = `familienkalender-${today}.ics`;
-    const file = new File([ics], name, { type: 'text/calendar' });
+  const saveFile = async (file: File) => {
     if (navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ files: [file], title: 'Familienkalender' }); return; } catch { /* abgebrochen → Download */ }
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);
-    a.download = name;
+    a.download = file.name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+
+  const exportIcs = () => saveFile(new File([toICS(events.filter((e) => !e.importSource), persons)], `familienkalender-${today}.ics`, { type: 'text/calendar' }));
+
+  const exportBackup = () => {
+    const backup: Backup = { format: 'familienkalender-backup', version: 1, exportedAt: new Date().toISOString(), persons, events, timetables, settings: family };
+    saveFile(new File([JSON.stringify(backup, null, 1)], `familienkalender-sicherung-${today}.json`, { type: 'application/json' }));
+  };
+
+  const onBackupFile = async (f: File | undefined) => {
+    if (!f) return;
+    setErr(''); setMsg('');
+    try {
+      const b = JSON.parse(await f.text()) as Backup;
+      if (b.format !== 'familienkalender-backup' || !Array.isArray(b.persons) || !Array.isArray(b.events)) throw new Error();
+      setRestore(b);
+    } catch {
+      setErr('Das ist keine Sicherungsdatei des Familienkalenders.');
+    }
+  };
+
+  const doRestore = (b: Backup) => {
+    // Alles ersetzen: Einträge, die nicht in der Sicherung sind, werden entfernt
+    const keep = { persons: new Set(b.persons.map((x) => x.id)), events: new Set(b.events.map((x) => x.id)), timetables: new Set((b.timetables ?? []).map((x) => x.id)) };
+    persons.filter((x) => !keep.persons.has(x.id)).forEach((x) => store.remove('persons', x.id));
+    events.filter((x) => !keep.events.has(x.id)).forEach((x) => store.remove('events', x.id));
+    timetables.filter((x) => !keep.timetables.has(x.id)).forEach((x) => store.remove('timetables', x.id));
+    b.persons.forEach((x) => store.put('persons', x));
+    b.events.forEach((x) => store.put('events', x));
+    (b.timetables ?? []).forEach((x) => store.put('timetables', x));
+    if (b.settings) store.put('meta', { ...b.settings, id: 'settings' });
+    setMsg(`✓ Sicherung vom ${new Date(b.exportedAt).toLocaleDateString('de-AT')} wiederhergestellt: ${b.persons.length} Person(en), ${b.events.length} Termin(e).`);
   };
 
   return (
@@ -104,6 +148,19 @@ export function DataTab() {
       <h3><Icon name="download" size={18} /> Export</h3>
       <p className="hint">Alle eigenen Termine (ohne importierte) als .ics-Datei, z. B. für Google- oder Outlook-Kalender oder als Sicherung. Geburtstage aus den Profilen sind dabei.</p>
       <button className="btn" onClick={exportIcs}><Icon name="download" size={18} /> Termine exportieren</button>
+
+      <h3><Icon name="cloud" size={18} /> Komplett-Sicherung</h3>
+      <p className="hint">Alles in einer Datei: Personen mit Figuren, Termine, Stundenpläne und Einstellungen. Zum Aufheben – und zum Wiederherstellen, falls etwas schiefgeht.</p>
+      <input ref={backupRef} type="file" accept=".json,application/json" hidden onChange={(e) => { onBackupFile(e.target.files?.[0]); e.target.value = ''; }} />
+      <div className="row">
+        <button className="btn" onClick={exportBackup}><Icon name="download" size={18} /> Sicherung speichern</button>
+        <button className="btn" onClick={() => backupRef.current?.click()}><Icon name="up" size={18} /> Wiederherstellen …</button>
+      </div>
+      {restore && (
+        <ConfirmDialog confirm="Alles ersetzen"
+          text={`Sicherung vom ${new Date(restore.exportedAt).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' })} einspielen (${restore.persons.length} Personen, ${restore.events.length} Termine)? Der jetzige Stand wird auf allen Geräten vollständig ersetzt.`}
+          onResult={(ok) => { if (ok) doRestore(restore); setRestore(null); }} />
+      )}
 
       <h3><Icon name="up" size={18} /> Import (.ics)</h3>
       <p className="hint">Z. B. den Müllkalender deiner Gemeinde: Auf der Gemeinde-Seite die Abfuhrtermine als <b>.ics</b> (iCal) herunterladen und hier auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln.</p>
