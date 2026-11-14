@@ -83,7 +83,8 @@ export function buildEvents(opts: {
     if (!p.birthday || !selected.has(p.id)) continue;
     const [by, bm, bd] = p.birthday.split('-');
     for (let y = Number(from.slice(0, 4)); y <= Number(to.slice(0, 4)); y++) {
-      const d = `${y}-${bm}-${bd}`;
+      const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+      const d = `${y}-${bm}-${bm === '02' && bd === '29' && !leap ? '28' : bd}`;
       if (d < from || d >= to) continue;
       out.push({
         id: `bday-${p.id}-${y}`,

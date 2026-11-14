@@ -76,6 +76,26 @@ describe('Geburtstag aus Profil, Übersicht, Änderungen', () => {
   });
 });
 
+describe('Tagesübersicht spät am Abend', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('wird auch bei 22:30 gesendet', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const sent: any[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url.endsWith(':runQuery')) return new Response('[{}]');
+      if (url.includes('/events')) return new Response(JSON.stringify({ documents: [{ name: 'x/e1', fields: { title: sv('Abendtermin'), start: sv('2026-11-13T23:00'), end: sv('2026-11-13T23:30'), allDay: { booleanValue: false }, personIds: { arrayValue: {} } } }] }));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/settings', fields: { ntfyDaily: sv('22:30') } }] }));
+      if (url === 'https://ntfy.example') sent.push(JSON.parse(init!.body as string));
+      return new Response('{}');
+    });
+    const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', timezone: 'Europe/Vienna' };
+    await run(cfg, 'id', new Date('2026-11-13T21:35:00Z'), () => {}); // 22:35 in Wien
+    expect(sent.map((n) => n.title)).toEqual(['Heute im Kalender']);
+    expect(sent[0].message).toContain('23:00 Abendtermin');
+  });
+});
+
 describe('Lauf gegen gemockte APIs', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('sendet JSON an ntfy mit Token und speichert den Stand', async () => {
@@ -87,7 +107,7 @@ describe('Lauf gegen gemockte APIs', () => {
         title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
         personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }, { readTime: 'x' }]));
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
-      if (url.endsWith('/meta')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
       return new Response('{}');
     });
     const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', ntfyToken: 'TOK', timezone: 'Europe/Vienna' };

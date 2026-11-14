@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { CalEvent, Person, Recurrence } from '../types';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
-import { addDays, addMinutes, diffMinutes } from '../lib/dates';
+import { addDays, addMinutes, diffMinutes, weekdayMo0 } from '../lib/dates';
 
 export interface EditDraft {
   event: CalEvent;
@@ -20,7 +20,7 @@ const REMINDERS: [number | null, string][] = [
   [30, '30 Minuten vorher'],
   [60, '1 Stunde vorher'],
   [120, '2 Stunden vorher'],
-  [840, 'Am Vorabend, 18:00 (ganztägig)'],
+  [840, 'Am Vorabend, 18:00'],
   [1440, '1 Tag vorher'],
   [2880, '2 Tage vorher'],
 ];
@@ -45,7 +45,16 @@ export function EventDialog(props: {
     if (!d) return;
     const dur = diffMinutes(ev.start, ev.end);
     const start = ev.allDay ? d : `${d}T${startTime}`;
-    set({ start, end: addMinutes(start, dur, ev.allDay) });
+    // Wöchentliche Serie: Wochentag wandert mit dem Datum mit (sonst erscheint der Termin nicht am gewählten Tag)
+    let recurrence = ev.recurrence;
+    if (recurrence?.freq === 'weekly' && recurrence.byWeekday?.length) {
+      const oldWd = weekdayMo0(ev.start), newWd = weekdayMo0(start);
+      if (oldWd !== newWd) {
+        const days = recurrence.byWeekday.length === 1 ? [newWd] : [...new Set([...recurrence.byWeekday.filter((x) => x !== oldWd), newWd])].sort();
+        recurrence = { ...recurrence, byWeekday: days };
+      }
+    }
+    set({ start, end: addMinutes(start, dur, ev.allDay), recurrence });
   };
   const setEndDate = (d: string) => {
     if (!d) return;
@@ -157,7 +166,8 @@ export function EventDialog(props: {
 
         <label className="field"><span className="label"><Icon name="bell" size={16} /> Erinnerung</span>
           <select value={ev.reminderMinutes ?? ''} onChange={(e) => set({ reminderMinutes: e.target.value === '' ? null : Number(e.target.value) })}>
-            {REMINDERS.map(([v, l]) => <option key={l} value={v ?? ''}>{l}</option>)}
+            {REMINDERS.filter(([v]) => ev.allDay ? v === null || v === 0 || v === 840 || v === 1440 || v === 2880 || v === ev.reminderMinutes : v !== 840 || v === ev.reminderMinutes)
+              .map(([v, l]) => <option key={l} value={v ?? ''}>{ev.allDay ? ({ 0: 'Am Tag, 08:00', 1440: '1 Tag vorher, 08:00', 2880: '2 Tage vorher, 08:00' } as Record<number, string>)[v as number] ?? l : l}</option>)}
           </select>
         </label>
 

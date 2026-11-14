@@ -89,3 +89,13 @@ d('PIN-Hash ohne Browser-Krypto', () => {
     expect(await hashPin('1234')).toBe(createHash('sha256').update('familienkalender:1234').digest('hex'));
   });
 });
+
+d('Serie teilen im Dialog', () => {
+  it('Restanzahl bleibt erhalten, wenn die Wiederholung nicht geändert wurde', () => {
+    const s: CalEvent = { ...weekly, recurrence: { freq: 'weekly', interval: 1, end: { type: 'count', count: 6 } } };
+    const m = applyChange(s, '2026-11-17T16:00', { start: '2026-11-17T17:00', end: '2026-11-17T18:00', allDay: false, patch: { title: 'Neu', recurrence: s.recurrence } }, 'following', [s], id);
+    const o = expand(m.put, '2026-11-01', '2027-03-01');
+    expect(o).toHaveLength(6);
+    expect(o.filter((x) => x.event.title === 'Neu')).toHaveLength(4);
+  });
+});
