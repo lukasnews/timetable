@@ -19,7 +19,7 @@ export default defineConfig({
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Familienkalender',
-        short_name: 'Kalender',
+        short_name: 'Familienkalender',
         description: 'Familienkalender für Tablet und Handy',
         theme_color: '#0e0f15',
         background_color: '#0e0f15',
