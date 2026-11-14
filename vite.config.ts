@@ -38,6 +38,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Neue Version aktiviert sich selbst; das Neuladen steuert die App (siehe src/main.tsx)
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
       },
