@@ -375,6 +375,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 12px; cursor: pointer;
   border: 1px solid var(--border); background: var(--surface); font-weight: 600; color: var(--muted); opacity: 0.75;
 }
+.lock-toggle {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); font-weight: 600; color: var(--muted);
+}
+.lock-toggle.on { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+.details { display: flex; flex-direction: column; gap: 10px; }
+.det-when { font-size: 1.05rem; font-weight: 600; margin: 0; }
+.det-row { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); }
+.det-persons { display: flex; flex-wrap: wrap; gap: 6px; }
+.det-persons .pick { cursor: default; }
+.det-notes { white-space: pre-wrap; margin: 0; padding: 10px; background: var(--surface-2); border-radius: 10px; }
 .school-toggle.on { color: var(--text); opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 
 /* ---------- Stundenplan ---------- */
@@ -454,7 +465,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .nav { flex-basis: 100%; }
   .toolbar .views { margin-left: auto; }
   .nav .btn { padding: 0 10px; }
-  .views .long, .school-toggle .long { display: none; }
+  .views .long, .school-toggle .long, .lock-toggle .long { display: none; }
+  .lock-toggle { padding: 0 10px; min-height: 38px; }
   .school-toggle { padding: 0 10px; min-height: 38px; }
   .cal-inner { --strip-w: 18px; }
   .views .short { display: inline; }
