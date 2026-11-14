@@ -2,9 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import './install';
+import { importDeviceSettings, migrateIfNeeded } from './migrate';
 import { DataProvider } from './data/DataContext';
 import App from './App';
 import './styles.css';
+
+importDeviceSettings();
+migrateIfNeeded();
 
 // Updates: regelmäßig und beim Zurückkehren in die App nach einer neuen Version suchen.
 // Ist eine da, wird sie automatisch aktiviert und die Seite neu geladen.

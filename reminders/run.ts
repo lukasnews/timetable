@@ -29,7 +29,7 @@ async function main() {
     ntfyServer: process.env.NTFY_SERVER?.trim() || 'https://ntfy.chaoten.online',
     ntfyToken: process.env.NTFY_TOKEN?.trim() || undefined,
     timezone: process.env.TIMEZONE || 'Europe/Vienna',
-    appUrl: process.env.APP_URL || 'https://lukasnews.github.io/timetable/',
+    appUrl: process.env.APP_URL || 'https://timetable.chaoten.online/',
   };
 
   // Anonyme Firebase-Kennung wiederverwenden (über den Actions-Cache), statt jedes Mal eine neue anzulegen
