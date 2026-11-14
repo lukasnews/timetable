@@ -107,8 +107,10 @@ export function buildEvents(opts: {
   }
   if (opts.showSchoolHolidays) {
     for (const f of rangesBetween(from, to, schoolHolidaysOOE)) {
-      out.push({ id: `fer-${f.start}`, title: f.title, start: f.start, end: f.end, allDay: true, display: 'background',
-        classNames: ['bg-ferien'], extendedProps: { kind: 'ferien', personIds: [] } satisfies OccProps });
+      // Leichte Einfärbung der Tage + eigener Balken mit Namen (in allen Ansichten lesbar)
+      out.push({ id: `ferbg-${f.start}`, start: f.start, end: f.end, allDay: true, display: 'background', classNames: ['bg-ferien'] });
+      out.push({ id: `fer-${f.start}`, title: f.title, start: f.start, end: f.end, allDay: true, editable: false,
+        classNames: ['ev-ferien'], extendedProps: { kind: 'ferien', personIds: [] } satisfies OccProps });
     }
   }
 

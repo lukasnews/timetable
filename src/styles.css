@@ -321,6 +321,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .fc .fc-event.ev-school .ev-title { font-weight: 500; font-size: 0.75rem; }
 .fc .fc-event.ev-holiday { background: var(--holiday-bg) !important; cursor: default; }
 .fc .fc-event.ev-holiday::before { background: #ef4444; }
+.fc .fc-event.ev-ferien { background: color-mix(in srgb, #10b981 16%, var(--surface)) !important; cursor: default; }
+.fc .fc-event.ev-ferien::before { background: #10b981; }
+.fc .fc-event.ev-ferien .ev-title, .fc .fc-event.ev-holiday .ev-title { font-weight: 600; font-size: 0.78rem; }
+.fc .fc-event.ev-ferien .ev-inner, .fc .fc-event.ev-holiday .ev-inner { padding-top: 1px; padding-bottom: 1px; }
 .fc .fc-event.ev-birthday { background: linear-gradient(90deg, #fde68a, #fbcfe8) !important; }
 .fc .fc-event.ev-birthday .ev-title { color: #3b2a00; }
 .fc .fc-bg-event.bg-holiday { background: var(--holiday-bg); opacity: 1; }

@@ -194,7 +194,7 @@ function DeviceTab() {
 }
 
 function SyncTab() {
-  const { store, status, switchStore } = useData();
+  const { store, status, switchStore, persons, events } = useData();
   const cloud = loadCloudConfig();
   const [qr, setQr] = useState('');
   const [cfgText, setCfgText] = useState('');
@@ -271,6 +271,10 @@ function SyncTab() {
             </div>
           </div>
           <p className="hint mono">Familien-ID: {cloud.familyId}</p>
+          <p className="hint">In diesem Kalender: {persons.length} Person(en), {events.length} Termin(e).</p>
+          {persons.length === 0 && (
+            <p className="error">Dieser Familienkalender ist leer. Falls auf einem anderen Gerät schon Daten sind: hier „Dieses Gerät trennen“ und danach den QR-Code bzw. Familien-Link des anderen Geräts öffnen.</p>
+          )}
           <button className="btn danger" onClick={() => setConfirmLeave(true)}>Dieses Gerät trennen</button>
           {confirmLeave && <ConfirmDialog text="Dieses Gerät von der Cloud trennen? Die Daten bleiben online erhalten; hier wird wieder der lokale Speicher genutzt." confirm="Trennen"
             onResult={(ok) => { setConfirmLeave(false); if (ok) { saveCloudConfig(null); switchStore(); } }} />}
