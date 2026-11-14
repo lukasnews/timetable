@@ -20,11 +20,10 @@ Dauer: etwa 15 Minuten.
 
 ### Variante A: nur am Handy (GitHub Pages, automatisch)
 
-Bei jeder Änderung auf `main` baut GitHub die App und legt sie in den Ordner `docs/` auf `main`
-(Commit „Build: …“ vom github-actions-Bot). Bitte `docs/` nicht von Hand bearbeiten.
-Einmalig: **Settings → Pages → Source: „Deploy from a branch“ → Branch `main`, Ordner `/docs` → Save.**
-Adresse: `https://timetable.chaoten.online/` (eigene Domain über `public/CNAME`; DNS bei Cloudflare:
-CNAME `timetable` → `lukasnews.github.io`, „DNS only“). Die alte github.io-Adresse leitet automatisch weiter.
+Bei jeder Änderung auf `main` testet und baut GitHub die App und veröffentlicht sie direkt
+(Workflow „Veröffentlichen"). Einmalig: **Settings → Pages → Source: „GitHub Actions"**.
+Adresse: `https://timetable.chaoten.online/` (eigene Domain unter Settings → Pages → Custom domain;
+DNS bei Cloudflare: CNAME `timetable` → `lukasnews.github.io`, „DNS only").
 
 ### Variante B: am Computer (Firebase Hosting)
 
