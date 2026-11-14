@@ -18,16 +18,17 @@ import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
-export type SettingsTab = 'persons' | 'device' | 'sync' | 'data' | 'general';
+export type SettingsTab = 'persons' | 'device' | 'notify' | 'sync' | 'data' | 'general';
 
 export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: SettingsTab; onClose: () => void; onPrint?: () => void }) {
   const [tab, setTab] = useState<SettingsTab>(initial);
   const tabs: [SettingsTab, string, string, string][] = [
     ['persons', 'Personen', 'Personen', 'users'],
-    ['device', 'Dieses Gerät', 'Gerät', 'device'],
-    ['sync', 'Synchronisation', 'Sync', 'cloud'],
-    ['data', 'Import/Export', 'Daten', 'book'],
-    ['general', 'Allgemein', 'Allgemein', 'gear'],
+    ['general', 'Kalender', 'Kalender', 'gear'],
+    ['notify', 'Erinnerungen', 'Erinn.', 'bell'],
+    ['device', 'Gerät', 'Gerät', 'device'],
+    ['data', 'Daten', 'Daten', 'book'],
+    ['sync', 'Sync', 'Sync', 'cloud'],
   ];
   return (
     <Modal title="Einstellungen" onClose={onClose} wide>
@@ -41,6 +42,7 @@ export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: Settin
       {tab === 'persons' && <PersonsTab />}
       {tab === 'device' && <DeviceTab />}
       {tab === 'sync' && <SyncTab />}
+      {tab === 'notify' && <NotifyTab />}
       {tab === 'data' && <DataTab onPrint={onPrint} />}
       {tab === 'general' && <GeneralTab />}
     </Modal>
@@ -97,31 +99,12 @@ function PersonsTab() {
 }
 
 function DeviceTab() {
-  const { device, setDevice, persons } = useData();
-  const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
-  const enableReminders = async (v: boolean) => {
-    if (v && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-      const r = await Notification.requestPermission();
-      setPerm(r);
-      if (r !== 'granted') return;
-    }
-    setDevice({ reminders: v });
-  };
+  const { device, setDevice } = useData();
   const inst = useInstall();
   return (
     <div className="settings-section">
-      <h3><Icon name="download" size={18} /> App installieren</h3>
-      {inst.installed ? (
-        <p className="hint">✓ Läuft als installierte App.</p>
-      ) : inst.canPrompt ? (
-        <button className="btn primary" onClick={inst.install}><Icon name="download" size={18} /> Auf diesem Gerät installieren</button>
-      ) : isIOS() ? (
-        <p className="hint">In Safari unten auf <b>Teilen</b> (□↑) tippen → <b>„Zum Home-Bildschirm“</b>.</p>
-      ) : (
-        <p className="hint">Im Browser-Menü (⋮) <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b> wählen.</p>
-      )}
-
-      <h3>Ansicht</h3>
+      <p className="hint">Diese Einstellungen gelten nur für dieses Gerät.</p>
+      <h3>Darstellung</h3>
       <div className="field">
         <span className="label">Farbschema</span>
         <div className="seg">
@@ -148,23 +131,19 @@ function DeviceTab() {
             {HOURS.filter((h) => h > device.dayStart).map((h) => <option key={h} value={h}>{h} Uhr</option>)}
           </select></label>
       </div>
-      <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="Schulzeiten anzeigen" hint="Auch über den 🏫-Schalter in der Leiste" />
+
+      <h3>Anzeigen</h3>
+      <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="🏫 Schulzeiten" hint="Auch über den 🏫-Schalter in der Leiste" />
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
-      <Toggle checked={device.showCountdown} onChange={(v) => setDevice({ showCountdown: v })} label="⏳ Countdown anzeigen"
-        hint="„Noch 12 Tage bis Weihnachtsferien“ und Termine mit Countdown in der Kopfzeile" />
-      <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter anzeigen" hint="Ort unter Allgemein → Wetter" />
-      <label className="field"><span className="label">Ich bin (an diesem Gerät)</span>
-        <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
-          <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>
-          {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <small className="hint">Für Änderungs-Nachrichten: zeigt, wer etwas eingetragen hat, und du bekommst deine eigenen Änderungen nicht.</small>
-      </label>
-      <Toggle checked={device.lockNeedsPin} onChange={(v) => setDevice({ lockNeedsPin: v })} label="🔒 Entsperren nur mit PIN"
-        hint="Zum Bearbeiten (Verschieben, Ändern) muss die PIN eingegeben werden. Neue Termine über + gehen immer." />
+      <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter" hint="Ort unter Kalender → Wetter" />
+      <Toggle checked={device.showCountdown} onChange={(v) => setDevice({ showCountdown: v })} label="⏳ Countdown" hint="„Noch 12 Tage bis Weihnachtsferien“ in der Kopfzeile" />
+
+      <h3><Icon name="lock" size={18} /> Bedienung</h3>
+      <Toggle checked={device.lockNeedsPin} onChange={(v) => setDevice({ lockNeedsPin: v })} label="Entsperren nur mit PIN"
+        hint="Zum Verschieben und Ändern muss die PIN eingegeben werden. Neue Termine über + gehen immer." />
 
       <h3>Kiosk-Modus (Wand-Tablet)</h3>
-      <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute" />
+      <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute und sperrt wieder" />
       {device.kiosk && (
         <>
           <Toggle checked={device.wakeLock} onChange={(v) => setDevice({ wakeLock: v })} label="Bildschirm nicht abschalten" />
@@ -181,9 +160,69 @@ function DeviceTab() {
         </>
       )}
 
-      <h3>Erinnerungen auf diesem Gerät</h3>
-      <Toggle checked={device.reminders} onChange={enableReminders} label="Benachrichtigungen anzeigen"
-        hint={perm === 'denied' ? 'Im Browser blockiert – bitte in den Browser-Einstellungen erlauben.' : 'Am Wand-Tablet meist aus, am Handy an. Funktioniert, solange die App geöffnet ist – für zuverlässige Push-Nachrichten ntfy verwenden.'} />
+      {!inst.installed && (
+        <>
+          <h3><Icon name="download" size={18} /> App installieren</h3>
+          {inst.canPrompt ? (
+            <button className="btn primary" onClick={inst.install}><Icon name="download" size={18} /> Auf diesem Gerät installieren</button>
+          ) : isIOS() ? (
+            <p className="hint">In Safari unten auf <b>Teilen</b> (□↑) tippen → <b>„Zum Home-Bildschirm“</b>.</p>
+          ) : (
+            <p className="hint">Im Browser-Menü (⋮) <b>„App installieren“</b> bzw. <b>„Zum Startbildschirm hinzufügen“</b> wählen.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function NotifyTab() {
+  const { device, setDevice, persons, family, saveFamily } = useData();
+  const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const enableReminders = async (v: boolean) => {
+    if (v && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const r = await Notification.requestPermission();
+      setPerm(r);
+      if (r !== 'granted') return;
+    }
+    setDevice({ reminders: v });
+  };
+  const [famTopic, setFamTopic] = useState(family.ntfyFamilyTopic ?? '');
+  useEffect(() => {
+    const v = famTopic.trim();
+    if (v === (family.ntfyFamilyTopic ?? '')) return;
+    const t = setTimeout(() => saveFamily({ ntfyFamilyTopic: v || undefined }), 600);
+    return () => clearTimeout(t);
+  }, [famTopic]); // eslint-disable-line react-hooks/exhaustive-deps
+  const withTopic = persons.filter((p) => p.ntfyTopic);
+  return (
+    <div className="settings-section">
+      <h3><Icon name="bell" size={18} /> Push per ntfy (für alle)</h3>
+      <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
+        {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
+      <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
+        <input value={famTopic} placeholder="leer = an alle Personen mit Topic" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          onChange={(e) => setFamTopic(e.target.value)} /></label>
+      {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
+      <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
+        hint="Jeden Morgen die Termine des Tages und was mitzubringen ist" />
+      {!!family.ntfyDaily && (
+        <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
+          <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
+      )}
+      <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+      <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Neue und geänderte Termine melden"
+        hint="An die betroffenen Personen – nicht an die Person, die geändert hat (siehe „Ich bin“)." />
+
+      <h3>Dieses Gerät</h3>
+      <label className="field"><span className="label">Ich bin</span>
+        <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
+          <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>
+          {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </label>
+      <Toggle checked={device.reminders} onChange={enableReminders} label="Benachrichtigungen in der App"
+        hint={perm === 'denied' ? 'Im Browser blockiert – bitte in den Browser-Einstellungen erlauben.' : 'Nur solange die App geöffnet ist. Am Wand-Tablet meist aus.'} />
       {device.reminders && (
         <div className="field">
           <span className="label">Nur für</span>
@@ -322,14 +361,6 @@ function SyncTab() {
 
 function GeneralTab() {
   const { family, saveFamily } = useData();
-  const [famTopic, setFamTopic] = useState(family.ntfyFamilyTopic ?? '');
-  // Kurz nach dem Tippen automatisch speichern
-  useEffect(() => {
-    const v = famTopic.trim();
-    if (v === (family.ntfyFamilyTopic ?? '')) return;
-    const t = setTimeout(() => saveFamily({ ntfyFamilyTopic: v || undefined }), 600);
-    return () => clearTimeout(t);
-  }, [famTopic]); // eslint-disable-line react-hooks/exhaustive-deps
   const [updateMsg, setUpdateMsg] = useState('');
   const checkUpdate = async () => {
     setUpdateMsg('Suche …');
@@ -347,28 +378,12 @@ function GeneralTab() {
   };
   return (
     <div className="settings-section">
-      <h3>Kalender</h3>
+      <h3>Feiertage und Ferien</h3>
       <Toggle checked={family.showHolidays} onChange={(v) => saveFamily({ showHolidays: v })} label="Feiertage Österreich anzeigen" />
       <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
         hint="Schulautonome Tage bitte als eigenen Termin eintragen." />
 
       <WeatherPlace />
-
-      <h3><Icon name="bell" size={18} /> Erinnerungen per ntfy</h3>
-      <p className="hint">Jede Person bekommt Erinnerungen an das <b>ntfy-Topic in ihrem Profil</b>. Termine ohne Person gehen an das Familien-Topic (leer = an alle Personen mit Topic). Server und Token sind in GitHub hinterlegt (siehe SETUP.md).</p>
-      <label className="field"><span className="label">Familien-Topic</span>
-        <input value={famTopic} placeholder="z. B. familie" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          onChange={(e) => setFamTopic(e.target.value)} /></label>
-      {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
-      <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
-        hint="Jeden Morgen eine Nachricht mit den Terminen des Tages (nur wenn es welche gibt)" />
-      {!!family.ntfyDaily && (
-        <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
-          <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
-      )}
-      <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
-      <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Bei neuen und geänderten Terminen benachrichtigen"
-        hint="An die betroffenen Personen. Wer unter Gerät → „Ich bin“ eingetragen ist, bekommt die eigenen Änderungen nicht." />
 
       <h3><Icon name="lock" size={18} /> PIN für Einstellungen</h3>
       <p className="hint">{family.pinHash ? 'Eine PIN ist gesetzt. Termine anlegen geht ohne PIN, Einstellungen und Stundenplan sind geschützt.' : 'Noch keine PIN gesetzt – Einstellungen sind frei zugänglich.'}</p>

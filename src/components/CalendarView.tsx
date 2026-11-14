@@ -162,7 +162,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     <FullCalendar
       ref={ref}
       plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-      views={{ listUpcoming: { type: 'list', duration: { days: 30 } }, timeGridThree: { type: 'timeGrid', duration: { days: 3 } } }}
+      views={{ listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone }, timeGridThree: { type: 'timeGrid', duration: { days: 3 } } }}
       listDayFormat={{ weekday: 'long', day: 'numeric', month: 'long' }}
       listDaySideFormat={false}
       noEventsContent="Keine Termine in den nächsten 30 Tagen"

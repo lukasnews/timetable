@@ -5,6 +5,7 @@ import { Avatar, Icon, Toggle } from './ui';
 import { WEEKDAYS, WEEKDAYS_SHORT, addDays, addMinutes, isoWeek, todayLocal, uid, weekdayMo0 } from '../lib/dates';
 import { expand } from '../lib/recurrence';
 import { tint } from '../lib/avatars';
+import { useMedia } from '../hooks';
 
 const empty = (id: string): Timetable => ({ id, lessons: [], showInCalendar: true });
 
@@ -18,6 +19,9 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
   const kids = persons.filter((p) => p.hasTimetable);
   const [sel, setSel] = useState(kids[0]?.id);
   const [editing, setEditing] = useState(false);
+  const isPhone = useMedia('(max-width: 640px)');
+  const wd0 = weekdayMo0(todayLocal());
+  const [phoneDay, setPhoneDay] = useState(wd0 > 4 ? 0 : wd0);
   useEffect(() => { if (!kids.some((k) => k.id === sel)) setSel(kids[0]?.id); }, [kids, sel]);
 
   if (!kids.length) {
@@ -47,9 +51,9 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
         </div>
         {currentWeek && <span className="tag">Diese Woche: {currentWeek}-Woche</span>}
         <span className="spacer" />
-        {!editing && onPrint && <button className="btn" onClick={onPrint}><Icon name="print" size={18} /> <span className="long">Drucken</span></button>}
+        {!editing && onPrint && <button className="btn hide-phone" onClick={onPrint}><Icon name="print" size={18} /> <span className="long">Drucken</span></button>}
         <button className={'btn' + (editing ? ' primary' : '')} onClick={async () => { if (editing) setEditing(false); else if (await requirePin()) setEditing(true); }}>
-          <Icon name="edit" size={18} /> {editing ? 'Fertig' : 'Bearbeiten'}
+          <Icon name="edit" size={18} /> <span className={editing ? '' : 'long'}>{editing ? 'Fertig' : 'Bearbeiten'}</span>
         </button>
       </div>
 
@@ -68,13 +72,22 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
           </ul>
         </div>
       )}
-      {!editing && !printing && onAddTest && <p className="hint tt-tip">Tipp: Eine Stunde antippen, um eine Schularbeit oder einen Test einzutragen.</p>}
+      {!editing && !printing && onAddTest && <p className="hint tt-tip">Stunde antippen → Schularbeit oder Test eintragen</p>}
 
       {editing ? (
         <TimetableEditor tt={tt} onChange={saveTimetable} />
       ) : (
-        <div className="tt-grid">
+        <>
+        {isPhone && !printing && (
+          <div className="seg tt-days">
+            {WEEKDAYS_SHORT.slice(0, 5).map((d, i) => (
+              <button key={d} className={(phoneDay === i ? 'on' : '') + (i === todayWd ? ' is-today' : '')} onClick={() => setPhoneDay(i)}>{d}</button>
+            ))}
+          </div>
+        )}
+        <div className={'tt-grid' + (isPhone && !printing ? ' one-day' : '')}>
           {WEEKDAYS.slice(0, 5).map((d, wd) => {
+            if (isPhone && !printing && wd !== phoneDay) return null;
             const ls = tt.lessons.filter((l) => l.weekday === wd && (!l.week || !showWeek || l.week === showWeek)).sort((a, b) => a.start.localeCompare(b.start));
             return (
               <div key={d} className={'tt-day' + (wd === todayWd ? ' today' : '')}>
@@ -97,6 +110,7 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
             );
           })}
         </div>
+        </>
       )}
     </div>
   );
