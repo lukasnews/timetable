@@ -188,7 +188,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       longPressDelay={350}
       eventLongPressDelay={350}
       selectLongPressDelay={500}
-      dayMaxEvents={isPhone ? 2 : 4}
+      dayMaxEvents={isPhone ? 3 : 5}
       moreLinkText={(n) => `+${n} weitere`}
       allDayText="Ganzt."
       slotMinTime={device.dayStart + ':00'}
@@ -222,7 +222,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       eventDidMount={onMount}
       eventOrder={(a: any, b: any) => {
         const rank = (e: any) => ({ holiday: 0, ferien: 1 } as Record<string, number>)[e.extendedProps?.kind] ?? 2;
-        return rank(a) - rank(b);
+        return rank(a) - rank(b) || a.start - b.start || b.duration - a.duration || String(a.title).localeCompare(String(b.title));
       }}
       eventClick={(arg: EventClickArg) => {
         const x = arg.event.extendedProps as OccProps;

@@ -272,7 +272,6 @@ export interface RunOptions {
 export async function run(cfg: Config, token: string, now = new Date(), log = console.log, opts: RunOptions = {}) {
   const to = localNow(cfg.timezone, now);
   const today = to.slice(0, 10);
-  const time = to.slice(11);
   // Nur Termine mit Erinnerung lesen (reminderMinutes ist sonst null)
   const [events, persons, meta] = await Promise.all([
     query<CalEvent>(cfg, token, 'events', 'reminderMinutes', 'GREATER_THAN_OR_EQUAL', 0),
@@ -302,7 +301,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   next.sent = [...sent].slice(-300);
 
   // 2) Tages-/Wochenübersicht (höchstens 3 Stunden nach der eingestellten Zeit nachholen)
-  const within = (start: string) => time >= start && time < addMinutes(`${today}T${start}`, 180).slice(11) && addMinutes(`${today}T${start}`, 180).slice(0, 10) === today;
+  const within = (start: string) => to >= `${today}T${start}` && to < addMinutes(`${today}T${start}`, 180);
   const wantDaily = !!family?.ntfyDaily && /^\d\d:\d\d$/.test(family.ntfyDaily) && state.lastDaily !== today && within(family.ntfyDaily);
   const isSunday = new Date(today + 'T12:00:00Z').getUTCDay() === 0;
   const wantWeekly = !!family?.ntfyWeekly && isSunday && state.lastWeekly !== today && within('18:00');

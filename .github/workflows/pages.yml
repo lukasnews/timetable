@@ -1,16 +1,14 @@
 name: Veröffentlichen
 
-# Bei jeder Änderung auf main: testen, bauen und das Ergebnis nach docs/ auf main committen.
-# GitHub Pages zeigt main /docs an (Settings → Pages → Deploy from a branch → main, /docs).
-# Commits mit dem GITHUB_TOKEN starten keinen neuen Lauf, es entsteht also keine Schleife.
+# Bei jeder Änderung auf main: testen, bauen und direkt auf GitHub Pages veröffentlichen
+# (Settings → Pages → Source: „GitHub Actions“). Die eigene Domain ist dort hinterlegt.
 on:
   push:
     branches: [main]
-    paths-ignore: ['docs/**']
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -30,30 +28,13 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Nach docs/ kopieren und committen
-        run: |
-          rm -rf docs
-          cp -r dist docs
-          touch docs/.nojekyll
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A docs
-          if git diff --cached --quiet; then
-            echo "Keine Änderungen an der gebauten App."
-          else
-            git commit -m "Build: App nach docs/ aktualisiert"
-            git push
-          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-  # Übergang: direkte Veröffentlichung (Pages-Quelle „GitHub Actions“). Schlägt fehl, solange
-  # in den Einstellungen noch „Deploy from a branch“ gewählt ist – das ist dann unkritisch.
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    continue-on-error: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

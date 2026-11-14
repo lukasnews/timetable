@@ -217,7 +217,9 @@ export function applyChange(
   if (series.recurrence.end.type === 'count') {
     truncated.recurrence = { ...series.recurrence, end: { type: 'count', count: countBefore(series, occStart) } };
   }
-  const baseRec = patch.recurrence ?? shiftRecurrence(series.recurrence, dayShift);
+  // Wiederholung im Dialog unverändert gelassen? Dann gilt sie als „nicht geändert“ (Restanzahl übernehmen)
+  const recChanged = !!patch.recurrence && JSON.stringify(patch.recurrence) !== JSON.stringify(series.recurrence);
+  const baseRec = recChanged ? patch.recurrence! : shiftRecurrence(series.recurrence, dayShift);
   const next: CalEvent = {
     ...series,
     ...patch,
@@ -225,7 +227,7 @@ export function applyChange(
     start: change.start,
     end: change.end,
     allDay: change.allDay,
-    recurrence: { ...baseRec, end: patch.recurrence ? baseRec.end : newEnd },
+    recurrence: { ...baseRec, end: recChanged ? baseRec.end : newEnd },
     exdates: (series.exdates ?? []).filter((x) => x >= occStart).map((x) => addMinutes(x, deltaMin)),
   };
   const overridesAfter = allEvents.filter((e) => e.seriesId === series.id && (e.originalStart ?? '') >= occStart);
