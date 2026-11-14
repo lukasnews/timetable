@@ -20,7 +20,7 @@ oder diesen Monat bei wem ansteht.
 - **Kiosk-Modus**: Bildschirm bleibt an, springt nach Inaktivität zurück auf heute, Nachtmodus
 - **Erinnerungen** pro Gerät einstellbar (am Tablet aus, am Handy an), optional über den eigenen **ntfy**-Server (GitHub Actions)
 
-Einrichtung: siehe **[SETUP.md](SETUP.md)**.
+Läuft unter **https://timetable.chaoten.online/** · Einrichtung: siehe **[SETUP.md](SETUP.md)**.
 
 ## Technik
 
