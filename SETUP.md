@@ -23,7 +23,8 @@ Dauer: etwa 15 Minuten.
 Bei jeder Änderung auf `main` baut GitHub die App und legt sie in den Ordner `docs/` auf `main`
 (Commit „Build: …“ vom github-actions-Bot). Bitte `docs/` nicht von Hand bearbeiten.
 Einmalig: **Settings → Pages → Source: „Deploy from a branch“ → Branch `main`, Ordner `/docs` → Save.**
-Adresse: `https://lukasnews.github.io/timetable/`
+Adresse: `https://timetable.chaoten.online/` (eigene Domain über `public/CNAME`; DNS bei Cloudflare:
+CNAME `timetable` → `lukasnews.github.io`, „DNS only“). Die alte github.io-Adresse leitet automatisch weiter.
 
 ### Variante B: am Computer (Firebase Hosting)
 
