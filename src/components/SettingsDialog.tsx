@@ -20,7 +20,7 @@ const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')
 
 export type SettingsTab = 'persons' | 'device' | 'sync' | 'data' | 'general';
 
-export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; onClose: () => void }) {
+export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: SettingsTab; onClose: () => void; onPrint?: () => void }) {
   const [tab, setTab] = useState<SettingsTab>(initial);
   const tabs: [SettingsTab, string, string, string][] = [
     ['persons', 'Personen', 'Personen', 'users'],
@@ -41,7 +41,7 @@ export function SettingsDialog({ tab: initial, onClose }: { tab: SettingsTab; on
       {tab === 'persons' && <PersonsTab />}
       {tab === 'device' && <DeviceTab />}
       {tab === 'sync' && <SyncTab />}
-      {tab === 'data' && <DataTab />}
+      {tab === 'data' && <DataTab onPrint={onPrint} />}
       {tab === 'general' && <GeneralTab />}
     </Modal>
   );

@@ -29,7 +29,7 @@ function newFeedToken(): string {
   return [...bytes].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
 }
 
-export function DataTab() {
+export function DataTab({ onPrint }: { onPrint?: () => void }) {
   const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl } = useData();
   const [feedPerson, setFeedPerson] = useState('');
   const [copied, setCopied] = useState(false);
@@ -152,6 +152,14 @@ export function DataTab() {
 
   return (
     <div className="settings-section">
+      {onPrint && (
+        <>
+          <h3><Icon name="print" size={18} /> Drucken</h3>
+          <p className="hint">Druckt die Ansicht, die gerade hinter den Einstellungen offen ist (Monat, Woche, Tag, Liste oder Stundenplan) – auch als PDF speicherbar.</p>
+          <button className="btn" onClick={onPrint}><Icon name="print" size={18} /> Aktuelle Ansicht drucken</button>
+        </>
+      )}
+
       <h3><Icon name="download" size={18} /> Export</h3>
       <p className="hint">Alle eigenen Termine (ohne importierte) als .ics-Datei, z. B. für Google- oder Outlook-Kalender oder als Sicherung. Geburtstage aus den Profilen sind dabei.</p>
       <button className="btn" onClick={exportIcs}><Icon name="download" size={18} /> Termine exportieren</button>
