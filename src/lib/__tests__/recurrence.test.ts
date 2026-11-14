@@ -75,3 +75,17 @@ d('Familien-Link erkennen', () => {
     expect(parseFamilyInput('Unsinn')).toBeNull();
   });
 });
+
+import { sha256, hashPin } from '../pin';
+import { createHash } from 'node:crypto';
+d('PIN-Hash ohne Browser-Krypto', () => {
+  it('eigene SHA-256 = Node-SHA-256', () => {
+    for (const s of ['', 'abc', 'familienkalender:1234', 'x'.repeat(200)]) {
+      const mine = [...sha256(new TextEncoder().encode(s))].map((b) => b.toString(16).padStart(2, '0')).join('');
+      expect(mine).toBe(createHash('sha256').update(s).digest('hex'));
+    }
+  });
+  it('hashPin liefert dasselbe wie vorher', async () => {
+    expect(await hashPin('1234')).toBe(createHash('sha256').update('familienkalender:1234').digest('hex'));
+  });
+});
