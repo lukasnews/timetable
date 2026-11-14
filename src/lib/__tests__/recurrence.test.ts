@@ -63,3 +63,15 @@ d('Feiertage/Ferien OÖ', () => {
     expect(isSchoolFree('2026-12-08')).toBe(true);
   });
 });
+
+import { parseFamilyInput } from '../../data/store';
+d('Familien-Link erkennen', () => {
+  const id = 'abcdefghijkmnpqrst2';
+  const b64 = btoa(JSON.stringify({ familyId: id }));
+  it('ID, Link, nur Teil nach join=', () => {
+    expect(parseFamilyInput(id)).toBe(id);
+    expect(parseFamilyInput(`https://timetable.chaoten.online/#join=${b64}`)).toBe(id);
+    expect(parseFamilyInput(b64)).toBe(id);
+    expect(parseFamilyInput('Unsinn')).toBeNull();
+  });
+});
