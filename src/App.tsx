@@ -92,6 +92,7 @@ export default function App() {
     const root = document.documentElement;
     root.classList.toggle('night', night);
     root.classList.toggle('dark', dark);
+    root.classList.toggle('light', !dark);
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1017' : '#f4f5fa');
   }, [night, dark]);
   const hasKids = persons.some((p) => p.hasTimetable);
