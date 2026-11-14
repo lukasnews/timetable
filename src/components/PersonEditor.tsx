@@ -71,6 +71,18 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
           <label className="field"><span className="label">🔔 ntfy-Topic für Erinnerungen</span>
             <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="z. B. mama" onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} /></label>
         </div>
+        {p.birthday && (
+          <label className="field"><span className="label">🔔 An den Geburtstag erinnern</span>
+            <select value={p.birthdayReminder ?? ''} onChange={(e) => set({ birthdayReminder: e.target.value === '' ? null : Number(e.target.value) })}>
+              <option value="">Nicht erinnern</option>
+              <option value="0">Am Tag, 08:00</option>
+              <option value="840">Am Vorabend, 18:00</option>
+              <option value="1440">1 Tag vorher, 08:00</option>
+              <option value="10080">1 Woche vorher, 08:00</option>
+            </select>
+            <small className="hint">Geht an die ganze Familie.</small>
+          </label>
+        )}
         <Toggle checked={!!p.hasTimetable} onChange={(v) => set({ hasTimetable: v })} label="Hat einen Stundenplan" hint="Schulzeiten erscheinen im Kalender" />
       </div>
     </Modal>

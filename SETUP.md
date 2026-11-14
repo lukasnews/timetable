@@ -79,6 +79,11 @@ nichts: Der Stand liegt in Firestore unter `meta/reminders`.
    geprüft hat. Danach läuft er von selbst, und Änderungen an `reminders/` spielt er automatisch ein.
 5. **Testen**: Actions → **Erinnerungen** → Run workflow schickt eine Test-Nachricht an alle Topics.
 
+Zusätzlich, jeweils einzeln schaltbar unter ⚙️ → Allgemein: **Tagesübersicht** (Uhrzeit wählbar),
+**Wochenübersicht** (Sonntag 18:00) und **Nachricht bei neuen/geänderten Terminen**. Geburtstage aus den
+Profilen erinnern, wenn im Profil „An den Geburtstag erinnern“ gewählt ist. Der Dienst liest alle
+5 Minuten nur Termine mit Erinnerung, damit die kostenlose Firestore-Grenze nicht erreicht wird.
+
 Ganztägige Termine erinnern ab 08:00 Uhr am Tag. „Am Vorabend“ bedeutet 18:00 Uhr am Vortag.
 Auf dem kostenlosen Cloudflare-Plan sind 5 zeitgesteuerte Auslöser pro Konto möglich, dieser Worker braucht einen.
 

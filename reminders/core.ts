@@ -25,6 +25,11 @@ export interface ReminderState {
   by?: string;
   /** Zeitpunkt (ms) des letzten Laufs */
   at?: number;
+  /** Datum der letzten Tages-/Wochenübersicht */
+  lastDaily?: string;
+  lastWeekly?: string;
+  /** Änderungen seit (ms) bereits gemeldet */
+  changesAt?: number;
 }
 
 export interface Notification {
@@ -83,12 +88,26 @@ export async function list<T>(cfg: Config, token: string, col: string): Promise<
   return out;
 }
 
+/** Abfrage mit einem Feldfilter (liest nur die passenden Dokumente → spart Lesezugriffe) */
+export async function query<T>(cfg: Config, token: string, col: string, field: string, op: 'GREATER_THAN' | 'GREATER_THAN_OR_EQUAL', value: number): Promise<T[]> {
+  const r = await fetch(`${docsUrl(cfg)}:runQuery`, {
+    method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], where: { fieldFilter: { field: { fieldPath: field }, op, value: { integerValue: String(Math.floor(value)) } } } } }),
+  });
+  if (!r.ok) throw new Error(`Abfrage von ${col} fehlgeschlagen: ${r.status} ${await r.text()}`);
+  const j = (await r.json()) as { document?: { name: string; fields?: any } }[];
+  return j.filter((x) => x.document).map((x) => ({ ...fromFields(x.document!.fields ?? {}), id: x.document!.name.split('/').pop() } as T));
+}
+
 export async function saveState(cfg: Config, token: string, s: ReminderState) {
   const body = { fields: {
     lastRun: { stringValue: s.lastRun ?? '' },
     sent: { arrayValue: { values: (s.sent ?? []).map((x) => ({ stringValue: x })) } },
     by: { stringValue: s.by ?? '' },
     at: { integerValue: String(s.at ?? Date.now()) },
+    lastDaily: { stringValue: s.lastDaily ?? '' },
+    lastWeekly: { stringValue: s.lastWeekly ?? '' },
+    changesAt: { integerValue: String(s.changesAt ?? 0) },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -123,6 +142,79 @@ const ALL_DAY_TIME = '08:00';
 /** Höchstens so weit zurück nachholen, falls Läufe ausgefallen sind */
 const MAX_CATCHUP_MIN = 120;
 
+/** Geburtstage aus den Profilen als (virtuelle) jährliche Termine für die ganze Familie */
+export function profileBirthdays(persons: Person[]): CalEvent[] {
+  return persons.filter((p) => p.birthday).map((p) => ({
+    id: 'bday-' + p.id, title: p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [],
+    kind: 'birthday' as const, birthYear: Number(p.birthday!.slice(0, 4)), reminderMinutes: p.birthdayReminder ?? null,
+    recurrence: { freq: 'yearly' as const, interval: 1, end: { type: 'never' as const } },
+  }));
+}
+
+const topicsOf = (persons: Person[], ids: string[] | undefined, family?: Partial<FamilySettings>, except?: string): string[] => {
+  const ps = persons.filter((p) => ids?.includes(p.id));
+  let topics = ps.filter((p) => p.id !== except).map((p) => p.ntfyTopic).filter(Boolean) as string[];
+  if (!ps.length) {
+    topics = family?.ntfyFamilyTopic ? [family.ntfyFamilyTopic] : persons.filter((p) => p.id !== except).map((p) => p.ntfyTopic).filter(Boolean) as string[];
+  }
+  return [...new Set(topics)];
+};
+
+const dateText = (d: string, today: string) =>
+  d === today ? 'Heute' : d === addDays(today, 1) ? 'Morgen'
+    : new Date(d + 'T12:00:00Z').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'UTC' });
+
+/** Tages- bzw. Wochenübersicht: je Topic eine Nachricht mit den passenden Terminen */
+export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; from: string; days: number; title: string; appUrl?: string }): Notification[] {
+  const { persons, family, from, days } = opts;
+  const occs = expand([...opts.events, ...profileBirthdays(persons)], from, addDays(from, days)).sort((a, b) => a.start.localeCompare(b.start));
+  const line = (o: (typeof occs)[number]) => {
+    const ev = o.event;
+    const names = persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
+    const dayPart = days > 1 ? dateText(o.start.slice(0, 10) < from ? from : o.start.slice(0, 10), '') + ' ' : '';
+    const t = ev.allDay ? '' : o.start.slice(11) + ' ';
+    return `${dayPart}${t}${ev.kind === 'birthday' ? '🎂 ' : ''}${ev.title}${names ? ` (${names})` : ''}`;
+  };
+  const targets = new Map<string, string | null>(); // topic → personId (null = alle)
+  if (family?.ntfyFamilyTopic) targets.set(family.ntfyFamilyTopic, null);
+  for (const p of persons) if (p.ntfyTopic && !targets.has(p.ntfyTopic)) targets.set(p.ntfyTopic, p.id);
+  const out: Notification[] = [];
+  for (const [topic, pid] of targets) {
+    const mine = occs.filter((o) => pid === null || !o.event.personIds.length || o.event.personIds.includes(pid));
+    if (!mine.length) continue;
+    out.push({ topic, title: opts.title, message: mine.slice(0, 40).map(line).join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
+  }
+  return out;
+}
+
+/** Nachrichten zu neuen/geänderten Terminen */
+export function changeNotifications(opts: { changed: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; since: number; today: string; appUrl?: string }): Notification[] {
+  const seen = new Set<string>();
+  const list = opts.changed.filter((e) => !e.importSource).filter((e) => { const k = e.seriesId ?? e.id; if (seen.has(k)) return false; seen.add(k); return true; });
+  const out: Notification[] = [];
+  const describe = (ev: CalEvent) => {
+    const names = opts.persons.filter((p) => ev.personIds?.includes(p.id)).map((p) => p.name).join(', ');
+    const when = ev.allDay ? dateText(ev.start, opts.today) : `${dateText(ev.start.slice(0, 10), opts.today)}, ${ev.start.slice(11)} Uhr`;
+    return [when + (ev.recurrence ? ' (Serie)' : ''), names].filter(Boolean).join('\n');
+  };
+  if (list.length > 4) {
+    const by = list[0].changedBy;
+    for (const topic of topicsOf(opts.persons, [], opts.family, by)) {
+      out.push({ topic, title: `${list.length} Termine neu oder geändert`, message: list.slice(0, 8).map((e) => e.title).join(', '), priority: 2, tags: ['pencil2'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
+    }
+    return out;
+  }
+  for (const ev of list) {
+    const isNew = !!ev.createdAt && ev.createdAt > opts.since;
+    const who = opts.persons.find((p) => p.id === ev.changedBy)?.name;
+    for (const topic of topicsOf(opts.persons, ev.personIds, opts.family, ev.changedBy)) {
+      out.push({ topic, title: `${isNew ? 'Neu' : 'Geändert'}: ${ev.title}`, message: describe(ev) + (who ? `\n${isNew ? 'eingetragen' : 'geändert'} von ${who}` : ''),
+        priority: 2, tags: [isNew ? 'heavy_plus_sign' : 'pencil2'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
+    }
+  }
+  return out;
+}
+
 export function dueNotifications(opts: {
   events: CalEvent[];
   persons: Person[];
@@ -135,7 +227,8 @@ export function dueNotifications(opts: {
   const { events, persons, from, to } = opts;
   const out: { key: string; n: Notification }[] = [];
   const day = to.slice(0, 10);
-  const occs = expand(events.filter((e) => e.reminderMinutes != null), addDays(from.slice(0, 10), -1), addDays(day, 4));
+  const occs = expand([...events.filter((e) => e.reminderMinutes != null), ...profileBirthdays(persons).filter((e) => e.reminderMinutes != null)],
+    addDays(from.slice(0, 10), -1), addDays(day, 4));
   for (const o of occs) {
     const ev = o.event;
     const start = ev.allDay ? `${o.start}T${ALL_DAY_TIME}` : o.start;
@@ -146,10 +239,7 @@ export function dueNotifications(opts: {
 
     const ps = persons.filter((p) => ev.personIds?.includes(p.id));
     let topics = ps.map((p) => p.ntfyTopic).filter(Boolean) as string[];
-    if (!topics.length) {
-      const fam = opts.family?.ntfyFamilyTopic;
-      topics = fam ? [fam] : persons.map((p) => p.ntfyTopic).filter(Boolean) as string[];
-    }
+    if (!topics.length) topics = topicsOf(persons, [], opts.family);
     const occDay = o.start.slice(0, 10);
     const dayText = occDay === day ? 'Heute' : occDay === addDays(day, 1) ? 'Morgen' : occDay.split('-').reverse().join('.');
     const isBirthday = ev.kind === 'birthday';
@@ -181,8 +271,11 @@ export interface RunOptions {
 
 export async function run(cfg: Config, token: string, now = new Date(), log = console.log, opts: RunOptions = {}) {
   const to = localNow(cfg.timezone, now);
+  const today = to.slice(0, 10);
+  const time = to.slice(11);
+  // Nur Termine mit Erinnerung lesen (reminderMinutes ist sonst null)
   const [events, persons, meta] = await Promise.all([
-    list<CalEvent>(cfg, token, 'events'),
+    query<CalEvent>(cfg, token, 'events', 'reminderMinutes', 'GREATER_THAN_OR_EQUAL', 0),
     list<Person>(cfg, token, 'persons'),
     list<any>(cfg, token, 'meta'),
   ]);
@@ -196,19 +289,52 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   const fallback = localNow(cfg.timezone, new Date(now.getTime() - 10 * 60000));
   const from = state.lastRun && state.lastRun > floor ? state.lastRun : state.lastRun ? floor : fallback;
   const sent = new Set(state.sent ?? []);
-
-  const due = dueNotifications({ events, persons, family, from, to, sent, appUrl: cfg.appUrl });
+  const next: ReminderState = { ...state, id: 'reminders', lastRun: to, by: opts.by, at: now.getTime() };
   const errors: string[] = [];
-  for (const { key, n } of due) {
-    try {
-      await sendNtfy(cfg, n);
-      sent.add(key);
-      log(`✓ ${n.topic}: ${n.title}`);
-    } catch (e) {
-      errors.push(String(e instanceof Error ? e.message : e));
+  const send = async (n: Notification) => {
+    try { await sendNtfy(cfg, n); log(`✓ ${n.topic}: ${n.title}`); return true; }
+    catch (e) { errors.push(String(e instanceof Error ? e.message : e)); return false; }
+  };
+
+  // 1) Erinnerungen
+  const due = dueNotifications({ events, persons, family, from, to, sent, appUrl: cfg.appUrl });
+  for (const { key, n } of due) if (await send(n)) sent.add(key);
+  next.sent = [...sent].slice(-300);
+
+  // 2) Tages-/Wochenübersicht (höchstens 3 Stunden nach der eingestellten Zeit nachholen)
+  const within = (start: string) => time >= start && time < addMinutes(`${today}T${start}`, 180).slice(11) && addMinutes(`${today}T${start}`, 180).slice(0, 10) === today;
+  const wantDaily = !!family?.ntfyDaily && /^\d\d:\d\d$/.test(family.ntfyDaily) && state.lastDaily !== today && within(family.ntfyDaily);
+  const isSunday = new Date(today + 'T12:00:00Z').getUTCDay() === 0;
+  const wantWeekly = !!family?.ntfyWeekly && isSunday && state.lastWeekly !== today && within('18:00');
+  if (wantDaily || wantWeekly) {
+    const all = await list<CalEvent>(cfg, token, 'events');
+    if (wantDaily) {
+      for (const n of digest({ events: all, persons, family, from: today, days: 1, title: 'Heute im Kalender', appUrl: cfg.appUrl })) await send(n);
+      next.lastDaily = today;
+    }
+    if (wantWeekly) {
+      for (const n of digest({ events: all, persons, family, from: addDays(today, 1), days: 7, title: 'Nächste Woche im Kalender', appUrl: cfg.appUrl })) await send(n);
+      next.lastWeekly = today;
     }
   }
-  log(`Zeitfenster ${from} – ${to}: ${due.length} Nachricht(en), ${errors.length} Fehler`);
-  await saveState(cfg, token, { id: 'reminders', lastRun: to, sent: [...sent].slice(-300), by: opts.by, at: now.getTime() });
+
+  // 3) Neue/geänderte Termine
+  if (family?.ntfyChanges) {
+    const since = state.changesAt || 0;
+    if (since > 0) {
+      // 60 s Abstand, damit zusammengehörige Änderungen (z. B. Serie teilen) gemeinsam ankommen
+      const until = now.getTime() - 60_000;
+      const changed = (await query<CalEvent>(cfg, token, 'events', 'updatedAt', 'GREATER_THAN', since)).filter((e) => (e.updatedAt ?? 0) <= until);
+      for (const n of changeNotifications({ changed, persons, family, since, today, appUrl: cfg.appUrl })) await send(n);
+      next.changesAt = Math.max(since, until);
+    } else {
+      next.changesAt = now.getTime();
+    }
+  } else {
+    next.changesAt = 0;
+  }
+
+  log(`Zeitfenster ${from} – ${to}: ${due.length} Erinnerung(en), ${errors.length} Fehler`);
+  await saveState(cfg, token, next);
   if (errors.length) throw new Error(errors.join('\n'));
 }

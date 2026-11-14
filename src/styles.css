@@ -530,3 +530,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 
 .fc .fc-timegrid .fc-daygrid-day-number { display: none; }
 .row > input:not([type='checkbox']):not([type='radio']) { flex: 1; width: auto; min-width: 0; }
+
+/* ---------- Rückgängig-Leiste ---------- */
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 200;
+  display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 18px; border-radius: 14px; max-width: calc(100vw - 24px);
+  background: var(--text); color: var(--bg); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35); font-weight: 600; }
+.toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast .btn { flex: none; background: transparent; color: inherit; border-color: currentColor; }
+.only-phone { display: none !important; }
+@media (max-width: 640px) { .only-phone { display: inline-flex !important; } .seg.views button { padding: 6px 8px; } }

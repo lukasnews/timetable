@@ -38,7 +38,8 @@ interface Data {
   family: FamilySettings;
   device: DeviceSettings;
   setDevice: (d: Partial<DeviceSettings>) => void;
-  apply: (m: Mutation) => void;
+  /** Wendet Änderungen an und gibt die Umkehrung zurück (für „Rückgängig“) */
+  apply: (m: Mutation) => Mutation;
   savePerson: (p: Person) => void;
   deletePerson: (id: string) => void;
   saveTimetable: (t: Timetable) => void;
@@ -124,8 +125,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       device,
       setDevice,
       apply: (m) => {
-        m.put.forEach((e) => store.put('events', e));
+        const byId = new Map(events.map((e) => [e.id, e]));
+        const touched = [...new Set([...m.put.map((e) => e.id), ...m.del])];
+        const undo: Mutation = {
+          put: touched.map((id) => byId.get(id)).filter(Boolean) as CalEvent[],
+          del: m.put.map((e) => e.id).filter((id) => !byId.has(id)),
+        };
+        m.put.forEach((e) => store.put('events', { ...e, createdAt: e.createdAt ?? (byId.has(e.id) ? byId.get(e.id)!.createdAt ?? 1 : Date.now()), changedBy: device.me || undefined }));
         m.del.forEach((id) => store.remove('events', id));
+        return undo;
       },
       savePerson: (p) => store.put('persons', p),
       deletePerson: (id) => {

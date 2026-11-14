@@ -15,13 +15,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Familienkalender',
         short_name: 'Kalender',
         description: 'Familienkalender für Tablet und Handy',
-        theme_color: '#4f46e5',
-        background_color: '#f6f7fb',
+        theme_color: '#0e0f15',
+        background_color: '#0e0f15',
         display: 'standalone',
         orientation: 'any',
         start_url: './',

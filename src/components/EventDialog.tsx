@@ -125,6 +125,10 @@ export function EventDialog(props: {
         ) : (
           <>
             <Toggle checked={ev.allDay} onChange={setAllDay} label="Ganztägig" />
+            {ev.allDay && props.persons.some((p) => p.hasTimetable) && (
+              <Toggle checked={!!ev.schoolFree} onChange={(v) => set({ schoolFree: v || undefined })} label="🏫 Schulfrei"
+                hint="Keine Schulzeit an diesen Tagen – für die gewählten Kinder, ohne Auswahl für alle" />
+            )}
             <div className="dt-grid">
               <label className="field"><span className="label">Beginn</span>
                 <div className="dt">

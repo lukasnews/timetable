@@ -20,6 +20,7 @@ type Mode = ViewName | 'timetable';
 const VIEW_LABELS: [Mode, string, string][] = [
   ['dayGridMonth', 'Monat', 'M'],
   ['timeGridWeek', 'Woche', 'W'],
+  ['timeGridThree', '3 Tage', '3'],
   ['timeGridDay', 'Tag', 'T'],
   ['listUpcoming', 'Liste', 'L'],
   ['timetable', 'Stundenplan', '📚'],
@@ -49,6 +50,13 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsTab | null>(null);
   const [searching, setSearching] = useState(false);
   const [detail, setDetail] = useState<{ eventId: string; occStart: string } | null>(null);
+  // „Rückgängig“-Leiste nach Löschen/Verschieben
+  const [undo, setUndo] = useState<{ text: string; m: import('./lib/recurrence').Mutation } | null>(null);
+  useEffect(() => {
+    if (!undo) return;
+    const t = setTimeout(() => setUndo(null), 8000);
+    return () => clearTimeout(t);
+  }, [undo]);
   const [scopeAsk, setScopeAsk] = useState<{ action: 'edit' | 'move' | 'delete'; resolve: (s: Scope | null) => void } | null>(null);
   const [pinAsk, setPinAsk] = useState<((ok: boolean) => void) | null>(null);
   const unlockedUntil = useRef(0);
@@ -96,7 +104,7 @@ export default function App() {
     root.classList.toggle('night', night);
     root.classList.toggle('dark', dark);
     root.classList.toggle('light', !dark);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1017' : '#f4f5fa');
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute('media'); m.setAttribute('content', dark ? '#0e0f15' : '#f4f5fa'); });
   }, [night, dark]);
   const hasKids = persons.some((p) => p.hasTimetable);
   // Um Mitternacht auf den neuen Tag springen
@@ -158,7 +166,7 @@ export default function App() {
       if (!s) return;
       scope = s;
     }
-    data.apply(applyDelete(ev, draft.occStart ?? ev.start, scope, events));
+    setUndo({ text: `„${ev.title}“ gelöscht`, m: data.apply(applyDelete(ev, draft.occStart ?? ev.start, scope, events)) });
     setDraft(null);
   };
 
@@ -172,7 +180,7 @@ export default function App() {
       if (!s) return c.revert();
       scope = s;
     }
-    data.apply(applyChange(ev, c.occStart, { start: c.start, end: c.end, allDay: c.allDay }, scope, events, uid));
+    setUndo({ text: `„${ev.title}“ geändert`, m: data.apply(applyChange(ev, c.occStart, { start: c.start, end: c.end, allDay: c.allDay }, scope, events, uid)) });
   };
 
   const toggleLock = async () => {
@@ -251,7 +259,7 @@ export default function App() {
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
-            <button key={m} className={mode === m ? 'on' : ''} onClick={() => changeMode(m)}>
+            <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : '')} onClick={() => changeMode(m)}>
               <span className="long">{label}</span><span className="short">{short}</span>
             </button>
           ))}
@@ -278,9 +286,19 @@ export default function App() {
       )}
       {searching && (
         <SearchDialog events={events} persons={persons} onClose={() => setSearching(false)}
-          onPick={(date) => { setSearching(false); setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', date)); }} />
+          onPick={(date, eventId, occStart) => {
+            setSearching(false); setMode('timeGridDay');
+            setTimeout(() => api()?.changeView('timeGridDay', date));
+            setDetail({ eventId, occStart });
+          }} />
       )}
       {settings && <SettingsDialog tab={settings} onClose={() => setSettings(null)} />}
+      {undo && (
+        <div className="toast" role="status">
+          <span>{undo.text}</span>
+          <button className="btn small" onClick={() => { data.apply(undo.m); setUndo(null); }}>Rückgängig</button>
+        </div>
+      )}
       {scopeAsk && <ScopeDialog action={scopeAsk.action} onPick={(s) => scopeAsk.resolve(s)} />}
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
@@ -316,7 +334,7 @@ function RangeTitle({ range, compact }: { range: { type: string; start: Date; en
       </>
     );
   }
-  if (type === 'listUpcoming') {
+  if (type === 'listUpcoming' || type === 'timeGridThree') {
     const f = (d: Date) => `${d.getDate()}. ${d.toLocaleDateString('de-AT', { month: 'short' })}`;
     return <span className="rt-main">{f(start)} – {f(end)}</span>;
   }

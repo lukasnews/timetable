@@ -21,6 +21,8 @@ export interface Person {
   birthday?: string;
   /** Hat einen Stundenplan (Kind) */
   hasTimetable?: boolean;
+  /** Erinnerung an den Geburtstag aus dem Profil: Minuten vor 08:00 am Tag (null/undefined = keine) */
+  birthdayReminder?: number | null;
   /** ntfy-Topic für Erinnerungen dieser Person */
   ntfyTopic?: string;
   order: number;
@@ -61,6 +63,11 @@ export interface CalEvent {
   originalStart?: string;
   /** Importiert aus einer .ics-Datei/URL: Herkunft (zum gemeinsamen Entfernen) */
   importSource?: string;
+  /** Schulfrei: an diesen Tagen keine Schulzeit anzeigen (für die gewählten Personen bzw. alle) */
+  schoolFree?: boolean;
+  createdAt?: number;
+  /** Person, die zuletzt geändert hat (Geräte-Einstellung „Ich bin“) */
+  changedBy?: string;
   updatedAt?: number;
 }
 
@@ -94,6 +101,12 @@ export interface FamilySettings {
   showSchoolHolidays: boolean;
   /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
   ntfyFamilyTopic?: string;
+  /** Tagesübersicht per ntfy: Uhrzeit "HH:mm" (leer = aus) */
+  ntfyDaily?: string;
+  /** Wochenübersicht am Sonntag um 18:00 */
+  ntfyWeekly?: boolean;
+  /** Nachricht bei neuen/geänderten Terminen */
+  ntfyChanges?: boolean;
   /** Ort für die Wettervorhersage */
   weather?: { name: string; lat: number; lon: number };
   updatedAt?: number;
@@ -114,6 +127,8 @@ export interface DeviceSettings {
   schoolInMonth: boolean;
   /** Wetter im Kalender anzeigen */
   showWeather: boolean;
+  /** „Ich bin“: Person an diesem Gerät (für Änderungs-Nachrichten) */
+  me?: string;
   /** Kalender gesperrt: kein Verschieben/Ändern per Ziehen, Tippen zeigt Details */
   locked: boolean;
   /** Entsperren nur mit PIN */
