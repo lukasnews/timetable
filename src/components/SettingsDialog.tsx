@@ -8,7 +8,7 @@ import { ConfirmDialog } from './Dialogs';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed } from '../lib/avatars';
 import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
-import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, saveCloudConfig, type CloudConfig } from '../data/store';
+import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, parseFamilyInput, saveCloudConfig, type CloudConfig } from '../data/store';
 import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
@@ -295,11 +295,12 @@ function SyncTab() {
             </button>
           </div>
           <h3>Oder bestehendem Kalender beitreten</h3>
-          <p className="hint">Am einfachsten: am anderen Gerät den QR-Code scannen. Alternativ Familien-ID eingeben:</p>
+          <p className="hint">Am einfachsten: am anderen Gerät den QR-Code scannen. Alternativ den Familien-Link oder die Familien-ID einfügen:</p>
           <div className="row">
-            <input value={joinId} onChange={(e) => setJoinId(e.target.value.trim())} placeholder="Familien-ID" />
-            <button className="btn" disabled={joinId.length < 10} onClick={() => connect(joinId, false)}>Beitreten</button>
+            <input value={joinId} onChange={(e) => setJoinId(e.target.value.trim())} placeholder="Link oder Familien-ID" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+            <button className="btn" disabled={!parseFamilyInput(joinId)} onClick={() => { const id = parseFamilyInput(joinId); if (id) connect(id, false); }}>Beitreten</button>
           </div>
+          {joinId && !parseFamilyInput(joinId) && <small className="error">Das ist weder ein Familien-Link noch eine Familien-ID.</small>}
           {err && <p className="error">{err}</p>}
         </>
       )}

@@ -74,3 +74,21 @@ export function newFamilyId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(18));
   return [...bytes].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
 }
+
+/**
+ * Familien-ID aus einer Eingabe holen: ID selbst, ganzer Einladungslink oder nur der Teil nach „join=“.
+ * Gibt null zurück, wenn nichts Gültiges erkannt wird.
+ */
+export function parseFamilyInput(input: string): string | null {
+  let v = input.trim();
+  const m = v.match(/join=([^&\s]+)/);
+  if (m) v = m[1];
+  if (/^[a-z0-9]{16,32}$/.test(v)) return v;
+  try {
+    const obj = JSON.parse(decodeURIComponent(escape(atob(v.replace(/-/g, '+').replace(/_/g, '/')))));
+    if (typeof obj?.familyId === 'string' && /^[a-z0-9]{16,32}$/.test(obj.familyId)) return obj.familyId;
+  } catch {
+    /* kein gültiger Link */
+  }
+  return null;
+}
