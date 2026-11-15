@@ -35,6 +35,8 @@ interface Props {
   onOpen: (eventId: string, occStart: string) => void;
   onCreate: (start: string, end: string, allDay: boolean) => void;
   onChange: (c: ChangeInfo) => void;
+  /** Klick auf einen Geburtstag aus einem Profil */
+  onOpenBirthday?: (personId: string, date: string) => void;
   /** Klick auf einen Tag (Kopf/Zahl) → Tagesansicht */
   onNavDay: (date: Date) => void;
   /** gesperrt: kein Ziehen, kein Anlegen durch Tippen */
@@ -273,6 +275,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       eventClick={(arg: EventClickArg) => {
         const x = arg.event.extendedProps as OccProps;
         if (x.eventId) props.onOpen(x.eventId, x.occStart!);
+        else if (x.kind === 'personBirthday' && x.personIds[0] && arg.event.start) props.onOpenBirthday?.(x.personIds[0], fromNative(arg.event.start, true));
       }}
       select={(arg: DateSelectArg) => {
         props.onCreate(fromNative(arg.start, arg.allDay), fromNative(arg.end, arg.allDay), arg.allDay);

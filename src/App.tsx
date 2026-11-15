@@ -10,6 +10,7 @@ import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
 import { Screensaver } from './components/Screensaver';
+import { QuickLinksButton } from './components/QuickLinks';
 import { useWeather } from './lib/weather';
 import { isNative, nativePrint, setSystemBarsHidden, syncNativeReminders, syncWidget } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
@@ -372,12 +373,14 @@ export default function App() {
   };
   const editFromDetail = async () => {
     if (!detail) return;
+    // Geburtstag aus dem Profil: dort bearbeiten
+    if (detail.eventId.startsWith('pbday-')) { setDetail(null); openSettings('persons'); return; }
     if (device.lockNeedsPin && !(await requirePin())) return;
     const d = detail;
     setDetail(null);
     open(d.eventId, d.occStart, true);
   };
-  const detailEvent = detail ? events.find((e) => e.id === detail.eventId) : undefined;
+  const detailEvent: CalEvent | undefined = detail ? events.find((e) => e.id === detail.eventId) ?? profileBirthdayEvent(detail.eventId, persons) : undefined;
 
   const statusIcon = data.store.mode === 'local' ? null : (
     <span className={'sync ' + data.status} title={{ synced: 'Synchronisiert', pending: 'Synchronisiere …', offline: 'Offline', error: 'Sync-Fehler', local: '' }[data.status]}>
@@ -407,6 +410,7 @@ export default function App() {
           {inst.canPrompt && !inst.installed && (
             <button className="btn small install-btn" onClick={inst.install}><Icon name="download" size={16} /> <span>Installieren</span></button>
           )}
+          <QuickLinksButton links={(family.quickLinks ?? []).filter((l) => l.label && l.url)} />
           <button className="icon-btn" onClick={() => setSearching(true)} aria-label="Suchen"><Icon name="search" /></button>
           <button className="icon-btn hide-phone" onClick={print} aria-label="Drucken"><Icon name="print" /></button>
           <button className="icon-btn hide-phone" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
@@ -519,7 +523,7 @@ export default function App() {
                 onOpen={(id, occ) => open(id, occ)} />
             )}
             <div className="cal-inner">
-            <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
+            <CalendarView ref={calRef} view={mode} onOpenBirthday={(pid, date) => setDetail({ eventId: 'pbday-' + pid, occStart: date })} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
             </div>
           </div>
         )}
@@ -533,6 +537,7 @@ export default function App() {
           end={addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay)}
           conflicts={findConflicts({ ...detailEvent, start: detail.occStart, end: addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay),
             ...(detailEvent.recurrence ? { seriesId: detailEvent.id, originalStart: detail.occStart, id: detailEvent.id + '#occ' } : {}) }, events, persons)}
+          quickLinks={detailEvent.kind === 'birthday' ? (family.quickLinks ?? []).filter((l) => l.onBirthday && l.label && l.url) : []}
           onClose={() => setDetail(null)} onEdit={editFromDetail} />
       )}
       {searching && (
@@ -559,6 +564,15 @@ export default function App() {
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
   );
+}
+
+/** Geburtstag aus einem Profil als (nur lesbarer) Termin für die Detailansicht */
+function profileBirthdayEvent(id: string, persons: import('./types').Person[]): CalEvent | undefined {
+  if (!id.startsWith('pbday-')) return undefined;
+  const p = persons.find((x) => x.id === id.slice(6));
+  if (!p?.birthday) return undefined;
+  return { id, title: p.name, start: p.birthday, end: addDays(p.birthday, 1), allDay: true, personIds: [p.id], kind: 'birthday',
+    birthYear: Number(p.birthday.slice(0, 4)), recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } } };
 }
 
 /** Vorschau aus den Einstellungen, auch wenn gerade die andere Tageszeit ist */
