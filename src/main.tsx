@@ -12,7 +12,13 @@ importDeviceSettings();
 migrateIfNeeded();
 setupBackButton();
 // Android-App: kein Browser drumherum (für CSS, z. B. Höhe ohne Browser-Leisten)
-if (isNative()) document.documentElement.classList.add('native-app');
+if (isNative()) {
+  document.documentElement.classList.add('native-app');
+  // Druck in der App: keinen Seitenrand freilassen (würde in der App-Hintergrundfarbe gefüllt) – Rand kommt aus dem CSS
+  const st = document.createElement('style');
+  st.textContent = '@page { size: A4 landscape; margin: 0; }';
+  document.head.appendChild(st);
+}
 
 // Updates: regelmäßig und beim Zurückkehren in die App nach einer neuen Version suchen.
 // Eine neue Version wird erst aktiviert, wenn kein Fenster (Termin, Einstellungen …) offen ist –

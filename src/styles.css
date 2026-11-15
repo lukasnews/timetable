@@ -623,6 +623,10 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   }
   .topbar, .toolbar, .toast, .tt-head, .modal-backdrop, .list-filter, .tt-tip, .countdowns, .ptr { display: none !important; }
   .app { height: auto !important; display: block; padding: 0; }
+  /* Android-App: Druckränder würden sonst in der Hintergrundfarbe der App (Beige) gefüllt –
+     dort Seitenrand 0 (siehe main.tsx) und der weiße Rand kommt von der Seite selbst, auf jeder Seite */
+  :root.native-app, :root.native-app body { background: #fff !important; }
+  :root.native-app body { padding: 10mm; box-sizing: border-box; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .cal-wrap, .cal-inner { height: auto; overflow: visible; box-shadow: none; }
 }
 
