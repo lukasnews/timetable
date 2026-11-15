@@ -15,6 +15,7 @@ import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
+import { isNative, nativeNotifyPermission } from '../native';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
@@ -160,7 +161,7 @@ function DeviceTab() {
         </>
       )}
 
-      {!inst.installed && (
+      {!inst.installed && !isNative() && (
         <>
           <h3><Icon name="download" size={18} /> App installieren</h3>
           {inst.canPrompt ? (
@@ -178,9 +179,15 @@ function DeviceTab() {
 
 function NotifyTab() {
   const { device, setDevice, persons, family, saveFamily } = useData();
-  const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const native = isNative();
+  const [perm, setPerm] = useState<string>(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  useEffect(() => { if (native) nativeNotifyPermission(false).then(setPerm); }, [native]);
   const enableReminders = async (v: boolean) => {
-    if (v && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+    if (v && native) {
+      const r = await nativeNotifyPermission(true);
+      setPerm(r);
+      if (r !== 'granted') return;
+    } else if (v && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
       const r = await Notification.requestPermission();
       setPerm(r);
       if (r !== 'granted') return;
@@ -225,8 +232,11 @@ function NotifyTab() {
           {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </label>
-      <Toggle checked={device.reminders} onChange={enableReminders} label="Benachrichtigungen in der App"
-        hint={perm === 'denied' ? 'Im Browser blockiert – bitte in den Browser-Einstellungen erlauben.' : 'Nur solange die App geöffnet ist. Am Wand-Tablet meist aus.'} />
+      <Toggle checked={device.reminders} onChange={enableReminders} label={native ? 'Erinnerungen auf diesem Gerät' : 'Benachrichtigungen in der App'}
+        hint={perm === 'denied'
+          ? (native ? 'Benachrichtigungen sind blockiert – in den Android-Einstellungen bei „Familienkalender“ erlauben.' : 'Im Browser blockiert – bitte in den Browser-Einstellungen erlauben.')
+          : native ? 'Kommen pünktlich, auch wenn die App geschlossen ist (für die nächsten 2 Wochen geplant; neue Termine anderer werden beim nächsten Öffnen übernommen).'
+          : 'Nur solange die App geöffnet ist. Am Wand-Tablet meist aus.'} />
       {device.reminders && (
         <div className="field">
           <span className="label">Nur für</span>
