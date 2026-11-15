@@ -198,11 +198,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 /* ---------- Modal ---------- */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(10, 10, 30, 0.45); display: grid; place-items: center; z-index: 100;
-  padding: 16px; animation: fade 0.12s;
+  /* nie unter Status- oder Navigationsleiste (Android-App, iPhone) */
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  animation: fade 0.12s;
 }
 @keyframes fade { from { opacity: 0; } }
 .modal {
-  background: var(--surface); border-radius: 20px; width: min(560px, 100%); max-height: calc(100dvh - 32px);
+  background: var(--surface); border-radius: 20px; width: min(560px, 100%);
+  max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
   display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 .modal.wide { width: min(820px, 100%); }
@@ -500,12 +503,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .seg button { padding: 6px 10px; }
   .main { padding: 0 6px 6px; }
   .cal-wrap { padding: 2px; border-radius: 10px; }
-  .modal-backdrop { padding: 0; align-items: end; }
-  .modal { border-radius: 20px 20px 0 0; max-height: 94dvh; width: 100%; }
-  .modal.wide { height: 94dvh; }
+  .modal-backdrop { padding: env(safe-area-inset-top) 0 0; align-items: end; }
+  /* Blatt von unten: unten Platz für die Navigationsleiste lassen */
+  .modal { border-radius: 20px 20px 0 0; max-height: calc(94dvh - env(safe-area-inset-top)); width: 100%; padding-bottom: env(safe-area-inset-bottom); }
+  .modal.wide { height: calc(94dvh - env(safe-area-inset-top)); }
   .modal-body { padding: 8px 16px 16px; }
   .modal-head { padding: 12px 8px 4px 16px; }
-  .modal-foot { flex-wrap: nowrap; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .modal-foot { flex-wrap: nowrap; padding: 10px 12px; }
   .modal-foot .spacer { display: none; }
   .modal-foot .btn { flex: 1; padding: 0 8px; min-height: 48px; }
   .hide-phone { display: none !important; }
