@@ -16,6 +16,7 @@ import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
 import { isNative, nativeNotifyPermission } from '../native';
+import { QuickLinksEditor } from './QuickLinks';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
@@ -423,6 +424,10 @@ function GeneralTab() {
         hint="Schulautonome Tage bitte als eigenen Termin eintragen." />
 
       <WeatherPlace />
+
+      <h3>🔗 Schnellzugriff</h3>
+      <p className="hint">Eigene Knöpfe für andere Apps oder Seiten, z. B. Essensplan oder Wunschliste. Sie erscheinen oben rechts unter <Icon name="grid" size={14} /> – bei Bedarf auch in den Details von Geburtstagen.</p>
+      <QuickLinksEditor links={family.quickLinks ?? []} onChange={(quickLinks) => saveFamily({ quickLinks })} />
 
       <h3><Icon name="lock" size={18} /> PIN für Einstellungen</h3>
       <p className="hint">{family.pinHash ? 'Eine PIN ist gesetzt. Termine anlegen geht ohne PIN, Einstellungen und Stundenplan sind geschützt.' : 'Noch keine PIN gesetzt – Einstellungen sind frei zugänglich.'}</p>

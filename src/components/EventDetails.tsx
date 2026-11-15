@@ -5,6 +5,8 @@ import { displayTitle } from '../lib/categories';
 import { addDays } from '../lib/dates';
 import { useState } from 'react';
 import { ShareSheet } from './ShareSheet';
+import type { QuickLink } from '../types';
+import { openLink } from './QuickLinks';
 
 const REMINDER_TEXT: Record<number, string> = {
   0: 'Zum Beginn', 5: '5 Minuten vorher', 15: '15 Minuten vorher', 30: '30 Minuten vorher', 60: '1 Stunde vorher',
@@ -23,7 +25,7 @@ function when(ev: CalEvent, start: string, end: string): string {
 }
 
 /** Nur-Lese-Ansicht eines Termins (bei gesperrtem Kalender) */
-export function EventDetails(props: { event: CalEvent; start: string; end: string; persons: Person[]; conflicts?: import('../lib/conflicts').Conflict[]; onEdit: () => void; onClose: () => void }) {
+export function EventDetails(props: { event: CalEvent; start: string; end: string; persons: Person[]; conflicts?: import('../lib/conflicts').Conflict[]; quickLinks?: QuickLink[]; onEdit: () => void; onClose: () => void }) {
   const ev = props.event;
   const ps = ev.personIds.map((id) => props.persons.find((p) => p.id === id)).filter(Boolean) as Person[];
   const age = ev.kind === 'birthday' && ev.birthYear ? Number(props.start.slice(0, 4)) - ev.birthYear : undefined;
@@ -54,6 +56,11 @@ export function EventDetails(props: { event: CalEvent; start: string; end: strin
         {ev.location && <p className="det-row"><Icon name="pin" size={16} /> {ev.location}</p>}
         {ev.reminderMinutes != null && <p className="det-row"><Icon name="bell" size={16} /> {REMINDER_TEXT[ev.reminderMinutes] ?? `${ev.reminderMinutes} Minuten vorher`}</p>}
         {ev.notes && <p className="det-notes">{ev.notes}</p>}
+        {!!props.quickLinks?.length && (
+          <div className="det-links">
+            {props.quickLinks.map((l) => <button key={l.id} className="btn" onClick={() => openLink(l.url)}>{l.icon} {l.label}</button>)}
+          </div>
+        )}
         {ev.importSource && <p className="hint">Importiert aus „{ev.importSource}“</p>}
       </div>
     </Modal>

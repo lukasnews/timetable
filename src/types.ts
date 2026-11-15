@@ -114,6 +114,16 @@ export interface FreeDay {
   label?: string;
 }
 
+export interface QuickLink {
+  id: string;
+  /** Emoji als Symbol */
+  icon: string;
+  label: string;
+  url: string;
+  /** auch in den Details von Geburtstagen anzeigen */
+  onBirthday?: boolean;
+}
+
 /** Importierter Kalender (.ics) mit seinen Einstellungen */
 export interface IcsSource {
   id: string;
@@ -155,6 +165,8 @@ export interface FamilySettings {
   weather?: { name: string; lat: number; lon: number };
   /** Importierte Kalender (Müllkalender usw.) */
   icsSources?: IcsSource[];
+  /** Schnellzugriff auf andere Apps/Seiten (z. B. Essensplan, Wunschliste) */
+  quickLinks?: QuickLink[];
   updatedAt?: number;
 }
 

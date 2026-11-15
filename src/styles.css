@@ -886,3 +886,23 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .share-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .share-list .btn.primary { grid-column: 1 / -1; }
 .share-list > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* Schnellzugriff */
+.ql-wrap { position: relative; }
+.ql-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 150; min-width: 220px; background: var(--surface); border-radius: 14px;
+  box-shadow: var(--shadow), 0 0 0 1px var(--border); padding: 6px; display: flex; flex-direction: column; animation: fade .12s; }
+.ql-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; background: none; border-radius: 10px; font: inherit; font-weight: 600;
+  color: var(--text); text-align: left; cursor: pointer; }
+.ql-item:hover { background: var(--surface-2); }
+.ql-icon { font-size: 1.2rem; width: 1.6em; text-align: center; }
+.ql-editor { display: flex; flex-direction: column; gap: 10px; }
+.ql-row { display: grid; grid-template-columns: 64px 1fr 1.4fr auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; }
+.ql-row .ql-bday { grid-column: 2 / 4; font-size: 0.88rem; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.ql-row .icon-btn { grid-row: 1; grid-column: 4; }
+@media (max-width: 640px) {
+  .ql-row { grid-template-columns: 64px 1fr auto; }
+  .ql-row input[inputmode='url'] { grid-column: 1 / 3; }
+  .ql-row .ql-bday { grid-column: 1 / -1; }
+}
+.det-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+:root.printing .ql-wrap { display: none; }
