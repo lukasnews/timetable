@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type FullCalendar from '@fullcalendar/react';
+import { flushSync } from 'react-dom';
 import { useData } from './data/DataContext';
 import { CalendarView, type ChangeInfo, type ViewName } from './components/CalendarView';
 import { EventDialog, type EditDraft } from './components/EventDialog';
@@ -110,6 +111,19 @@ export default function App() {
     setTimeout(() => { api()?.updateSize(); setTimeout(() => window.print(), 250); }, 150);
   };
   useEffect(() => { document.documentElement.classList.toggle('printing', printing); }, [printing]);
+  // Auch über das Browser-Menü („Drucken“, „Als PDF speichern“) die Druckansicht verwenden:
+  // beforeprint läuft synchron vor dem Druck – Klasse sofort setzen und React sofort neu zeichnen lassen.
+  useEffect(() => {
+    const before = () => {
+      document.documentElement.classList.add('printing');
+      flushSync(() => { setSettings(null); setPrinting(true); });
+      api()?.updateSize();
+    };
+    const after = () => setPrinting(false);
+    window.addEventListener('beforeprint', before);
+    window.addEventListener('afterprint', after);
+    return () => { window.removeEventListener('beforeprint', before); window.removeEventListener('afterprint', after); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [detail, setDetail] = useState<{ eventId: string; occStart: string } | null>(null);
   // Liste: alle Termine oder nur Fahrdienste (nach Fahrer gruppiert)
   const [driverMode, setDriverMode] = useState(() => { try { return localStorage.getItem('fk.driverList') === '1'; } catch { return false; } });
