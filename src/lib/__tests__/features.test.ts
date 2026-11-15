@@ -63,3 +63,14 @@ describe('Tagesübersicht mit Mitbringen', () => {
     expect(r.find((n) => n.topic === 'lena')!.message).toBe('15:00 🎉 Geburtstagsfeier Tim (lena) 🎒 Geschenk');
   });
 });
+
+import { shareText } from '../share';
+describe('Termin teilen', () => {
+  it('Text mit Datum, Personen, Ort, Mitbringen und Fahrdienst', () => {
+    const persons = [{ id: 'l', name: 'Lena', color: '#f00', avatar: { style: 'x', seed: 'l' }, order: 0 }, { id: 'm', name: 'Mama', color: '#0f0', avatar: { style: 'x', seed: 'm' }, order: 1 }];
+    const ev = { id: 'e', title: 'Klavier', start: '2026-11-18T15:00', end: '2026-11-18T15:45', allDay: false, personIds: ['l'], driverIds: ['m'], location: 'Musikschule', bring: 'Notenheft', category: 'musik' };
+    const t = shareText(ev, ev.start, ev.end, persons);
+    expect(t).toBe('📅 🎵 Klavier\nMi., 18.11.2026, 15:00–15:45 Uhr\n👤 Lena\n📍 Musikschule\n🎒 Mitbringen: Notenheft\n🚗 Fahrdienst: Mama');
+    expect(shareText({ ...ev, allDay: true, start: '2026-11-18', end: '2026-11-20' }, '2026-11-18', '2026-11-20', persons).split('\n')[1]).toBe('Mi., 18.11.2026 – Do., 19.11.2026');
+  });
+});

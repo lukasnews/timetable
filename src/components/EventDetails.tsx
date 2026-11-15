@@ -3,6 +3,8 @@ import { Avatar, Icon, Modal } from './ui';
 import { describe } from '../lib/recurrence';
 import { displayTitle } from '../lib/categories';
 import { addDays } from '../lib/dates';
+import { useState } from 'react';
+import { ShareSheet } from './ShareSheet';
 
 const REMINDER_TEXT: Record<number, string> = {
   0: 'Zum Beginn', 5: '5 Minuten vorher', 15: '15 Minuten vorher', 30: '30 Minuten vorher', 60: '1 Stunde vorher',
@@ -25,9 +27,12 @@ export function EventDetails(props: { event: CalEvent; start: string; end: strin
   const ev = props.event;
   const ps = ev.personIds.map((id) => props.persons.find((p) => p.id === id)).filter(Boolean) as Person[];
   const age = ev.kind === 'birthday' && ev.birthYear ? Number(props.start.slice(0, 4)) - ev.birthYear : undefined;
+  const [sharing, setSharing] = useState(false);
+  if (sharing) return <ShareSheet event={ev} start={props.start} end={props.end} persons={props.persons} onClose={() => setSharing(false)} />;
   return (
     <Modal title={displayTitle(ev) + (age ? ` (${age})` : '')} onClose={props.onClose}
       footer={<>
+        <button className="btn" onClick={() => setSharing(true)}>📤 Teilen</button>
         <span className="spacer" />
         <button className="btn" onClick={props.onClose}>Schließen</button>
         <button className="btn primary" onClick={props.onEdit}><Icon name="edit" size={18} /> Bearbeiten</button>
