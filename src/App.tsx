@@ -8,7 +8,7 @@ import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
-import { isNative, syncNativeReminders, syncWidget } from './native';
+import { isNative, setSystemBarsHidden, syncNativeReminders, syncWidget } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -164,6 +164,18 @@ export default function App() {
   useEffect(() => { if (device.kiosk) api()?.today(); }, [day, device.kiosk]);
 
   useReminders(events, persons, device);
+  // Android-App im Kiosk-Modus: Status- und Navigationsleiste ausblenden (Wischen vom Rand holt sie kurz zurück)
+  useEffect(() => {
+    if (!isNative()) return;
+    const apply = () => setSystemBarsHidden(device.kiosk).catch(() => {});
+    apply();
+    if (!device.kiosk) return;
+    // nach dem Hereinwischen wieder ausblenden und beim Zurückkehren in die App
+    const t = setInterval(apply, 20_000);
+    window.addEventListener('fk-resume', apply);
+    return () => { clearInterval(t); window.removeEventListener('fk-resume', apply); };
+  }, [device.kiosk]);
+
   // Android-App: Erinnerungen am Gerät vorausplanen (auch bei geschlossener App)
   const [nativeTick, setNativeTick] = useState(0);
   useEffect(() => {

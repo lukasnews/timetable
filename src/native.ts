@@ -142,3 +142,12 @@ export async function syncWidget(events: CalEvent[], persons: Person[]) {
   lastWidget = items;
   await widgetPlugin.update({ items });
 }
+
+/* ---------------- Kiosk: Status- und Navigationsleiste ausblenden ---------------- */
+
+export async function setSystemBarsHidden(hidden: boolean) {
+  if (!isNative()) return;
+  const { SystemBars } = await import('@capacitor/core');
+  if (hidden) await SystemBars.hide();
+  else await SystemBars.show();
+}
