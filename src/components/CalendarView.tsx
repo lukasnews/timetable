@@ -4,7 +4,9 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import listPlugin from '@fullcalendar/list';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import deLocale from '@fullcalendar/core/locales/de';
+import type { DateClickArg } from '@fullcalendar/interaction';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventDropArg, EventMountArg } from '@fullcalendar/core';
 import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { Person } from '../types';
@@ -15,7 +17,7 @@ import { tint } from '../lib/avatars';
 import { Avatar } from './ui';
 import { useWeather, weatherIcon, weatherText, type DayWeather } from '../lib/weather';
 
-export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridThree' | 'timeGridDay' | 'listUpcoming';
+export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridThree' | 'timeGridDay' | 'listUpcoming' | 'multiMonthYear';
 
 export interface ChangeInfo {
   eventId: string;
@@ -54,15 +56,34 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   const weather = useWeather(family.weather, device.showWeather);
   const wx = (d: Date): DayWeather | undefined => weather[fromNative(d, true)];
 
-  const fcEvents = useMemo(() => {
+  const isYear = props.view === 'multiMonthYear';
+  const allEvents = useMemo(() => {
     if (!range) return [];
     return buildEvents({
       events, persons, timetables, selected: props.selected, from: range.from, to: range.to,
       showHolidays: family.showHolidays, showSchoolHolidays: family.showSchoolHolidays,
-      showSchool: device.showSchool && (props.view !== 'dayGridMonth' || device.schoolInMonth),
+      showSchool: device.showSchool && props.view !== 'multiMonthYear' && (props.view !== 'dayGridMonth' || device.schoolInMonth),
       schoolAsStrip: props.view !== 'dayGridMonth',
     });
   }, [events, persons, timetables, props.selected, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth, device.showSchool]);
+  // Jahresansicht: nur Ganztägiges (Ferien, Feiertage, Geburtstage, Urlaube …) als Balken – Termine mit Uhrzeit als Punkte am Tag
+  // Ferien: im Jahr nur als grüne Einfärbung (die Balken würden sich jede Woche wiederholen)
+  const fcEvents = useMemo(() => (isYear
+    ? allEvents.filter((e) => (e.allDay || e.display === 'background') && !(e.display !== 'background' && (e.extendedProps as OccProps | undefined)?.kind === 'ferien'))
+    : allEvents), [allEvents, isYear]);
+  const yearDots = useMemo(() => {
+    const m = new Map<string, string[]>();
+    if (!isYear) return m;
+    for (const e of allEvents) {
+      if (e.allDay || e.display === 'background' || typeof e.start !== 'string') continue;
+      const x = e.extendedProps as OccProps;
+      if (x.kind === 'school') continue;
+      const d = e.start.slice(0, 10);
+      const c = byId.get(x.personIds?.[0] ?? '')?.color ?? 'var(--family)';
+      m.set(d, [...(m.get(d) ?? []), c]);
+    }
+    return m;
+  }, [allEvents, isYear, byId]);
 
   // Platz rechts im Tag für die Schul-Streifen
   const stripCount = device.showSchool && props.view !== 'dayGridMonth'
@@ -97,7 +118,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       x.kind === 'birthday' || x.kind === 'personBirthday'
         ? `${x.kind === 'personBirthday' ? '🎂 ' : ''}${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
         : x.kind === 'school' ? `🏫 ${arg.timeText}` : arg.event.title;
-    const compact = arg.view.type === 'dayGridMonth';
+    const compact = arg.view.type === 'dayGridMonth' || arg.view.type === 'multiMonthYear';
     const isList = arg.view.type.startsWith('list');
     return (
       <div className={'ev-inner' + (compact ? ' compact' : '')}>
@@ -161,12 +182,25 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     <div className="cal-inner" style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
-      plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-      views={{ listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone }, timeGridThree: { type: 'timeGrid', duration: { days: 3 } } }}
+      plugins={[dayGridPlugin, timeGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin]}
+      views={{
+        listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone },
+        timeGridThree: { type: 'timeGrid', duration: { days: 3 } },
+        multiMonthYear: { type: 'multiMonth', duration: { years: 1 }, multiMonthMaxColumns: 4, multiMonthMinWidth: 230, showNonCurrentDates: false, fixedWeekCount: false, dayMaxEvents: 2, moreLinkText: (n: number) => `+${n}` },
+      }}
       listDayFormat={{ weekday: 'long', day: 'numeric', month: 'long' }}
       listDaySideFormat={false}
       noEventsContent="Keine Termine in den nächsten 30 Tagen"
       dayCellContent={(arg) => {
+        if (arg.view.type === 'multiMonthYear') {
+          const dots = yearDots.get(fromNative(arg.date, true)) ?? [];
+          return (
+            <span className="yc">
+              <span className="yc-num">{arg.dayNumberText}</span>
+              {dots.length > 0 && <span className="yc-dots" title={`${dots.length} Termin(e)`}>{dots.slice(0, 3).map((c, i) => <i key={i} style={{ background: c }} />)}</span>}
+            </span>
+          );
+        }
         if (arg.view.type !== 'dayGridMonth') return arg.dayNumberText;
         const w = wx(arg.date);
         return (
@@ -179,14 +213,14 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       initialView={props.view}
       locale={deLocale}
       firstDay={1}
-      weekNumbers={!(isPhone && props.view === 'dayGridMonth')}
+      weekNumbers={!(isPhone && props.view === 'dayGridMonth') && !isYear}
       weekText="KW"
       weekTextLong="Kalenderwoche"
       headerToolbar={false}
       height={props.printing ? 'auto' : '100%'}
       nowIndicator
-      editable={!props.locked}
-      selectable={!props.locked}
+      editable={!props.locked && !isYear}
+      selectable={!props.locked && !isYear}
       selectMirror
       eventResizableFromStart
       longPressDelay={350}
@@ -205,7 +239,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       dayHeaderFormat={{ weekday: 'short' }}
       dayHeaderContent={(arg) => {
         if (arg.view.type.startsWith('list')) return arg.text;
-        if (props.view === 'dayGridMonth') return <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')}</span>;
+        if (props.view === 'dayGridMonth' || isYear) return <span className="dh-wd">{arg.date.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')}</span>;
         if (props.view === 'listUpcoming') return arg.text;
         const w = wx(arg.date);
         return (
@@ -240,6 +274,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       eventResize={toChange}
       navLinks
       navLinkDayClick={(date) => props.onNavDay(date)}
+      dateClick={(arg: DateClickArg) => { if (isYear) props.onNavDay(arg.date); }}
     />
     </div>
   );
