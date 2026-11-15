@@ -91,9 +91,16 @@ a { color: var(--accent); }
 }
 .fab:active { transform: scale(0.96); }
 .chips {
-  display: flex; gap: 8px; justify-content: center; overflow-x: auto; scrollbar-width: none;
+  display: flex; gap: 8px; justify-content: flex-start; overflow-x: auto; scrollbar-width: none;
   padding: 4px; min-width: 0;
 }
+/* zentriert, solange Platz ist – beim Überlaufen bleibt der Anfang erreichbar (statt justify-content: center) */
+.chips > :first-child { margin-left: auto; }
+.chips > :last-child { margin-right: auto; }
+.chips.compact .chip-name { display: none; }
+.chips.compact .chip { padding: 2px; }
+/* läuft trotzdem über: Ränder sanft ausblenden als Hinweis zum Wischen */
+.chips.overflow { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); padding-inline: 10px; }
 .chips::-webkit-scrollbar { display: none; }
 .chip {
   display: flex; align-items: center; gap: 8px; flex: none;
@@ -475,7 +482,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 @media (max-width: 640px) {
   .topbar { gap: 6px; padding: 8px 8px 4px; grid-template-columns: auto 1fr auto; }
   .fab { width: 46px; height: 46px; border-radius: 14px; }
-  .chips { justify-content: flex-start; gap: 4px; }
+  .chips { gap: 4px; }
   .chip { padding: 2px; }
   .chip-name { display: none; }
   .top-right .icon-btn { width: 38px; }
