@@ -616,6 +616,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   html, body, #root { height: auto; }
+  /* Rückfall, falls der Browser „beforeprint“ nicht meldet (Druck übers Browser-Menü): trotzdem hell und ohne Bedienelemente */
+  :root, :root.dark {
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f1f2f6; --text: #111318; --muted: #555a6b; --border: #c9cdd8;
+    --family-bg: #eef1f6; --today: transparent; --shadow: none; color-scheme: light;
+  }
+  .topbar, .toolbar, .toast, .tt-head, .modal-backdrop, .list-filter, .tt-tip, .countdowns, .ptr { display: none !important; }
+  .app { height: auto !important; display: block; padding: 0; }
+  .cal-wrap, .cal-inner { height: auto; overflow: visible; box-shadow: none; }
 }
 
 /* ---------- Kategorien, Countdown, Abwesenheit, Tests ---------- */
