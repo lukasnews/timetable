@@ -4,4 +4,7 @@
     <string name="title_activity_main">Familienkalender</string>
     <string name="package_name">online.chaoten.familienkalender</string>
     <string name="custom_url_scheme">online.chaoten.familienkalender</string>
+    <string name="widget_title">Nächste Termine</string>
+    <string name="widget_desc">Die nächsten Termine der Familie</string>
+    <string name="widget_empty">Keine Termine in den nächsten Tagen – App einmal öffnen zum Aktualisieren.</string>
 </resources>

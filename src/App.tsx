@@ -8,7 +8,7 @@ import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
-import { isNative, syncNativeReminders } from './native';
+import { isNative, syncNativeReminders, syncWidget } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -175,7 +175,10 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!isNative()) return;
-    const t = setTimeout(() => syncNativeReminders(events, persons, device).catch((e) => console.error('Erinnerungen planen', e)), 2000);
+    const t = setTimeout(() => {
+      syncNativeReminders(events, persons, device).catch((e) => console.error('Erinnerungen planen', e));
+      syncWidget(events, persons).catch((e) => console.error('Widget', e));
+    }, 2000);
     return () => clearTimeout(t);
   }, [events, persons, device.reminders, device.reminderPersons, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const inst = useInstall();

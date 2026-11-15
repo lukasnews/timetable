@@ -100,6 +100,23 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | startswith("android-1."))] | sort_by(.created_at) | reverse | .[3:] | .[].tag_name' |
             while read -r t; do gh release delete "$t" --yes --cleanup-tag || true; done
 
+      # Google Play: Upload in den „Internen Test“, sobald das Secret PLAY_SERVICE_ACCOUNT_JSON hinterlegt ist
+      # (Anleitung: SETUP.md → Google Play). Die allererste Version muss einmal von Hand hochgeladen werden.
+      - name: Play-Zugang vorhanden?
+        id: play
+        run: echo "ready=$([ -n "$PLAY_JSON" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      - name: In Google Play hochladen (Interner Test)
+        if: steps.play.outputs.ready == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: online.chaoten.familienkalender
+          releaseFiles: out/Familienkalender-${{ env.VERSION }}.aab
+          track: ${{ vars.PLAY_TRACK || 'internal' }}
+          status: ${{ vars.PLAY_STATUS || 'completed' }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: Familienkalender-${{ env.VERSION }}
