@@ -5,10 +5,12 @@ import { importDeviceSettings, migrateIfNeeded } from './migrate';
 import { updateState } from './update';
 import { DataProvider } from './data/DataContext';
 import App from './App';
+import { setupBackButton } from './native';
 import './styles.css';
 
 importDeviceSettings();
 migrateIfNeeded();
+setupBackButton();
 
 // Updates: regelmäßig und beim Zurückkehren in die App nach einer neuen Version suchen.
 // Eine neue Version wird erst aktiviert, wenn kein Fenster (Termin, Einstellungen …) offen ist –

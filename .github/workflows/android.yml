@@ -1,0 +1,107 @@
+name: Android-App bauen
+
+# Baut die Android-App (APK zum direkten Installieren + AAB für den Play Store)
+# und stellt beides als „Release“ bereit: GitHub → Releases → neueste „Android-App“.
+#
+# Die App lädt die veröffentlichte Web-App – Änderungen am Kalender brauchen KEINE neue APK.
+# Neu gebaut wird nur, wenn sich der Android-Teil ändert (oder per „Run workflow“).
+#
+# Signierschlüssel: wird beim ersten Lauf automatisch erzeugt, mit dem Secret FAMILY_ID
+# verschlüsselt und in einem privaten Entwurfs-Release („android-signing“) aufbewahrt.
+# Derselbe Schlüssel ist nötig, damit Updates über die installierte App drüber installiert werden können.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', 'capacitor.config.ts', 'src/native.ts', 'package-lock.json', '.github/workflows/android.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FAMILY_ID: ${{ secrets.FAMILY_ID }}
+      VERSION: 1.0.${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Signierschlüssel holen (oder beim ersten Mal erzeugen)
+        run: |
+          set -euo pipefail
+          PASS=$(printf %s "$FAMILY_ID" | tr -d '[:space:]')
+          if [ ${#PASS} -lt 16 ]; then echo "::error::Secret FAMILY_ID fehlt – es wird zum Verschlüsseln des Schlüssels gebraucht."; exit 1; fi
+          mkdir -p "$RUNNER_TEMP/sign" && cd "$RUNNER_TEMP/sign"
+          REL=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.draft and .name == "android-signing")][0].id // empty')
+          if [ -n "$REL" ]; then
+            ASSET=$(gh api "repos/$GITHUB_REPOSITORY/releases/$REL/assets" --jq '[.[] | select(.name == "keystore.enc")][0].id')
+            gh api -H 'Accept: application/octet-stream' "repos/$GITHUB_REPOSITORY/releases/assets/$ASSET" > keystore.enc
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:PASS -in keystore.enc | tar -x
+            echo "Vorhandenen Schlüssel verwendet."
+          else
+            KSPASS=$(openssl rand -hex 24)
+            keytool -genkeypair -noprompt -storetype PKCS12 -keystore release.p12 -alias familienkalender \
+              -keyalg RSA -keysize 4096 -validity 10000 -storepass "$KSPASS" -keypass "$KSPASS" -dname "CN=Familienkalender, O=Familie, C=AT"
+            printf %s "$KSPASS" > password.txt
+            tar -c release.p12 password.txt | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:PASS -out keystore.enc
+            REL=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" -f tag_name=android-signing -f name=android-signing -F draft=true \
+              -f body='Verschlüsselter Signierschlüssel der Android-App (nicht löschen – sonst lassen sich Updates nicht mehr drüber installieren).' --jq .id)
+            UPLOAD="https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$REL/assets?name=keystore.enc"
+            curl -sSf -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/octet-stream' --data-binary @keystore.enc "$UPLOAD" > /dev/null
+            echo "Neuen Schlüssel erzeugt und verschlüsselt gesichert."
+          fi
+          echo "::add-mask::$(cat password.txt)"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/sign/release.p12" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=$(cat password.txt)" >> "$GITHUB_ENV"
+        env:
+          PASS: ${{ secrets.FAMILY_ID }}
+
+      - run: npm ci
+      - name: Web-Teil bauen und ins Android-Projekt übernehmen
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: APK und AAB bauen
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease bundleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION
+          mkdir -p ../out
+          cp app/build/outputs/apk/release/app-release.apk ../out/Familienkalender-$VERSION.apk
+          cp app/build/outputs/bundle/release/app-release.aab ../out/Familienkalender-$VERSION.aab
+          ls -la ../out
+
+      - name: Als Release bereitstellen
+        run: |
+          set -euo pipefail
+          gh release create "android-$VERSION" out/* --target "$GITHUB_SHA" --latest \
+            --title "Android-App $VERSION" \
+            --notes "**Installieren am Handy/Tablet:** unten bei „Assets“ die Datei \`Familienkalender-$VERSION.apk\` antippen → herunterladen → öffnen → installieren (beim ersten Mal „Installation aus dieser Quelle erlauben“).
+
+          Die \`.aab\`-Datei ist für den Google Play Store (Play Console → Release hochladen)."
+          # Nur die letzten 3 App-Versionen behalten
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | startswith("android-1."))] | sort_by(.created_at) | reverse | .[3:] | .[].tag_name' |
+            while read -r t; do gh release delete "$t" --yes --cleanup-tag || true; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Familienkalender-${{ env.VERSION }}
+          path: out/
+          retention-days: 14

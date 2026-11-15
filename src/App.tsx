@@ -8,6 +8,7 @@ import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
+import { isNative, syncNativeReminders } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -163,6 +164,20 @@ export default function App() {
   useEffect(() => { if (device.kiosk) api()?.today(); }, [day, device.kiosk]);
 
   useReminders(events, persons, device);
+  // Android-App: Erinnerungen am Gerät vorausplanen (auch bei geschlossener App)
+  const [nativeTick, setNativeTick] = useState(0);
+  useEffect(() => {
+    if (!isNative()) return;
+    const bump = () => setNativeTick((n) => n + 1);
+    window.addEventListener('fk-resume', bump);
+    const t = setInterval(bump, 60 * 60_000);
+    return () => { window.removeEventListener('fk-resume', bump); clearInterval(t); };
+  }, []);
+  useEffect(() => {
+    if (!isNative()) return;
+    const t = setTimeout(() => syncNativeReminders(events, persons, device).catch((e) => console.error('Erinnerungen planen', e)), 2000);
+    return () => clearTimeout(t);
+  }, [events, persons, device.reminders, device.reminderPersons, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const inst = useInstall();
 
   // Termin anlegen
