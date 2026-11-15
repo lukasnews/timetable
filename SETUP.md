@@ -100,3 +100,34 @@ npm test        # Tests für Wiederholungen, Feiertage, Ferien
 
 Ohne Firebase-Konfiguration speichert die App alles nur im Browser und startet mit einer
 Beispiel-Familie. Die Beispiel-Personen lassen sich in den Einstellungen löschen.
+
+## Android-App und Google Play
+
+Die App wird bei Änderungen am Android-Teil automatisch gebaut (Workflow „Android-App bauen“,
+auch per *Run workflow*). Ergebnis: **GitHub → Releases → „Android-App 1.0.x“** mit
+`…apk` (direkt installieren) und `…aab` (Google Play).
+
+Der Signierschlüssel wird beim ersten Lauf erzeugt, mit dem Secret `FAMILY_ID` verschlüsselt und im
+privaten Entwurfs-Release **„android-signing“** aufbewahrt – nicht löschen und `FAMILY_ID` nicht ändern,
+sonst lassen sich Updates nicht mehr über die installierte App installieren.
+
+### Google Play (Interner Test – ideal für die Familie)
+
+1. <https://play.google.com/console> → Entwicklerkonto anlegen (einmalig 25 $, Identitätsnachweis).
+2. **App erstellen**: Name „Familienkalender“, Standardsprache Deutsch, App, kostenlos.
+3. **Testen → Interner Test → Neuen Release erstellen** → die `.aab` aus dem neuesten GitHub-Release
+   hochladen (die allererste Version muss von Hand hochgeladen werden) → „Google Play App-Signatur“ bestätigen.
+4. Unter **Tester** eine E-Mail-Liste mit den Google-Konten der Familie anlegen und den
+   **Link zur Teilnahme** an die Familie schicken → dort „Annehmen“ → App aus dem Play Store installieren.
+5. Die Play Console verlangt einige Angaben (App-Inhalte): Datenschutzerklärung
+   `https://timetable.chaoten.online/datenschutz.html`, Datensicherheit (keine Weitergabe, Daten verschlüsselt
+   übertragen), Zielgruppe (Erwachsene/Familie, nicht für Kinder als Zielgruppe), keine Werbung,
+   Berechtigung „Exakte Alarme“: Kalender-App mit Termin-Erinnerungen.
+
+**Automatisch hochladen (optional):** Google Cloud Console → Dienstkonto anlegen → JSON-Schlüssel erstellen;
+in der Play Console unter **Nutzer und Berechtigungen** das Dienstkonto einladen (Rechte: Releases verwalten).
+Den Inhalt der JSON-Datei als GitHub-Secret **`PLAY_SERVICE_ACCOUNT_JSON`** speichern – ab dann landet jede
+neue Version automatisch im internen Test.
+
+> Für eine **öffentliche** Veröffentlichung verlangt Google bei neuen privaten Entwicklerkonten zuerst einen
+> geschlossenen Test mit mindestens 12 Testern über 14 Tage. Für die Familie reicht der interne Test.

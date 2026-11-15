@@ -416,6 +416,7 @@ function GeneralTab() {
         <span className="hint">Version {__BUILD__} vom {new Date(__BUILD_TIME__).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' })}</span>
         <button className="btn small" onClick={checkUpdate}>{updateMsg || 'Nach Update suchen'}</button>
       </div>
+      <p className="hint"><a href="./datenschutz.html" target="_blank" rel="noreferrer">Datenschutzerklärung</a></p>
       <p className="hint">Comic-Figuren von <a href="https://www.dicebear.com" target="_blank" rel="noreferrer">DiceBear</a>:</p>
       <ul className="credits">{Object.values(AVATAR_STYLES).map((s) => <li key={s.credit}>{s.credit}</li>)}</ul>
     </div>

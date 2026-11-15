@@ -93,3 +93,52 @@ export async function setupBackButton() {
   App.addListener('resume', () => window.dispatchEvent(new Event('fk-resume')));
 }
 
+
+/* ---------------- Startbildschirm-Widget ---------------- */
+
+interface FamilyWidgetPlugin { update(o: { items: string }): Promise<void> }
+let widgetPlugin: FamilyWidgetPlugin | null = null;
+
+/** Nächste Termine für das Widget (rein, testbar) */
+export function widgetItems(events: CalEvent[], persons: Person[], now: string, days = 7, max = 12) {
+  const today = now.slice(0, 10);
+  const bdays: CalEvent[] = persons.filter((p) => p.birthday).map((p) => ({
+    id: 'bday-' + p.id, title: p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [p.id], kind: 'birthday',
+    birthYear: Number(p.birthday!.slice(0, 4)), recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
+  }));
+  return expand([...events, ...bdays], today, addDays(today, days))
+    .filter((o) => (o.event.allDay ? `${o.end}T00:00` : o.end) > now)
+    .sort((a, b) => {
+      const da = a.start.slice(0, 10) < today ? today : a.start.slice(0, 10);
+      const db = b.start.slice(0, 10) < today ? today : b.start.slice(0, 10);
+      // je Tag: ganztägige zuerst, dann nach Uhrzeit
+      return da.localeCompare(db) || Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start);
+    })
+    .slice(0, max)
+    .map((o) => {
+      const ev = o.event;
+      const ps = persons.filter((p) => ev.personIds.includes(p.id));
+      const age = ev.kind === 'birthday' && ev.birthYear ? Number(o.start.slice(0, 4)) - ev.birthYear : 0;
+      return {
+        date: o.start.slice(0, 10) < today ? today : o.start.slice(0, 10),
+        time: ev.allDay ? '' : o.start.slice(11, 16),
+        end: ev.allDay ? `${o.end}T00:00` : o.end,
+        title: ev.kind === 'birthday' ? `🎂 ${ev.title}${age > 0 ? ` wird ${age}` : ''}` : displayTitle(ev),
+        who: ev.kind === 'birthday' ? '' : ps.map((p) => p.name).join(', '),
+        color: ps[0]?.color ?? '#94a3b8',
+      };
+    });
+}
+
+let lastWidget = '';
+export async function syncWidget(events: CalEvent[], persons: Person[]) {
+  if (!isNative()) return;
+  if (!widgetPlugin) {
+    const { registerPlugin } = await import('@capacitor/core');
+    widgetPlugin = registerPlugin<FamilyWidgetPlugin>('FamilyWidget');
+  }
+  const items = JSON.stringify(widgetItems(events, persons, fromNative(new Date(), false)));
+  if (items === lastWidget) return;
+  lastWidget = items;
+  await widgetPlugin.update({ items });
+}

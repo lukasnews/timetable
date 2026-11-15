@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Datenschutz – Familienkalender</title>
+  <style>
+    :root { color-scheme: light dark; --bg: #fff8ef; --fg: #2b1a0e; --muted: #7a5a44; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1d1510; --fg: #f5e8da; --muted: #c4a68c; } }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { font-size: 1.6rem; margin: 0 0 4px; }
+    h2 { font-size: 1.1rem; margin: 28px 0 6px; }
+    p, li { color: var(--fg); }
+    small { color: var(--muted); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Datenschutzerklärung</h1>
+  <small>Familienkalender (Web-App und Android-App) · Stand: November 2026</small>
+
+  <h2>Worum es geht</h2>
+  <p>Der Familienkalender ist ein privater Kalender für eine Familie. Es gibt keine Werbung, kein Tracking, keine Analyse-Tools und keinen Verkauf oder Weitergabe von Daten zu Werbezwecken.</p>
+
+  <h2>Welche Daten gespeichert werden</h2>
+  <ul>
+    <li><b>Kalenderdaten</b>, die ihr selbst eintragt: Personen (Name, Farbe, Comic-Figur, optional Geburtstag und ntfy-Topic), Termine, Stundenpläne und Einstellungen.</li>
+    <li><b>Geräte-Einstellungen</b> (z. B. Ansicht, Kiosk-Modus) bleiben nur auf dem jeweiligen Gerät.</li>
+    <li>Es gibt <b>kein Benutzerkonto</b>: Jedes Gerät erhält eine anonyme Kennung. Der Zugriff auf einen Familienkalender ist nur mit dem geheimen Familien-Link möglich.</li>
+  </ul>
+
+  <h2>Wo die Daten liegen</h2>
+  <ul>
+    <li><b>Google Firebase (Cloud Firestore, Anonymous Authentication)</b> zur Synchronisation zwischen den Geräten der Familie (Serverstandort gemäß Projekteinstellung, vorgesehen: Frankfurt, EU). Anbieter: Google Ireland Ltd.</li>
+    <li><b>Cloudflare Workers</b> für Erinnerungen, Kalender-Abo-Link, das Laden von .ics-Kalendern und wöchentliche Sicherungen. Anbieter: Cloudflare, Inc.</li>
+    <li><b>ntfy</b> (eigener Server der Familie) für Push-Erinnerungen – nur wenn ein ntfy-Topic eingetragen ist.</li>
+    <li><b>Open-Meteo</b> für die Wettervorhersage: übermittelt werden nur die Koordinaten des gewählten Ortes, keine personenbezogenen Daten. Das Wetter lässt sich abschalten.</li>
+    <li>Die Web-App wird über <b>GitHub Pages</b> ausgeliefert (GitHub, Inc.); dabei fallen technisch übliche Zugriffsprotokolle (z. B. IP-Adresse) beim Anbieter an.</li>
+  </ul>
+
+  <h2>Berechtigungen der Android-App</h2>
+  <ul>
+    <li><b>Internet</b> – zum Synchronisieren des Kalenders.</li>
+    <li><b>Benachrichtigungen, exakte Alarme, Start nach Neustart</b> – damit Termin-Erinnerungen pünktlich am Gerät erscheinen, auch wenn die App geschlossen ist.</li>
+  </ul>
+
+  <h2>Löschen</h2>
+  <p>Termine und Personen können jederzeit in der App gelöscht werden. Lokale Daten werden beim Deinstallieren der App bzw. beim Löschen der Website-Daten entfernt. Für das vollständige Löschen eines Familienkalenders in der Cloud genügt eine Nachricht an die unten genannte Kontaktadresse.</p>
+
+  <h2>Kontakt</h2>
+  <p>Verantwortlich ist der Betreiber dieser App. Kontakt über die im Google Play Store beim Eintrag „Familienkalender“ angegebene E-Mail-Adresse.</p>
+</main>
+</body>
+</html>

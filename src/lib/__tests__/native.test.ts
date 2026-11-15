@@ -22,3 +22,18 @@ describe('Erinnerungen am Gerät', () => {
     expect(plan[0]).toMatchObject({ at: '2026-11-16T19:00', body: 'Morgen, ganztägig' });
   });
 });
+
+describe('Widget', () => {
+  it('nächste Termine: Vergangenes weg, Ganztägiges zuerst, Geburtstag mit Alter', async () => {
+    const { widgetItems } = await import('../../native');
+    const evs = [
+      ev({ id: 'a', start: '2026-11-15T09:00', end: '2026-11-15T10:00', title: 'Vorbei' }),
+      ev({ id: 'b', start: '2026-11-15T15:00', end: '2026-11-15T16:00', title: 'Klavier', category: 'musik', personIds: ['l'] }),
+      ev({ id: 'c', start: '2026-11-15', end: '2026-11-16', allDay: true, title: 'Ausflug', personIds: [], category: undefined }),
+    ];
+    const items = widgetItems(evs, persons, '2026-11-15T12:00');
+    expect(items.map((i) => i.title)).toEqual(['Ausflug', '🎵 Klavier', '🎂 Lena wird 10']);
+    expect(items[1]).toMatchObject({ date: '2026-11-15', time: '15:00', who: 'Lena', color: '#000' });
+    expect(items[0]).toMatchObject({ time: '', end: '2026-11-16T00:00', color: '#94a3b8' });
+  });
+});
