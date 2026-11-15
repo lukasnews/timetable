@@ -154,3 +154,22 @@ describe('Importierte Kalender und Sicherung im Lauf', () => {
     expect(last.icsStatus.arrayValue.values[0].mapValue.fields.count.integerValue).toBe('1');
   });
 });
+
+describe('Wochenübersicht mit Fahrdienst', () => {
+  it('Familien-Topic bekommt alle Fahrer, Person nur die eigenen Fahrten', () => {
+    const fam = { ntfyFamilyTopic: 'familie' };
+    const evs = [
+      ev({ id: 'f1', title: 'Schwimmen', personIds: ['mama'], driverIds: ['papa'], start: '2026-11-17T16:00', end: '2026-11-17T17:00' }),
+      ev({ id: 'f2', title: 'Arzt', personIds: [], start: '2026-11-18T09:00', end: '2026-11-18T10:00' }),
+    ];
+    const d = digest({ events: evs, persons, family: fam, from: '2026-11-16', days: 7, title: 'Woche', drivers: true });
+    const familie = d.find((n) => n.topic === 'familie')!.message;
+    expect(familie).toContain('🚗 Fahrdienst diese Woche:');
+    expect(familie).toContain('Papa: Di., 17.11. 16:00 Schwimmen (Mama)');
+    const papa = d.find((n) => n.topic === 'papa')!.message;
+    expect(papa).toContain('🚗 Du fährst:\nDi., 17.11. 16:00 Schwimmen (Mama)');
+    expect(d.find((n) => n.topic === 'mama')!.message).not.toContain('Du fährst');
+    const off = digest({ events: evs, persons, family: fam, from: '2026-11-16', days: 7, title: 'Woche', drivers: false });
+    expect(off.find((n) => n.topic === 'familie')!.message).not.toContain('🚗 Fahrdienst');
+  });
+});

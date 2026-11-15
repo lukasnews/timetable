@@ -147,6 +147,8 @@ export interface FamilySettings {
   ntfyDaily?: string;
   /** Wochenübersicht am Sonntag um 18:00 */
   ntfyWeekly?: boolean;
+  /** Wochenübersicht mit Fahrdienst-Block (Standard: an) */
+  ntfyWeeklyDrivers?: boolean;
   /** Nachricht bei neuen/geänderten Terminen */
   ntfyChanges?: boolean;
   /** Ort für die Wettervorhersage */

@@ -211,6 +211,10 @@ function NotifyTab() {
           <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
       )}
       <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+      {!!family.ntfyWeekly && (
+        <Toggle checked={family.ntfyWeeklyDrivers !== false} onChange={(v) => saveFamily({ ntfyWeeklyDrivers: v })} label="… mit Fahrdienst"
+          hint="„🚗 Fahrdienst diese Woche: Papa: Di 16:00 Schwimmen (Lena) …“ – jede Person bekommt ihre eigenen Fahrten" />
+      )}
       <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Neue und geänderte Termine melden"
         hint="An die betroffenen Personen – nicht an die Person, die geändert hat (siehe „Ich bin“)." />
 
