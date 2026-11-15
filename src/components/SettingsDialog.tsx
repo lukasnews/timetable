@@ -144,7 +144,9 @@ function DeviceTab() {
         hint="Zum Verschieben und Ändern muss die PIN eingegeben werden. Neue Termine über + gehen immer." />
 
       <h3>Kiosk-Modus (Wand-Tablet)</h3>
-      <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus" hint="Springt nach Inaktivität zurück auf heute und sperrt wieder" />
+      <Toggle checked={device.kiosk} onChange={(v) => setDevice({ kiosk: v })} label="Kiosk-Modus"
+        hint={isNative() ? 'Ganzer Bildschirm ohne Status- und Navigationsleiste (vom Rand wischen holt sie kurz zurück); springt nach Inaktivität zurück auf heute und sperrt wieder'
+          : 'Springt nach Inaktivität zurück auf heute und sperrt wieder'} />
       {device.kiosk && (
         <>
           <Toggle checked={device.wakeLock} onChange={(v) => setDevice({ wakeLock: v })} label="Bildschirm nicht abschalten" />
