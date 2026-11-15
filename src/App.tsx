@@ -421,6 +421,13 @@ export default function App() {
           </span>
         )}
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
+        {/* mittlere Breiten (Tablet hochkant, kleines Tablet): eine Auswahl statt sechs Knöpfen */}
+        <label className="view-select">
+          <span className="sr-only">Ansicht</span>
+          <select value={mode} onChange={(e) => changeMode(e.target.value as Mode)}>
+            {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
+          </select>
+        </label>
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
             <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : m === 'multiMonthYear' ? ' hide-phone' : '')} onClick={() => changeMode(m)}>
