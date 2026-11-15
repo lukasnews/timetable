@@ -12,6 +12,7 @@
   "dependencies": {
     "@capacitor/android": "8.6.0",
     "@capacitor/app": "8.1.2",
+    "@capacitor/app-launcher": "8.0.1",
     "@capacitor/core": "8.6.0",
     "@capacitor/local-notifications": "8.3.1",
     "@dicebear/adventurer": "^9.4.2",

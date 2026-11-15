@@ -58,7 +58,7 @@ export function EventDetails(props: { event: CalEvent; start: string; end: strin
         {ev.notes && <p className="det-notes">{ev.notes}</p>}
         {!!props.quickLinks?.length && (
           <div className="det-links">
-            {props.quickLinks.map((l) => <button key={l.id} className="btn" onClick={() => openLink(l.url)}>{l.icon} {l.label}</button>)}
+            {props.quickLinks.map((l) => <button key={l.id} className="btn" onClick={() => openLink(l)}>{l.icon} {l.label}</button>)}
           </div>
         )}
         {ev.importSource && <p className="hint">Importiert aus „{ev.importSource}“</p>}

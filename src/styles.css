@@ -897,12 +897,13 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .ql-icon { font-size: 1.2rem; width: 1.6em; text-align: center; }
 .ql-editor { display: flex; flex-direction: column; gap: 10px; }
 .ql-row { display: grid; grid-template-columns: 64px 1fr 1.4fr auto; gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: 12px; }
+.ql-row .ql-app { grid-column: 2 / 4; display: flex; flex-direction: column; gap: 2px; }
 .ql-row .ql-bday { grid-column: 2 / 4; font-size: 0.88rem; color: var(--muted); display: flex; gap: 6px; align-items: center; }
 .ql-row .icon-btn { grid-row: 1; grid-column: 4; }
 @media (max-width: 640px) {
   .ql-row { grid-template-columns: 64px 1fr auto; }
   .ql-row input[inputmode='url'] { grid-column: 1 / 3; }
-  .ql-row .ql-bday { grid-column: 1 / -1; }
+  .ql-row .ql-bday, .ql-row .ql-app { grid-column: 1 / -1; }
 }
 .det-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 :root.printing .ql-wrap { display: none; }
