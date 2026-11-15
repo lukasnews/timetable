@@ -29,6 +29,10 @@ export class FirebaseStore implements Store {
   private error = false;
   private authed = false;
   private authReady: Promise<void>;
+  /** Sammlungen, deren letzter Stand nur aus dem Gerätespeicher kommt (Server nicht erreichbar) */
+  private fromCache = new Set<Collection>();
+  private serverSeen = false;
+  private readonly started = Date.now();
 
   constructor(private cfg: CloudConfig) {
     this.app = initializeApp(cfg.firebase, 'fk-' + cfg.familyId);
@@ -50,6 +54,8 @@ export class FirebaseStore implements Store {
     });
     window.addEventListener('online', () => this.emitStatus());
     window.addEventListener('offline', () => this.emitStatus());
+    // Nach der Anlaufzeit prüfen, ob der Server erreicht wurde (sonst „offline“ anzeigen)
+    setTimeout(() => this.emitStatus(), 9000);
   }
 
   private col(c: Collection) {
@@ -59,6 +65,9 @@ export class FirebaseStore implements Store {
   private status(): SyncStatus {
     if (this.error) return 'error';
     if (!navigator.onLine) return 'offline';
+    // navigator.onLine meldet in der Android-App (WebView) Netzverlust nicht zuverlässig –
+    // darum zusätzlich: liefert Firestore nur Daten aus dem Gerätespeicher, ist der Server nicht erreichbar
+    if (this.fromCache.size) return !this.serverSeen && Date.now() - this.started < 8000 ? 'pending' : 'offline';
     if (this.pending.size || !this.authed) return 'pending';
     return 'synced';
   }
@@ -95,6 +104,8 @@ export class FirebaseStore implements Store {
         this.error = false;
         if (snap.metadata.hasPendingWrites) this.pending.add(c);
         else this.pending.delete(c);
+        if (snap.metadata.fromCache) this.fromCache.add(c);
+        else { this.fromCache.delete(c); this.serverSeen = true; }
         this.emitStatus();
         cb(snap.docs.map((d) => ({ ...(d.data() as T), id: d.id })));
       },

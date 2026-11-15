@@ -19,7 +19,7 @@ import { isKidDayOff } from './lib/calendarEvents';
 import { nextCountdowns } from './lib/countdown';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
-import { isNight, slideIn, useClock, useIdle, useMedia, useReminders, useSwipe, useWakeLock } from './hooks';
+import { isNight, slideIn, useClock, useIdle, useMedia, usePullToRefresh, useReminders, useSwipe, useWakeLock } from './hooks';
 
 type Mode = ViewName | 'timetable';
 
@@ -209,6 +209,8 @@ export default function App() {
     return () => clearTimeout(t);
   }, [events, persons, device.reminders, device.reminderPersons, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const inst = useInstall();
+  // App / installierte Web-App: nach unten ziehen lädt neu (holt auch eine neue Version)
+  usePullToRefresh((isNative() || inst.installed) && !device.kiosk, () => location.reload());
 
   // Termin anlegen
   const newEvent = (start?: string, end?: string, allDay = false) => {
@@ -295,6 +297,7 @@ export default function App() {
   const statusIcon = data.store.mode === 'local' ? null : (
     <span className={'sync ' + data.status} title={{ synced: 'Synchronisiert', pending: 'Synchronisiere …', offline: 'Offline', error: 'Sync-Fehler', local: '' }[data.status]}>
       <Icon name={data.status === 'offline' || data.status === 'error' ? 'cloudOff' : 'cloud'} size={16} />
+      {(data.status === 'offline' || data.status === 'error') && <span className="sync-text">{data.status === 'offline' ? 'Offline' : 'Fehler'}</span>}
     </span>
   );
 

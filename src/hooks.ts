@@ -143,3 +143,65 @@ export function slideIn(el: Element | null | undefined, dir: 1 | -1) {
     { duration: 220, easing: 'ease-out' },
   );
 }
+
+/**
+ * Nach unten ziehen zum Aktualisieren (Android-App / installierte Web-App – dort gibt es das sonst nicht).
+ * Startet nur, wenn der berührte Bereich ganz oben ist; nie in offenen Fenstern (Eingaben gingen verloren).
+ */
+export function usePullToRefresh(enabled: boolean, onRefresh: () => void) {
+  useEffect(() => {
+    if (!enabled) return;
+    const THRESHOLD = 90;
+    let startY = 0, startX = 0, pulling = false, dist = 0;
+    const ind = document.createElement('div');
+    ind.className = 'ptr';
+    ind.innerHTML = '<span class="ptr-icon">↻</span>';
+    document.body.appendChild(ind);
+    const atTop = (el: Element | null) => {
+      for (let n = el; n && n !== document.body; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1 && n.scrollTop > 0) return false;
+      }
+      return true;
+    };
+    const show = (d: number) => {
+      const p = Math.min(1, d / THRESHOLD);
+      ind.style.transform = `translate(-50%, ${Math.min(d, THRESHOLD * 1.3) - 50}px) rotate(${p * 270}deg)`;
+      ind.style.opacity = String(p);
+      ind.classList.toggle('ready', d >= THRESHOLD);
+    };
+    const reset = () => { pulling = false; dist = 0; ind.style.transition = 'transform .2s, opacity .2s'; show(0); setTimeout(() => (ind.style.transition = ''), 220); };
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || document.querySelector('.modal-backdrop, .fc-event-dragging, .fc-event-mirror')) return;
+      if (!atTop(e.target as Element)) return;
+      startY = e.touches[0].clientY; startX = e.touches[0].clientX; pulling = true; dist = 0;
+    };
+    const move = (e: TouchEvent) => {
+      if (!pulling) return;
+      const dy = e.touches[0].clientY - startY, dx = Math.abs(e.touches[0].clientX - startX);
+      if (dy < 0 || dx > Math.abs(dy)) { if (dist === 0) pulling = false; else reset(); return; }
+      if (document.querySelector('.fc-event-dragging, .fc-event-mirror')) { reset(); return; }
+      dist = dy * 0.55;
+      show(dist);
+    };
+    const end = () => {
+      if (!pulling) return;
+      if (dist >= THRESHOLD) {
+        ind.classList.add('spin');
+        setTimeout(onRefresh, 150);
+      } else reset();
+      pulling = false;
+    };
+    window.addEventListener('touchstart', start, { passive: true });
+    window.addEventListener('touchmove', move, { passive: true });
+    window.addEventListener('touchend', end);
+    window.addEventListener('touchcancel', reset);
+    return () => {
+      window.removeEventListener('touchstart', start);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+      window.removeEventListener('touchcancel', reset);
+      ind.remove();
+    };
+  }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+}
