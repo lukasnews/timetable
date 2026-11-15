@@ -50,6 +50,26 @@ export default function App() {
   const toggle = (id: string) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const solo = (id: string) => setHidden(new Set(persons.map((p) => p.id).filter((x) => x !== id)));
 
+  // Personenleiste: passt sie nicht, zuerst Namen ausblenden, dann seitlich scrollen
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const [chipsCompact, setChipsCompact] = useState(false);
+  const [chipsOverflow, setChipsOverflow] = useState(false);
+  useEffect(() => {
+    const el = chipsRef.current;
+    if (!el) return;
+    const check = () => {
+      el.classList.remove('compact');
+      const full = el.scrollWidth > el.clientWidth + 1;
+      if (full) el.classList.add('compact');
+      setChipsCompact(full);
+      setChipsOverflow(el.scrollWidth > el.clientWidth + 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [persons.length]);
+
   // Dialoge
   const [draft, setDraft] = useState<(EditDraft & { scope?: Scope; occStart?: string; series?: CalEvent }) | null>(null);
   const [settings, setSettings] = useState<SettingsTab | null>(null);
@@ -237,7 +257,7 @@ export default function App() {
     <div className={'app' + (device.kiosk ? ' kiosk' : '') + (mode === 'timetable' ? ' mode-timetable' : '')}>
       <header className="topbar">
         <button className="fab" onClick={() => newEvent()} aria-label="Neuer Termin"><Icon name="plus" size={28} /></button>
-        <div className="chips" role="toolbar" aria-label="Personen filtern">
+        <div className={'chips' + (chipsCompact ? ' compact' : '') + (chipsOverflow ? ' overflow' : '')} ref={chipsRef} role="toolbar" aria-label="Personen filtern">
           {persons.map((p) => (
             <button key={p.id} className={'chip' + (selected.has(p.id) ? ' on' : '')} style={{ ['--pc' as string]: p.color }}
               onClick={() => toggle(p.id)} onDoubleClick={() => solo(p.id)} onContextMenu={(e) => { e.preventDefault(); solo(p.id); }}
