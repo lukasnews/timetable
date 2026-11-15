@@ -71,6 +71,12 @@ h1, h2, h3, h4 { margin: 0; }
 a { color: var(--accent); }
 
 /* ---------- Layout ---------- */
+/* Im Browser (nicht installiert): Seite so hoch wie der Bildschirm OHNE Browser-Leisten.
+   Dann kann die Seite um die Leistenhöhe scrollen und der Browser blendet Adress- und
+   Werkzeugleiste beim Wischen aus. Installiert/App: kein Unterschied (dort gibt es diese Leisten nicht). */
+@media (display-mode: browser) {
+  .app { height: 100lvh !important; }
+}
 .app {
   height: 100dvh;
   display: grid;
