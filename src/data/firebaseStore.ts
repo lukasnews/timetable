@@ -10,6 +10,7 @@ import {
   setDoc,
   deleteDoc,
   type Firestore,
+  getDocsFromServer,
 } from 'firebase/firestore';
 import type { CloudConfig, Collection, Item, Store, SyncStatus } from './store';
 
@@ -116,6 +117,12 @@ export class FirebaseStore implements Store {
     await this.authReady;
     await Promise.all(items.map(({ col, item }) =>
       setDoc(doc(this.col(col), item.id), JSON.parse(JSON.stringify({ ...item, updatedAt: Date.now() })))));
+  }
+
+  async fetchAll<T extends Item>(c: Collection): Promise<T[]> {
+    await this.authReady;
+    const snap = await getDocsFromServer(this.col(c));
+    return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
   }
 
   remove(c: Collection, id: string) {

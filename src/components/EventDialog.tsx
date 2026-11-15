@@ -4,7 +4,8 @@ import { findConflicts } from '../lib/conflicts';
 import { CATEGORIES } from '../lib/categories';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
-import { addDays, addMinutes, diffMinutes, uid, weekdayMo0 } from '../lib/dates';
+import { addDays, addMinutes, diffMinutes, todayLocal, uid, weekdayMo0 } from '../lib/dates';
+import { parseQuick } from '../lib/quickAdd';
 
 export interface EditDraft {
   event: CalEvent;
@@ -103,6 +104,34 @@ export function EventDialog(props: {
     props.onSaveTemplates([...props.templates.filter((x) => x.title.toLowerCase() !== t.title.toLowerCase()), t]);
     setTplSaved(true);
   };
+  // Schnelleingabe („Morgen 15 Uhr Zahnarzt Lena“) – nur bei neuen Terminen
+  const quick = props.draft.isNew && ev.kind !== 'birthday' && ev.title.trim().length > 3 ? parseQuick(ev.title, props.persons, todayLocal()) : null;
+  const quickUseful = !!quick && quick.matched && !!quick.title;
+  const applyQuick = () => {
+    if (!quick) return;
+    const d = quick.date ?? date;
+    const p: Partial<CalEvent> = { title: quick.title };
+    if (quick.personIds.length) p.personIds = [...new Set([...ev.personIds, ...quick.personIds])];
+    if (quick.start && !quick.allDay) {
+      const start = `${d}T${quick.start}`;
+      p.allDay = false; p.start = start;
+      p.end = quick.end ? `${d}T${quick.end}` : addMinutes(start, quick.durationMin ?? (ev.allDay ? 60 : diffMinutes(ev.start, ev.end)));
+    } else if (quick.allDay || (quick.date && ev.allDay)) {
+      p.allDay = true; p.start = d; p.end = addDays(d, 1);
+    } else if (quick.date) {
+      p.start = `${d}T${startTime}`;
+      p.end = addMinutes(p.start, quick.durationMin ?? diffMinutes(ev.start, ev.end));
+    } else if (quick.durationMin && !ev.allDay) {
+      p.end = addMinutes(ev.start, quick.durationMin);
+    }
+    set(p);
+  };
+  const quickText = quick ? [
+    quick.date && new Date(quick.date + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' }),
+    quick.allDay ? 'ganztägig' : quick.start && (quick.end ? `${quick.start}–${quick.end}` : quick.start),
+    quick.durationMin && !quick.end && `${quick.durationMin} min`,
+    quick.personIds.map((id) => props.persons.find((x) => x.id === id)?.name).filter(Boolean).join(', '),
+  ].filter(Boolean).join(' · ') : '';
   const conflicts = findConflicts(ev, props.events, props.persons, props.draft.event.seriesId ? [] : [props.draft.event.id]);
 
   const isBirthday = ev.kind === 'birthday';
@@ -138,8 +167,15 @@ export function EventDialog(props: {
       }
     >
       <form onSubmit={(e) => { e.preventDefault(); save(); }} className="form">
-        <input className="title-input" autoFocus={props.draft.isNew} placeholder={isBirthday ? 'Wer hat Geburtstag?' : 'Titel'}
-          value={ev.title} onChange={(e) => set({ title: e.target.value })} />
+        <input className="title-input" autoFocus={props.draft.isNew} placeholder={isBirthday ? 'Wer hat Geburtstag?' : props.draft.isNew ? 'Titel – z. B. „Morgen 15 Uhr Zahnarzt Lena“' : 'Titel'}
+          value={ev.title} onChange={(e) => set({ title: e.target.value })}
+          onKeyDown={(e) => { if (e.key === 'Enter' && quickUseful) { e.preventDefault(); applyQuick(); } }} />
+        {quickUseful && (
+          <button type="button" className="quick-hint" onClick={applyQuick}>
+            <span>✨ <b>{quick!.title}</b> · {quickText}</span>
+            <span className="quick-apply">Übernehmen</span>
+          </button>
+        )}
 
         {props.draft.isNew && props.templates.length > 0 && (
           <div className="tpl-row" aria-label="Vorlagen">

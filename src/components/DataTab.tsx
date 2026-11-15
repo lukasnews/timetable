@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useData } from '../data/DataContext';
-import type { CalEvent, FamilySettings, Person, Timetable } from '../types';
+import type { CalEvent, EventTemplate, FamilySettings, IcsSource, Person, Timetable } from '../types';
 
 interface Backup {
   format: 'familienkalender-backup';
@@ -10,19 +10,30 @@ interface Backup {
   events: CalEvent[];
   timetables: Timetable[];
   settings?: FamilySettings;
+  templates?: EventTemplate[];
 }
 import { parseICS, toICS, type ImportResult } from '../lib/ics';
-import { todayLocal } from '../lib/dates';
+import { todayLocal, uid } from '../lib/dates';
+import { EVENING_TIMES, SOURCE_REMINDERS, planSync, reminderFor, setSourceReminder, sourceReminderValue } from '../lib/icsSync';
+import { loadCloudConfig } from '../data/store';
 import { Avatar, Icon, Toggle } from './ui';
 import { ConfirmDialog } from './Dialogs';
 
-const REMINDERS: [number | null, string][] = [
-  [null, 'Keine'],
-  [-120, 'Am Vorabend, 18:00'],
-  [0, 'Am Tag, 08:00 (ganztägig) bzw. zum Beginn'],
-  [60, '1 Stunde vorher'],
-  [1440, '1 Tag vorher'],
-];
+/** Erinnerung einer Quelle: Auswahl + ggf. Uhrzeit am Vorabend */
+function ReminderPick({ value, evening, onChange }: { value: string; evening?: string | null; onChange: (value: string, evening?: string) => void }) {
+  return (
+    <div className="rem-pick">
+      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="Erinnerung">
+        {SOURCE_REMINDERS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+      </select>
+      {value === 'evening' && (
+        <select value={evening || '19:00'} onChange={(e) => onChange('evening', e.target.value)} aria-label="Uhrzeit am Vorabend">
+          {EVENING_TIMES.map((t) => <option key={t} value={t}>{t} Uhr</option>)}
+        </select>
+      )}
+    </div>
+  );
+}
 
 function newFeedToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
@@ -30,7 +41,9 @@ function newFeedToken(): string {
 }
 
 export function DataTab({ onPrint }: { onPrint?: () => void }) {
-  const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl } = useData();
+  const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl, service } = useData();
+  const [autoList, setAutoList] = useState<{ id: string; exportedAt: string; data: string; persons?: number; events?: number }[] | null>(null);
+  const [autoErr, setAutoErr] = useState('');
   const [feedPerson, setFeedPerson] = useState('');
   const [copied, setCopied] = useState(false);
   const backupRef = useRef<HTMLInputElement>(null);
@@ -40,24 +53,55 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
-  const [preview, setPreview] = useState<(ImportResult & { source: string }) | null>(null);
+  const [preview, setPreview] = useState<(ImportResult & { source: string; url?: string }) | null>(null);
   const [personIds, setPersonIds] = useState<string[]>([]);
-  const [reminder, setReminder] = useState<number | null>(null);
+  const [rem, setRem] = useState<{ value: string; evening?: string }>({ value: 'evening', evening: '19:00' });
   const [futureOnly, setFutureOnly] = useState(true);
+  const [auto, setAuto] = useState(true);
+  const icsSources = family.icsSources ?? [];
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
   const sources = useMemo(() => {
     const m = new Map<string, number>();
+    for (const s of family.icsSources ?? []) m.set(s.name, 0);
     for (const e of events) if (e.importSource) m.set(e.importSource, (m.get(e.importSource) ?? 0) + 1);
     return [...m.entries()];
-  }, [events]);
+  }, [events, family.icsSources]);
 
-  const load = (text: string, fallbackName: string) => {
+  /** Einstellungen einer Quelle (ältere Importe ohne Eintrag: aus den Terminen abgeleitet) */
+  const sourceOf = (name: string): IcsSource => {
+    const s = icsSources.find((x) => x.name === name);
+    if (s) return s;
+    const first = events.find((e) => e.importSource === name);
+    const r = first?.reminderMinutes ?? null;
+    // früher: „Am Vorabend 18:00“ = 840 min vor 08:00
+    const evening = first?.allDay && r != null && r > 480 && r < 1920 ? `${String(Math.floor((1920 - r) / 60) % 24).padStart(2, '0')}:${String((1920 - r) % 60).padStart(2, '0')}` : null;
+    return { id: uid(), name, personIds: first?.personIds ?? [], reminder: evening ? null : r, evening };
+  };
+  const saveSource = (src: IcsSource) => saveFamily({ icsSources: [...icsSources.filter((x) => x.id !== src.id && x.name !== src.name), src] });
+  const changeSourceReminder = (name: string, value: string, evening?: string) => {
+    let src = setSourceReminder(sourceOf(name), value);
+    if (evening) src = { ...src, evening };
+    saveSource(src);
+    const put = events.filter((e) => e.importSource === name).map((e) => ({ ...e, reminderMinutes: reminderFor(e, src) }))
+      .filter((e, i, all) => e.reminderMinutes !== events.find((x) => x.id === all[i].id)?.reminderMinutes);
+    if (put.length) apply({ put, del: [] });
+  };
+
+  const load = (text: string, fallbackName: string, link?: string) => {
     try {
       const r = parseICS(text, { source: fallbackName });
       const source = r.calendarName || fallbackName;
       r.events.forEach((e) => (e.importSource = source));
-      setPreview({ ...r, source });
+      setPreview({ ...r, source, url: link });
+      // Bekannte Quelle: bisherige Einstellungen übernehmen
+      const known = icsSources.find((x) => x.name === source);
+      if (known) {
+        setPersonIds(known.personIds ?? []);
+        setRem({ value: sourceReminderValue(known), evening: known.evening ?? undefined });
+        setFutureOnly(known.futureOnly ?? true);
+        setAuto(known.auto !== false);
+      }
       setErr('');
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -72,17 +116,24 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
 
   const onUrl = async () => {
     setErr(''); setMsg(''); setBusy(true);
+    const u = url.trim().replace(/^webcal:\/\//i, 'https://');
+    let text: string | null = null;
+    let why = '';
     try {
-      const u = url.trim().replace(/^webcal:\/\//i, 'https://');
-      const r = await fetch(u);
-      if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
-      load(await r.text(), new URL(u).hostname);
-    } catch {
-      setErr('Der Kalender konnte nicht direkt geladen werden – viele Server erlauben das aus dem Browser nicht. ' +
-        'Bitte die .ics-Datei herunterladen und oben mit „Datei wählen“ importieren.');
-    } finally {
-      setBusy(false);
+      new URL(u);
+      // 1) direkt (klappt nur, wenn der Server es erlaubt), 2) über den eigenen Dienst
+      try { const r = await fetch(u); if (r.ok) text = await r.text(); } catch { /* CORS */ }
+      const fid = loadCloudConfig()?.familyId;
+      if (text == null && serviceUrl && fid) {
+        const r = await fetch(`${serviceUrl}/ics?family=${encodeURIComponent(fid)}&url=${encodeURIComponent(u)}`);
+        if (r.ok) text = await r.text(); else why = await r.text();
+      }
+    } catch (e) {
+      why = e instanceof Error ? e.message : String(e);
     }
+    setBusy(false);
+    if (text != null) load(text, new URL(u).hostname, u);
+    else setErr(`Der Kalender konnte nicht geladen werden${why ? ` (${why.slice(0, 120)})` : ''}. Bitte den Link prüfen – oder die .ics-Datei herunterladen und mit „Datei wählen“ importieren.`);
   };
 
   const today = todayLocal();
@@ -93,18 +144,28 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
 
   const doImport = () => {
     if (!preview) return;
-    const list: CalEvent[] = toImport.map((e) => {
-      let rem = reminder;
-      // „Am Vorabend 18:00“: ganztägig = 14 h vor 08:00; mit Uhrzeit nicht sinnvoll → 1 Tag vorher
-      if (rem === -120) rem = e.allDay ? 840 : 1440;
-      return { ...e, personIds, reminderMinutes: rem };
-    });
-    // Abgleich: künftige Termine derselben Quelle, die in der neuen Datei fehlen, entfernen
-    const ids = new Set(list.map((e) => e.id));
-    const stale = events.filter((e) => e.importSource === preview.source && !ids.has(e.id) && (e.recurrence || e.end.slice(0, 10) >= today)).map((e) => e.id);
-    apply({ put: list, del: stale });
-    setMsg(`✓ ${list.length} Termin(e) aus „${preview.source}“ importiert${stale.length ? `, ${stale.length} veraltete entfernt` : ''}.`);
+    const old = icsSources.find((x) => x.name === preview.source);
+    const link = preview.url ?? old?.url;
+    let src: IcsSource = { ...(old ?? { id: uid() }), name: preview.source, personIds, futureOnly, url: link, auto: link ? auto : undefined };
+    src = setSourceReminder(src, rem.value);
+    if (rem.value === 'evening' && rem.evening) src.evening = rem.evening;
+    // Abgleich: neue/geänderte schreiben, künftige Termine derselben Quelle, die fehlen, entfernen
+    const plan = planSync(preview.events, events, src, today);
+    apply({ put: plan.put, del: plan.del });
+    saveSource(src);
+    setMsg(`✓ „${preview.source}“: ${plan.total} Termin(e)${plan.del.length ? `, ${plan.del.length} veraltete entfernt` : ''}${link && auto && serviceUrl ? ' – wird ab jetzt täglich automatisch aktualisiert' : ''}.`);
     setPreview(null);
+  };
+
+  const loadAutoBackups = async () => {
+    setAutoErr('');
+    try {
+      const l = await store.fetchAll<{ id: string; exportedAt: string; data: string; persons?: number; events?: number }>('backups');
+      setAutoList(l.sort((a, b) => b.id.localeCompare(a.id)));
+    } catch (e) {
+      setAutoList([]);
+      setAutoErr(/permission/i.test(String(e)) ? 'Zugriff verweigert – die Firestore-Regeln müssen einmal aktualisiert werden (siehe Anleitung).' : 'Konnte nicht geladen werden (offline?).');
+    }
   };
 
   const saveFile = async (file: File) => {
@@ -147,6 +208,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
     b.events.forEach((x) => store.put('events', x));
     (b.timetables ?? []).forEach((x) => store.put('timetables', x));
     if (b.settings) store.put('meta', { ...b.settings, id: 'settings' });
+    if (b.templates) saveTemplates(b.templates);
     setMsg(`✓ Sicherung vom ${new Date(b.exportedAt).toLocaleDateString('de-AT')} wiederhergestellt: ${b.persons.length} Person(en), ${b.events.length} Termin(e).`);
   };
 
@@ -159,6 +221,29 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
         <button className="btn" onClick={exportBackup}><Icon name="download" size={18} /> Sicherung speichern</button>
         <button className="btn" onClick={() => backupRef.current?.click()}><Icon name="up" size={18} /> Wiederherstellen …</button>
       </div>
+      <p className="hint">🔄 <b>Automatisch:</b> {serviceUrl ? <>jede Woche eine Sicherung beim Erinnerungsdienst, 13 Wochen lang aufbewahrt. {service.lastBackup ? `Letzte: ${new Date(service.lastBackup + 'T12:00:00').toLocaleDateString('de-AT')}.` : 'Die erste folgt in den nächsten Stunden.'}</> : 'sobald der Erinnerungsdienst (Cloudflare) eingerichtet ist.'}</p>
+      {service.backupError && <p className="error">Automatische Sicherung: {/permission|403/i.test(service.backupError) ? 'Zugriff verweigert – die Firestore-Regeln müssen einmal aktualisiert werden (siehe Anleitung).' : service.backupError}</p>}
+      {serviceUrl && (autoList == null ? (
+        <button className="btn small link-btn" onClick={loadAutoBackups}>Automatische Sicherungen anzeigen …</button>
+      ) : (
+        <>
+          {autoErr && <p className="error">{autoErr}</p>}
+          {!autoErr && autoList.length === 0 && <p className="hint">Noch keine automatische Sicherung vorhanden.</p>}
+          {autoList.length > 0 && (
+            <ul className="source-list">
+              {autoList.map((b) => (
+                <li key={b.id}>
+                  <span><strong>{new Date(b.id + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}</strong> <small className="hint">{b.persons ?? '?'} Personen · {b.events ?? '?'} Termine</small></span>
+                  <span className="row nowrap">
+                    <button className="btn small" onClick={() => saveFile(new File([b.data], `familienkalender-sicherung-${b.id}.json`, { type: 'application/json' }))} aria-label="Herunterladen"><Icon name="download" size={16} /></button>
+                    <button className="btn small" onClick={() => { try { setRestore(JSON.parse(b.data)); } catch { setErr('Sicherung beschädigt.'); } }}>Einspielen</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ))}
       {restore && (
         <ConfirmDialog confirm="Alles ersetzen"
           text={`Sicherung vom ${new Date(restore.exportedAt).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' })} einspielen (${restore.persons.length} Personen, ${restore.events.length} Termine)? Der jetzige Stand wird auf allen Geräten vollständig ersetzt.`}
@@ -166,7 +251,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
       )}
 
       <h3><Icon name="up" size={18} /> Import (.ics)</h3>
-      <p className="hint">Z. B. den Müllkalender deiner Gemeinde: Auf der Gemeinde-Seite die Abfuhrtermine als <b>.ics</b> (iCal) herunterladen und hier auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln.</p>
+      <p className="hint">Z. B. den Müllkalender deiner Gemeinde: am besten den <b>Link</b> zur .ics-Datei (iCal) einfügen – dann wird er jeden Tag automatisch aktualisiert. Oder die Datei herunterladen und auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln.</p>
       <input ref={fileRef} type="file" accept=".ics,text/calendar" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
       <div className="row">
         <button className="btn primary" onClick={() => fileRef.current?.click()}><Icon name="plus" size={18} /> Datei wählen</button>
@@ -201,11 +286,13 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
             </div>
             <small className="hint">{personIds.length ? '' : 'Niemand gewählt = ganze Familie (z. B. Müll)'}</small>
           </div>
-          <label className="field"><span className="label"><Icon name="bell" size={16} /> Erinnerung</span>
-            <select value={reminder ?? ''} onChange={(e) => setReminder(e.target.value === '' ? null : Number(e.target.value))}>
-              {REMINDERS.map(([v, l]) => <option key={l} value={v ?? ''}>{l}</option>)}
-            </select>
-          </label>
+          <div className="field"><span className="label"><Icon name="bell" size={16} /> Erinnerung</span>
+            <ReminderPick value={rem.value} evening={rem.evening} onChange={(value, evening) => setRem({ value, evening: evening ?? rem.evening })} />
+            <small className="hint">Per ntfy an die gewählten Personen bzw. das Familien-Topic – später unter „Importierte Kalender“ änderbar oder abschaltbar.</small>
+          </div>
+          {preview.url && serviceUrl && (
+            <Toggle checked={auto} onChange={setAuto} label="🔄 Täglich automatisch aktualisieren" hint="Der Dienst lädt den Link jeden Morgen neu – Änderungen der Gemeinde kommen von selbst" />
+          )}
           <div className="row">
             <button className="btn primary" disabled={!toImport.length} onClick={doImport}>Importieren</button>
             <button className="btn" onClick={() => setPreview(null)}>Abbrechen</button>
@@ -216,20 +303,48 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
       {sources.length > 0 && (
         <>
           <h3>Importierte Kalender</h3>
-          <ul className="source-list">
-            {sources.map(([s, n]) => (
-              <li key={s}>
-                <span><strong>{s}</strong> <small className="hint">{n} Termin(e)</small></span>
-                <button className="btn small danger" onClick={() => setConfirmDel(s)}><Icon name="trash" size={16} /> Entfernen</button>
-              </li>
-            ))}
+          <ul className="source-cards">
+            {sources.map(([name, n]) => {
+              const src = sourceOf(name);
+              const st = service.icsStatus?.find((x) => x.id === src.id);
+              const isAuto = !!src.url && src.auto !== false && icsSources.some((x) => x.id === src.id);
+              return (
+                <li key={name} className="source-card">
+                  <div className="source-head">
+                    <span><strong>{name}</strong> <small className="hint">{n} Termin(e)</small></span>
+                    <button className="btn small danger" onClick={() => setConfirmDel(name)} aria-label="Entfernen"><Icon name="trash" size={16} /></button>
+                  </div>
+                  <div className="source-row">
+                    <span className="label"><Icon name="bell" size={15} /> Erinnerung</span>
+                    <ReminderPick value={sourceReminderValue(src)} evening={src.evening} onChange={(v, e) => changeSourceReminder(name, v, e)} />
+                  </div>
+                  {src.url && icsSources.some((x) => x.id === src.id) && (
+                    <div className="source-row">
+                      <Toggle checked={src.auto !== false} onChange={(v) => saveSource({ ...src, auto: v, requested: v ? Date.now() : src.requested })} label="🔄 Täglich aktualisieren"
+                        hint={!serviceUrl ? 'Braucht den Erinnerungsdienst (Cloudflare)'
+                          : st?.error ? `⚠️ ${st.error}`
+                          : st ? `Zuletzt ${new Date(st.at).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' })}${st.changed ? ` · ${st.changed} Änderung(en)` : ''}`
+                          : isAuto ? 'Wird in den nächsten Minuten geladen' : undefined} />
+                      {isAuto && serviceUrl && (
+                        <button className="btn small" disabled={!!src.requested && (!st || src.requested > st.at)} onClick={() => saveSource({ ...src, requested: Date.now() })}>
+                          {src.requested && (!st || src.requested > st.at) ? 'Wird geladen …' : 'Jetzt aktualisieren'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
       {confirmDel && (
-        <ConfirmDialog text={`Alle Termine aus „${confirmDel}“ entfernen?`} confirm="Entfernen"
+        <ConfirmDialog text={`Alle Termine aus „${confirmDel}“ entfernen? Der Kalender wird dann auch nicht mehr automatisch aktualisiert.`} confirm="Entfernen"
           onResult={(ok) => {
-            if (ok) apply({ put: [], del: events.filter((e) => e.importSource === confirmDel).map((e) => e.id) });
+            if (ok) {
+              apply({ put: [], del: events.filter((e) => e.importSource === confirmDel).map((e) => e.id) });
+              if (icsSources.some((x) => x.name === confirmDel)) saveFamily({ icsSources: icsSources.filter((x) => x.name !== confirmDel) });
+            }
             setConfirmDel(null);
           }} />
       )}

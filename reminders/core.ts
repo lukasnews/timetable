@@ -5,9 +5,11 @@
  */
 import { expand } from '../src/lib/recurrence';
 import { addDays, addMinutes } from '../src/lib/dates';
-import type { CalEvent, FamilySettings, Person, Timetable } from '../src/types';
+import type { CalEvent, FamilySettings, IcsSource, Person, Timetable } from '../src/types';
+import { parseICS } from '../src/lib/ics';
+import { planSync } from '../src/lib/icsSync';
 import { displayTitle } from '../src/lib/categories';
-import { lessonsForDay } from '../src/lib/calendarEvents';
+import { isKidDayOff, lessonsForDay } from '../src/lib/calendarEvents';
 import { isSchoolFree } from '../src/lib/holidays';
 
 export interface Config {
@@ -33,6 +35,22 @@ export interface ReminderState {
   lastWeekly?: string;
   /** Änderungen seit (ms) bereits gemeldet */
   changesAt?: number;
+  /** Datum des letzten täglichen Abgleichs der importierten Kalender */
+  lastIcsSync?: string;
+  /** Ergebnis je Kalender (für die Anzeige in der App) */
+  icsStatus?: IcsStatus[];
+  /** Automatische Sicherung: Datum der letzten erfolgreichen / des letzten Versuchs, Fehler */
+  lastBackup?: string;
+  lastBackupTry?: string;
+  backupError?: string;
+}
+
+export interface IcsStatus {
+  id: string;
+  at: number;
+  count?: number;
+  changed?: number;
+  error?: string;
 }
 
 export interface Notification {
@@ -75,6 +93,18 @@ function fromValue(v: any): any {
 }
 const fromFields = (f: Record<string, any>) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, fromValue(v)]));
 
+export function toValue(v: unknown): any {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (Array.isArray(v)) return { arrayValue: { values: v.filter((x) => x !== undefined).map(toValue) } };
+  if (typeof v === 'object') return { mapValue: { fields: toFields(v as Record<string, unknown>) } };
+  return { nullValue: null };
+}
+export const toFields = (o: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined).map(([k, x]) => [k, toValue(x)]));
+
 const docsUrl = (cfg: Config) =>
   `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/families/${cfg.familyId}`;
 
@@ -92,14 +122,31 @@ export async function list<T>(cfg: Config, token: string, col: string): Promise<
 }
 
 /** Abfrage mit einem Feldfilter (liest nur die passenden Dokumente → spart Lesezugriffe) */
-export async function query<T>(cfg: Config, token: string, col: string, field: string, op: 'GREATER_THAN' | 'GREATER_THAN_OR_EQUAL', value: number): Promise<T[]> {
+export async function query<T>(cfg: Config, token: string, col: string, field: string, op: 'GREATER_THAN' | 'GREATER_THAN_OR_EQUAL' | 'EQUAL', value: number | string): Promise<T[]> {
   const r = await fetch(`${docsUrl(cfg)}:runQuery`, {
     method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' },
-    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], where: { fieldFilter: { field: { fieldPath: field }, op, value: { integerValue: String(Math.floor(value)) } } } } }),
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: col }], where: { fieldFilter: { field: { fieldPath: field }, op, value: typeof value === 'string' ? { stringValue: value } : { integerValue: String(Math.floor(value)) } } } } }),
   });
   if (!r.ok) throw new Error(`Abfrage von ${col} fehlgeschlagen: ${r.status} ${await r.text()}`);
   const j = (await r.json()) as { document?: { name: string; fields?: any } }[];
   return j.filter((x) => x.document).map((x) => ({ ...fromFields(x.document!.fields ?? {}), id: x.document!.name.split('/').pop() } as T));
+}
+
+const docName = (cfg: Config, col: string, id: string) =>
+  `projects/${cfg.projectId}/databases/(default)/documents/families/${cfg.familyId}/${col}/${id}`;
+
+/** Mehrere Dokumente schreiben/löschen (in Paketen zu 400) */
+export async function commit(cfg: Config, token: string, col: string, put: { id: string }[], del: string[] = []): Promise<void> {
+  const writes = [
+    ...put.map((d) => ({ update: { name: docName(cfg, col, d.id), fields: toFields({ ...d, updatedAt: Date.now() } as Record<string, unknown>) } })),
+    ...del.map((id) => ({ delete: docName(cfg, col, id) })),
+  ];
+  for (let i = 0; i < writes.length; i += 400) {
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents:commit`, {
+      method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ writes: writes.slice(i, i + 400) }),
+    });
+    if (!r.ok) throw new Error(`Schreiben in ${col} fehlgeschlagen: ${r.status} ${(await r.text()).slice(0, 300)}`);
+  }
 }
 
 export async function saveState(cfg: Config, token: string, s: ReminderState) {
@@ -111,6 +158,11 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
     lastDaily: { stringValue: s.lastDaily ?? '' },
     lastWeekly: { stringValue: s.lastWeekly ?? '' },
     changesAt: { integerValue: String(s.changesAt ?? 0) },
+    lastIcsSync: { stringValue: s.lastIcsSync ?? '' },
+    icsStatus: toValue(s.icsStatus ?? []),
+    lastBackup: { stringValue: s.lastBackup ?? '' },
+    lastBackupTry: { stringValue: s.lastBackupTry ?? '' },
+    backupError: { stringValue: s.backupError ?? '' },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -176,7 +228,7 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
     const free = expand(opts.events.filter((e) => e.schoolFree), from, addDays(from, 1));
     for (const tt of opts.timetables) {
       const kid = persons.find((p) => p.id === tt.id && p.hasTimetable);
-      if (!kid || free.some((o) => !o.event.personIds.length || o.event.personIds.includes(kid.id))) continue;
+      if (!kid || isKidDayOff(tt, from) || free.some((o) => !o.event.personIds.length || o.event.personIds.includes(kid.id))) continue;
       const items = lessonsForDay(tt, from).filter((l) => l.bring).map((l) => `${l.bring} (${l.subject})`);
       if (items.length) schoolBring.set(kid.id, [`🎒 ${kid.name}: ${items.join(', ')}`]);
     }
@@ -282,6 +334,61 @@ export function dueNotifications(opts: {
   return out;
 }
 
+/* ---------------- Importierte Kalender ---------------- */
+
+export async function fetchIcs(url: string): Promise<string> {
+  const u = url.trim().replace(/^webcal:\/\//i, 'https://');
+  const r = await fetch(u, { headers: { accept: 'text/calendar, text/plain, */*', 'user-agent': 'Familienkalender/1.0 (+https://timetable.chaoten.online)' } });
+  if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
+  const text = await r.text();
+  if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('Unter dem Link liegt keine Kalenderdatei (.ics)');
+  return text;
+}
+
+export async function syncIcs(cfg: Config, token: string, sources: IcsSource[], today: string, log = console.log): Promise<IcsStatus[]> {
+  const out: IcsStatus[] = [];
+  for (const src of sources) {
+    try {
+      const parsed = parseICS(await fetchIcs(src.url!), { source: src.name }).events;
+      const existing = await query<CalEvent>(cfg, token, 'events', 'importSource', 'EQUAL', src.name);
+      const plan = planSync(parsed, existing, src, today);
+      if (plan.put.length || plan.del.length) await commit(cfg, token, 'events', plan.put, plan.del);
+      out.push({ id: src.id, at: Date.now(), count: plan.total, changed: plan.put.length + plan.del.length });
+      log(`📅 ${src.name}: ${plan.total} Termine, ${plan.put.length} neu/geändert, ${plan.del.length} entfernt`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      out.push({ id: src.id, at: Date.now(), error: msg.slice(0, 200) });
+      log(`📅 ${src.name}: Fehler – ${msg}`);
+    }
+  }
+  return out;
+}
+
+/* ---------------- Automatische Sicherung ---------------- */
+
+const BACKUP_KEEP_DAYS = 91;
+
+export async function backup(cfg: Config, token: string, today: string, persons: Person[], log = console.log): Promise<void> {
+  const [events, timetables, meta] = await Promise.all([
+    list<CalEvent>(cfg, token, 'events'), list<Timetable>(cfg, token, 'timetables'), list<any>(cfg, token, 'meta'),
+  ]);
+  const settings = meta.find((m) => m.id === 'settings');
+  const templates = meta.find((m) => m.id === 'templates')?.items ?? [];
+  const exportedAt = new Date().toISOString();
+  const data = JSON.stringify({ format: 'familienkalender-backup', version: 1, exportedAt, persons, events, timetables, settings, templates });
+  if (data.length > 950_000) throw new Error(`Sicherung zu groß (${Math.round(data.length / 1000)} kB) – bitte in der App „Sicherung speichern“ nutzen`);
+  await commit(cfg, token, 'backups', [{ id: today, exportedAt, data, persons: persons.length, events: events.length } as { id: string }]);
+  // Alte Sicherungen entfernen (nur die Namen lesen)
+  const r = await fetch(`${docsUrl(cfg)}/backups?pageSize=300&mask.fieldPaths=exportedAt`, { headers: { authorization: 'Bearer ' + token } });
+  if (r.ok) {
+    const j = (await r.json()) as { documents?: { name: string }[] };
+    const limit = addDays(today, -BACKUP_KEEP_DAYS);
+    const old = (j.documents ?? []).map((d) => d.name.split('/').pop()!).filter((id) => id < limit);
+    if (old.length) await commit(cfg, token, 'backups', [], old);
+  }
+  log(`💾 Sicherung ${today}: ${persons.length} Personen, ${events.length} Termine (${Math.round(data.length / 1000)} kB)`);
+}
+
 export interface RunOptions {
   by?: string;
   /** Ersatz-Lauf: überspringen, wenn ein anderer Dienst in den letzten Minuten geprüft hat */
@@ -354,5 +461,49 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
 
   log(`Zeitfenster ${from} – ${to}: ${due.length} Erinnerung(en), ${errors.length} Fehler`);
   await saveState(cfg, token, next);
+
+  // Zusatzaufgaben erst danach – vorher wird vermerkt, dass sie laufen, damit ein Abbruch
+  // (z. B. Rechenzeit-Grenze) höchstens einmal am Tag passiert und Erinnerungen nie blockiert
+  await extras(cfg, token, { state, next, family, persons, today, to, log });
   if (errors.length) throw new Error(errors.join('\n'));
+}
+
+async function extras(cfg: Config, token: string, x: { state: ReminderState; next: ReminderState; family?: Partial<FamilySettings>; persons: Person[]; today: string; to: string; log: (s: string) => void }) {
+  const { state, next, family, persons, today, to, log } = x;
+  // 4) Importierte Kalender mit Link: täglich ab 04:00, neue Links bzw. „Jetzt aktualisieren“ sofort
+  const auto = (family?.icsSources ?? []).filter((s) => s.url && s.auto !== false);
+  const status = (state.icsStatus ?? []).filter((st) => auto.some((a) => a.id === st.id));
+  const daily = auto.length > 0 && state.lastIcsSync !== today && to >= `${today}T04:00`;
+  const urgent = auto.filter((s) => { const st = status.find((y) => y.id === s.id); return !st || (!!s.requested && s.requested > st.at); });
+  const todo = daily ? auto : urgent;
+  // 5) Automatische Sicherung, wenn die letzte mindestens 7 Tage alt ist (ab 03:00, höchstens ein Versuch pro Tag)
+  const backupAge = state.lastBackup ? (Date.parse(today) - Date.parse(state.lastBackup)) / 86400000 : Infinity;
+  const wantBackup = backupAge >= 7 && state.lastBackupTry !== today && to >= `${today}T03:00`;
+  if (!todo.length && !wantBackup) {
+    if (status.length !== (state.icsStatus ?? []).length) { next.icsStatus = status; await saveState(cfg, token, next); }
+    return;
+  }
+
+  // vormerken
+  const pending = todo.map((s) => ({ id: s.id, at: Date.now(), error: 'Abgebrochen – wird morgen erneut versucht' }));
+  next.icsStatus = [...status.filter((st) => !todo.some((s) => s.id === st.id)), ...pending];
+  if (daily) next.lastIcsSync = today;
+  if (wantBackup) { next.lastBackupTry = today; next.backupError = 'Abgebrochen – wird morgen erneut versucht'; }
+  await saveState(cfg, token, next);
+
+  if (todo.length) {
+    const res = await syncIcs(cfg, token, todo, today, log);
+    next.icsStatus = [...status.filter((st) => !res.some((r) => r.id === st.id)), ...res];
+  }
+  if (wantBackup) {
+    try {
+      await backup(cfg, token, today, persons, log);
+      next.lastBackup = today;
+      next.backupError = '';
+    } catch (e) {
+      next.backupError = (e instanceof Error ? e.message : String(e)).slice(0, 300);
+      log('💾 Sicherung fehlgeschlagen: ' + next.backupError);
+    }
+  }
+  await saveState(cfg, token, next);
 }
