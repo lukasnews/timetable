@@ -151,3 +151,23 @@ export async function setSystemBarsHidden(hidden: boolean) {
   if (hidden) await SystemBars.hide();
   else await SystemBars.show();
 }
+
+/* ---------------- Drucken in der App ---------------- */
+
+interface AppPrintPlugin { print(o: { name: string; landscape?: boolean }): Promise<void> }
+let printPlugin: AppPrintPlugin | null = null;
+
+/** Öffnet den Android-Druckdialog mit der aktuellen Seite. false = App zu alt (Plugin fehlt). */
+export async function nativePrint(name: string): Promise<boolean> {
+  if (!printPlugin) {
+    const { registerPlugin } = await import('@capacitor/core');
+    printPlugin = registerPlugin<AppPrintPlugin>('AppPrint');
+  }
+  try {
+    await printPlugin.print({ name, landscape: true });
+    return true;
+  } catch (e) {
+    console.warn('Drucken', e);
+    return false;
+  }
+}

@@ -8,7 +8,7 @@ import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
-import { isNative, setSystemBarsHidden, syncNativeReminders, syncWidget } from './native';
+import { isNative, nativePrint, setSystemBarsHidden, syncNativeReminders, syncWidget } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -80,6 +80,31 @@ export default function App() {
   const print = () => {
     setSettings(null);
     setPrinting(true);
+    if (isNative()) {
+      // Android-App: System-Druckdialog (Vorschau). Er rendert die Seite, solange er offen ist –
+      // darum erst zurückschalten, wenn die App wieder im Vordergrund ist bzw. beim nächsten Antippen.
+      const done = () => {
+        setPrinting(false);
+        window.removeEventListener('fk-resume', done);
+        window.removeEventListener('pointerdown', done);
+      };
+      setTimeout(() => {
+        api()?.updateSize();
+        setTimeout(async () => {
+          const ok = await nativePrint('Familienkalender');
+          if (!ok) {
+            done();
+            alert('Zum Drucken bitte die neueste Version der App installieren (GitHub → Releases bzw. Play Store).');
+            return;
+          }
+          setTimeout(() => {
+            window.addEventListener('fk-resume', done);
+            window.addEventListener('pointerdown', done);
+          }, 800);
+        }, 300);
+      }, 150);
+      return;
+    }
     const done = () => { setPrinting(false); window.removeEventListener('afterprint', done); };
     window.addEventListener('afterprint', done);
     setTimeout(() => { api()?.updateSize(); setTimeout(() => window.print(), 250); }, 150);
