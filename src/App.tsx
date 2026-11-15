@@ -410,7 +410,7 @@ export default function App() {
           {inst.canPrompt && !inst.installed && (
             <button className="btn small install-btn" onClick={inst.install}><Icon name="download" size={16} /> <span>Installieren</span></button>
           )}
-          <QuickLinksButton links={(family.quickLinks ?? []).filter((l) => l.label && l.url)} />
+          <QuickLinksButton links={(family.quickLinks ?? []).filter((l) => l.label && (l.url || l.androidPackage))} />
           <button className="icon-btn" onClick={() => setSearching(true)} aria-label="Suchen"><Icon name="search" /></button>
           <button className="icon-btn hide-phone" onClick={print} aria-label="Drucken"><Icon name="print" /></button>
           <button className="icon-btn hide-phone" onClick={() => openSettings('persons')} aria-label="Profile"><Icon name="users" /></button>
@@ -537,7 +537,7 @@ export default function App() {
           end={addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay)}
           conflicts={findConflicts({ ...detailEvent, start: detail.occStart, end: addMinutes(detail.occStart, diffMinutes(detailEvent.start, detailEvent.end), detailEvent.allDay),
             ...(detailEvent.recurrence ? { seriesId: detailEvent.id, originalStart: detail.occStart, id: detailEvent.id + '#occ' } : {}) }, events, persons)}
-          quickLinks={detailEvent.kind === 'birthday' ? (family.quickLinks ?? []).filter((l) => l.onBirthday && l.label && l.url) : []}
+          quickLinks={detailEvent.kind === 'birthday' ? (family.quickLinks ?? []).filter((l) => l.onBirthday && l.label && (l.url || l.androidPackage)) : []}
           onClose={() => setDetail(null)} onEdit={editFromDetail} />
       )}
       {searching && (

@@ -74,3 +74,13 @@ describe('Termin teilen', () => {
     expect(shareText({ ...ev, allDay: true, start: '2026-11-18', end: '2026-11-20' }, '2026-11-18', '2026-11-20', persons).split('\n')[1]).toBe('Mi., 18.11.2026 – Do., 19.11.2026');
   });
 });
+
+import { parsePackage } from '../../components/QuickLinks';
+describe('Schnellzugriff: Android-App', () => {
+  it('Paketname aus Play-Store-Link oder direkt', () => {
+    expect(parsePackage('https://play.google.com/store/apps/details?id=com.beispiel.essen&hl=de')).toBe('com.beispiel.essen');
+    expect(parsePackage('com.whatsapp')).toBe('com.whatsapp');
+    expect(parsePackage('Essen App')).toBeUndefined();
+    expect(parsePackage('')).toBeUndefined();
+  });
+});

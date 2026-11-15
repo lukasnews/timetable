@@ -120,6 +120,8 @@ export interface QuickLink {
   icon: string;
   label: string;
   url: string;
+  /** Android-App (Paketname, z. B. com.beispiel.essen) – startet die installierte App */
+  androidPackage?: string;
   /** auch in den Details von Geburtstagen anzeigen */
   onBirthday?: boolean;
 }
