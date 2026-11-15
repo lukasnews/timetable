@@ -1,6 +1,6 @@
 import type { FirebaseOptions } from 'firebase/app';
 
-export type Collection = 'persons' | 'events' | 'timetables' | 'meta';
+export type Collection = 'persons' | 'events' | 'timetables' | 'meta' | 'backups';
 export type SyncStatus = 'local' | 'synced' | 'pending' | 'offline' | 'error';
 
 export interface Item {
@@ -12,6 +12,8 @@ export interface Store {
   subscribe<T extends Item>(col: Collection, cb: (items: T[]) => void): () => void;
   put<T extends Item>(col: Collection, item: T): void;
   remove(col: Collection, id: string): void;
+  /** Einmal lesen (ohne Live-Verbindung), z. B. die automatischen Sicherungen */
+  fetchAll<T extends Item>(col: Collection): Promise<T[]>;
   onStatus(cb: (s: SyncStatus) => void): () => void;
 }
 

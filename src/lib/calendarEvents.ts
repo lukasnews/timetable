@@ -40,6 +40,11 @@ export function lessonsForDay(tt: Timetable, day: string): Lesson[] {
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
+/** Schulautonomer / eigener freier Tag dieses Kindes? */
+export function isKidDayOff(tt: Pick<Timetable, 'freeDays'> | undefined, day: string): boolean {
+  return !!tt?.freeDays?.some((f) => f.start <= day && day <= (f.end || f.start));
+}
+
 export function buildEvents(opts: {
   events: CalEvent[];
   persons: Person[];
@@ -132,7 +137,7 @@ export function buildEvents(opts: {
       const tt = timetables.find((t) => t.id === p.id);
       if (!tt || !tt.showInCalendar) return;
       for (let d = from; d < to; d = addDays(d, 1)) {
-        if (isSchoolFree(d) || isFreeFor(p.id, d)) continue;
+        if (isSchoolFree(d) || isFreeFor(p.id, d) || isKidDayOff(tt, d)) continue;
         const ls = lessonsForDay(tt, d);
         if (!ls.length) continue;
         const start = ls.reduce((m, l) => (l.start < m ? l.start : m), ls[0].start);

@@ -40,6 +40,8 @@ interface Data {
   saveTemplates: (t: EventTemplate[]) => void;
   /** Adresse des Erinnerungsdienstes (für den Abo-Link), vom Einrichtungs-Workflow hinterlegt */
   serviceUrl?: string;
+  /** Status des Dienstes (letzter Lauf, importierte Kalender, automatische Sicherung) */
+  service: ServiceState;
   family: FamilySettings;
   device: DeviceSettings;
   setDevice: (d: Partial<DeviceSettings>) => void;
@@ -50,6 +52,13 @@ interface Data {
   saveTimetable: (t: Timetable) => void;
   saveFamily: (f: Partial<FamilySettings>) => void;
   switchStore: () => void;
+}
+
+export interface ServiceState {
+  icsStatus?: { id: string; at: number; count?: number; changed?: number; error?: string }[];
+  lastBackup?: string;
+  backupError?: string;
+  at?: number;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -99,6 +108,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [timetables, setTimetables] = useState<Timetable[]>([]);
   const [templates, setTemplates] = useState<EventTemplate[]>([]);
   const [serviceUrl, setServiceUrl] = useState<string | undefined>();
+  const [service, setService] = useState<ServiceState>({});
   const [family, setFamily] = useState<FamilySettings>(DEFAULT_FAMILY);
   const [device, setDeviceState] = useState<DeviceSettings>(loadDevice);
 
@@ -112,6 +122,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
         setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
         setServiceUrl(m.find((x) => x.id === 'service')?.url || undefined);
+        const r = m.find((x) => x.id === 'reminders');
+        setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at } : {});
       }),
     ];
     return () => offs.forEach((o) => o());
@@ -135,6 +147,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       templates,
       saveTemplates: (items) => store.put('meta', { id: 'templates', items }),
       serviceUrl,
+      service,
       family,
       device,
       setDevice,
@@ -159,7 +172,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       saveFamily: (f) => store.put('meta', { ...family, ...f, id: 'settings' }),
       switchStore: () => setStore(createStore()),
     }),
-    [store, status, persons, events, timetables, templates, serviceUrl, family, device, setDevice],
+    [store, status, persons, events, timetables, templates, serviceUrl, service, family, device, setDevice],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

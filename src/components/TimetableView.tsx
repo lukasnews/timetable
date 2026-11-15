@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useData } from '../data/DataContext';
-import type { Lesson, Timetable } from '../types';
+import type { FreeDay, Lesson, Timetable } from '../types';
 import { Avatar, Icon, Toggle } from './ui';
 import { WEEKDAYS, WEEKDAYS_SHORT, addDays, addMinutes, isoWeek, todayLocal, uid, weekdayMo0 } from '../lib/dates';
 import { expand } from '../lib/recurrence';
@@ -35,6 +35,8 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
   // Kommende Schularbeiten/Tests dieses Kindes (nächste 60 Tage)
   const tests = expand(events.filter((e) => e.category === 'test' && e.personIds.includes(kid.id)), today, addDays(today, 60))
     .sort((a, b) => a.start.localeCompare(b.start));
+  // Kommende eigene freie Tage (schulautonom)
+  const freeSoon = (tt.freeDays ?? []).filter((f) => (f.end || f.start) >= today && f.start <= addDays(today, 60)).sort((a, b) => a.start.localeCompare(b.start));
   // Im Ausdruck beide Wochen (A/B) zeigen
   const showWeek = printing ? undefined : currentWeek;
 
@@ -71,6 +73,9 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
             ))}
           </ul>
         </div>
+      )}
+      {!editing && !printing && freeSoon.length > 0 && (
+        <p className="tt-free">🏖️ Schulfrei: {freeSoon.map((f) => `${fmtFree(f)}${f.label ? ` (${f.label})` : ''}`).join(' · ')}</p>
       )}
       {!editing && !printing && onAddTest && <p className="hint tt-tip">Stunde antippen → Schularbeit oder Test eintragen</p>}
 
@@ -112,6 +117,41 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
         </div>
         </>
       )}
+    </div>
+  );
+}
+
+const dm = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' });
+const fmtFree = (f: FreeDay) => (f.end && f.end !== f.start ? `${dm(f.start)} – ${dm(f.end)}` : dm(f.start));
+
+function FreeDaysEditor({ tt, onChange }: { tt: Timetable; onChange: (t: Timetable) => void }) {
+  const today = todayLocal();
+  const days = tt.freeDays ?? [];
+  const setDays = (freeDays: FreeDay[]) => onChange({ ...tt, freeDays: freeDays.length ? freeDays : undefined });
+  const setAt = (i: number, p: Partial<FreeDay>) => setDays(days.map((f, j) => {
+    if (j !== i) return f;
+    const n = { ...f, ...p };
+    if (n.end < n.start) n.end = n.start;
+    return n;
+  }));
+  const past = days.filter((f) => (f.end || f.start) < today).length;
+  return (
+    <div className="tt-free-editor">
+      <h4>🏖️ Schulautonome Tage</h4>
+      <p className="hint">Freie Tage nur für dieses Kind – an diesen Tagen erscheint keine Schulzeit im Kalender. Ferien und Feiertage kommen automatisch.</p>
+      {days.map((f, i) => (f.end || f.start) >= today && (
+        <div className="free-row" key={i}>
+          <input type="date" value={f.start} onChange={(e) => e.target.value && setAt(i, { start: e.target.value })} aria-label="Von" />
+          <span className="hint">bis</span>
+          <input type="date" value={f.end} min={f.start} onChange={(e) => e.target.value && setAt(i, { end: e.target.value })} aria-label="Bis" />
+          <input value={f.label ?? ''} placeholder="Anlass (optional)" onChange={(e) => setAt(i, { label: e.target.value || undefined })} />
+          <button className="icon-btn" onClick={() => setDays(days.filter((_, j) => j !== i))} aria-label="Freien Tag löschen"><Icon name="trash" size={18} /></button>
+        </div>
+      ))}
+      <div className="row">
+        <button className="btn" onClick={() => setDays([...days, { start: today, end: today }])}><Icon name="plus" size={18} /> Freier Tag</button>
+        {past > 0 && <button className="btn small link-btn" onClick={() => setDays(days.filter((f) => (f.end || f.start) >= today))}>{past} vergangene entfernen</button>}
+      </div>
     </div>
   );
 }
@@ -170,6 +210,7 @@ function TimetableEditor({ tt, onChange }: { tt: Timetable; onChange: (t: Timeta
         <button className="btn primary" onClick={add}><Icon name="plus" size={18} /> Stunde</button>
         {day > 0 && <button className="btn" onClick={() => copyFrom(day - 1)}>Wie {WEEKDAYS[day - 1]} (kopieren)</button>}
       </div>
+      <FreeDaysEditor tt={tt} onChange={onChange} />
     </div>
   );
 }

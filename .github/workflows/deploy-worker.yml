@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['reminders/**', 'src/lib/recurrence.ts', 'src/lib/dates.ts', 'src/types.ts']
+    paths: ['reminders/**', 'src/lib/**', 'src/types.ts']
 
 permissions:
   contents: read

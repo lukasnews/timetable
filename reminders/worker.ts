@@ -2,7 +2,7 @@
  * Cloudflare Worker: prüft alle 5 Minuten fällige Erinnerungen und schickt sie per ntfy.
  * Eingerichtet und aktualisiert über .github/workflows/deploy-worker.yml.
  */
-import { list, run, refresh, type Config } from './core';
+import { fetchIcs, list, run, refresh, type Config } from './core';
 import { toICS } from '../src/lib/ics';
 import type { CalEvent, FamilySettings, Person } from '../src/types';
 
@@ -56,6 +56,18 @@ export default {
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
       } catch (e) {
         return new Response('Fehler: ' + String(e), { status: 500 });
+      }
+    }
+    // .ics-Link für die App laden (viele Server erlauben das nicht direkt aus dem Browser): /ics?family=…&url=…
+    if (url.pathname === '/ics') {
+      const cors = { 'access-control-allow-origin': '*', 'content-type': 'text/plain; charset=utf-8' };
+      if (url.searchParams.get('family') !== env.FAMILY_ID) return new Response('Nicht erlaubt', { status: 403, headers: cors });
+      const target = url.searchParams.get('url') ?? '';
+      if (!/^(https?|webcal):\/\//i.test(target)) return new Response('Ungültiger Link', { status: 400, headers: cors });
+      try {
+        return new Response(await fetchIcs(target), { headers: { ...cors, 'content-type': 'text/calendar; charset=utf-8' } });
+      } catch (e) {
+        return new Response(String(e instanceof Error ? e.message : e), { status: 502, headers: cors });
       }
     }
     // Kalender abonnieren: /cal/<geheimer Schlüssel>.ics  (optional ?p=<Personen-ID>)

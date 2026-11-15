@@ -40,6 +40,10 @@ export class LocalStore implements Store {
     return () => this.listeners.get(col)!.delete(cb);
   }
 
+  async fetchAll<T extends Item>(col: Collection): Promise<T[]> {
+    return Object.values(this.read<T>(col));
+  }
+
   put<T extends Item>(col: Collection, item: T) {
     const data = this.read(col);
     data[item.id] = JSON.parse(JSON.stringify({ ...item, updatedAt: Date.now() }));

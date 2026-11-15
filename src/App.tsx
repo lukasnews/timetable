@@ -13,6 +13,7 @@ import { applyChange, applyDelete, type Scope } from './lib/recurrence';
 import { findConflicts } from './lib/conflicts';
 import { addDays, addMinutes, diffMinutes, fromNative, isoWeek, uid, weekdayMo0 } from './lib/dates';
 import { isSchoolFree } from './lib/holidays';
+import { isKidDayOff } from './lib/calendarEvents';
 import { nextCountdowns } from './lib/countdown';
 import type { CalEvent } from './types';
 import { useInstall } from './install';
@@ -308,7 +309,7 @@ export default function App() {
               const now = new Date();
               let d = fromNative(now, true);
               for (let i = 0; i < 14; i++) {
-                if (weekdayMo0(d) === l.weekday && !isSchoolFree(d) && (i > 0 || fromNative(now, false).slice(11) < l.start)) break;
+                if (weekdayMo0(d) === l.weekday && !isSchoolFree(d) && !isKidDayOff(data.timetables.find((t) => t.id === kidId), d) && (i > 0 || fromNative(now, false).slice(11) < l.start)) break;
                 d = addDays(d, 1);
               }
               const start = `${d}T${l.start}`;

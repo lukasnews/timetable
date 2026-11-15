@@ -103,7 +103,35 @@ export interface Timetable {
   abWeeks?: boolean;
   evenWeekIs?: 'A' | 'B';
   showInCalendar: boolean;
+  /** Schulautonome / schulfreie Tage nur für dieses Kind (Ende inklusive) */
+  freeDays?: FreeDay[];
   updatedAt?: number;
+}
+
+export interface FreeDay {
+  start: string; // "YYYY-MM-DD"
+  end: string; // "YYYY-MM-DD", inklusive
+  label?: string;
+}
+
+/** Importierter Kalender (.ics) mit seinen Einstellungen */
+export interface IcsSource {
+  id: string;
+  /** = importSource der Termine */
+  name: string;
+  /** Link → wird vom Dienst täglich automatisch aktualisiert */
+  url?: string;
+  /** Automatisch aktualisieren (nur mit Link) */
+  auto?: boolean;
+  personIds: string[];
+  /** Erinnerung in Minuten vorher (wie bei Terminen), null = keine */
+  reminder?: number | null;
+  /** Erinnerung am Vorabend um diese Uhrzeit "HH:mm" (hat Vorrang vor reminder) */
+  evening?: string | null;
+  /** Nur zukünftige Termine übernehmen */
+  futureOnly?: boolean;
+  /** „Jetzt aktualisieren“ angefordert (ms) */
+  requested?: number;
 }
 
 export interface FamilySettings {
@@ -123,6 +151,8 @@ export interface FamilySettings {
   ntfyChanges?: boolean;
   /** Ort für die Wettervorhersage */
   weather?: { name: string; lat: number; lon: number };
+  /** Importierte Kalender (Müllkalender usw.) */
+  icsSources?: IcsSource[];
   updatedAt?: number;
 }
 

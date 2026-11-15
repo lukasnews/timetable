@@ -12,6 +12,7 @@ Dauer: etwa 15 Minuten.
 3. **Build → Firestore Database → Datenbank erstellen**, Standort `europe-west3 (Frankfurt)`,
    im Produktionsmodus starten.
 4. Unter **Firestore → Regeln** den Inhalt von [`firestore.rules`](firestore.rules) einfügen → **Veröffentlichen**.
+   (Wenn sich die Regeln ändern – z. B. für die automatische Sicherung kam `'backups'` dazu – einfach erneut einfügen.)
 5. **Projekteinstellungen (Zahnrad) → Allgemein → Meine Apps → Web-App (`</>`) hinzufügen.**
    Die angezeigte `firebaseConfig` (`apiKey`, `authDomain`, `projectId`, …) kopieren.
    Diese Werte sind nicht geheim – geschützt wird über die Familien-ID.

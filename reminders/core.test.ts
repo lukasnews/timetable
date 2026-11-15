@@ -119,3 +119,38 @@ describe('Lauf gegen gemockte APIs', () => {
     expect(JSON.parse(save.init!.body as string).fields.lastRun.stringValue).toBe('2026-11-13T09:31');
   });
 });
+
+describe('Importierte Kalender und Sicherung im Lauf', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('lädt neuen Link, schreibt Termine mit Vorabend-Erinnerung und legt eine Sicherung an', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const commits: any[] = [];
+    const saves: any[] = [];
+    const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a1\r\nSUMMARY:Restmüll\r\nDTSTART;VALUE=DATE:20261120\r\nDTEND;VALUE=DATE:20261121\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n';
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url === 'https://gemeinde.example/muell.ics') return new Response(ics);
+      if (url.endsWith(':runQuery')) return new Response('[{}]');
+      if (url.endsWith(':commit')) { commits.push(JSON.parse(init!.body as string)); return new Response('{}'); }
+      if (url.includes('/backups?')) return new Response(JSON.stringify({ documents: [{ name: 'x/2026-01-01' }, { name: 'x/2026-11-01' }] }));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [] }));
+      if (url.includes('/events') || url.includes('/timetables')) return new Response(JSON.stringify({ documents: [] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/settings', fields: {
+        icsSources: { arrayValue: { values: [{ mapValue: { fields: { id: sv('s1'), name: sv('Müll'), url: sv('webcal://gemeinde.example/muell.ics'), personIds: { arrayValue: {} }, evening: sv('19:00') } } }] } } } }] }));
+      if (url.endsWith('/meta/reminders')) saves.push(JSON.parse(init!.body as string));
+      return new Response('{}');
+    });
+    const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', timezone: 'Europe/Vienna' };
+    await run(cfg, 'id', new Date('2026-11-15T08:31:00Z'), () => {});
+    const evWrite = commits.flatMap((c) => c.writes).find((w: any) => w.update?.name.includes('/events/'));
+    expect(evWrite.update.fields.title.stringValue).toBe('Restmüll');
+    expect(evWrite.update.fields.importSource.stringValue).toBe('Müll');
+    expect(evWrite.update.fields.reminderMinutes.integerValue).toBe('780');
+    const bk = commits.flatMap((c) => c.writes).find((w: any) => w.update?.name.endsWith('/backups/2026-11-15'));
+    expect(JSON.parse(bk.update.fields.data.stringValue).format).toBe('familienkalender-backup');
+    expect(commits.flatMap((c) => c.writes).filter((w: any) => w.delete).map((w: any) => w.delete.split('/').pop())).toEqual(['2026-01-01']);
+    const last = saves[saves.length - 1].fields;
+    expect(last.lastBackup.stringValue).toBe('2026-11-15');
+    expect(last.backupError.stringValue).toBe('');
+    expect(last.icsStatus.arrayValue.values[0].mapValue.fields.count.integerValue).toBe('1');
+  });
+});
