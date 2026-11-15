@@ -746,10 +746,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .dl-when { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dl-when b { color: var(--text); }
 .dl-what { min-width: 0; display: flex; flex-direction: column; }
+.dl-what > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dl-what small { font-size: 0.82rem; }
 .dl-who { display: flex; gap: 2px; }
 .printing .driver-list { overflow: visible; display: block; }
 .printing .driver-group { break-inside: avoid; margin-bottom: 10px; }
 @media (max-width: 640px) {
   .driver-list { grid-template-columns: 1fr; padding: 4px 2px 12px; }
+  .driver-group li button { grid-template-columns: 5.4em minmax(0, 1fr) auto; gap: 8px; }
+  .dl-when { line-height: 1.25; font-size: 0.88rem; }
+  .dl-when b { display: block; font-size: 1rem; }
 }
