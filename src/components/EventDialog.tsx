@@ -6,6 +6,7 @@ import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { addDays, addMinutes, diffMinutes, todayLocal, uid, weekdayMo0 } from '../lib/dates';
 import { parseQuick } from '../lib/quickAdd';
+import { ShareSheet } from './ShareSheet';
 
 export interface EditDraft {
   event: CalEvent;
@@ -43,6 +44,7 @@ export function EventDialog(props: {
   const e0 = props.draft.event;
   const [moreOpen, setMoreOpen] = useState(!!(e0.location || e0.bring || e0.driverIds?.length || e0.countdown || e0.notes));
   const [tplSaved, setTplSaved] = useState(false);
+  const [sharing, setSharing] = useState(false);
   // Neue Termine: Kategorie aus dem Titel erraten, bis jemand selbst eine wählt
   const [catAuto, setCatAuto] = useState(props.draft.isNew && !e0.category);
   const catRow = useRef<HTMLDivElement>(null);
@@ -159,6 +161,7 @@ export function EventDialog(props: {
     props.onSave({ ...ev, title: ev.title.trim() });
   };
 
+  if (sharing) return <ShareSheet event={ev} start={ev.start} end={ev.end} persons={props.persons} onClose={() => setSharing(false)} />;
   return (
     <Modal
       title={props.draft.isNew ? 'Neuer Termin' : 'Termin bearbeiten'}
@@ -315,6 +318,9 @@ export function EventDialog(props: {
             )}
             <label className="field"><span className="label">Notizen</span>
               <textarea rows={3} value={ev.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} placeholder="optional" /></label>
+            {!props.draft.isNew && ev.title.trim() && (
+              <button type="button" className="btn small link-btn" onClick={() => setSharing(true)}>📤 Termin teilen</button>
+            )}
             {!isBirthday && ev.title.trim() && !ev.recurrence && (
               <button type="button" className="btn small link-btn" disabled={tplSaved} onClick={saveAsTemplate}>
                 {tplSaved ? '✓ Als Vorlage gespeichert' : '⭐ Als Vorlage speichern'}
