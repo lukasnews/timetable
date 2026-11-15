@@ -45,6 +45,9 @@ export default function App() {
   const defaultMode = (): ViewName =>
     device.defaultView === 'month' ? 'dayGridMonth' : device.defaultView === 'week' ? 'timeGridWeek' : device.defaultView === 'day' ? 'timeGridDay' : isPhone ? 'timeGridDay' : 'timeGridWeek';
   const [mode, setMode] = useState<Mode>(defaultMode);
+  // zuletzt benutzte Kalenderansicht (für die Auswahl, solange der Stundenplan offen ist)
+  const [lastCalMode, setLastCalMode] = useState<ViewName>(defaultMode);
+  useEffect(() => { if (mode !== 'timetable') setLastCalMode(mode); }, [mode]);
   const [range, setRange] = useState<{ type: string; start: Date; end: Date } | null>(null);
   const dateInput = useRef<HTMLInputElement>(null);
 
@@ -455,8 +458,9 @@ export default function App() {
         {/* mittlere Breiten (Tablet hochkant, kleines Tablet): eine Auswahl statt sechs Knöpfen */}
         <label className="view-select">
           <span className="sr-only">Ansicht</span>
-          <select value={mode} onChange={(e) => changeMode(e.target.value as Mode)} className={mode === 'timetable' ? 'off' : ''}>
-            {mode === 'timetable' && <option value="timetable" hidden>Kalender</option>}
+          <select value={mode === 'timetable' ? '__last' : mode} onChange={(e) => changeMode((e.target.value === '__last' ? lastCalMode : e.target.value) as Mode)} className={mode === 'timetable' ? 'off' : ''}>
+            {/* im Stundenplan: zeigt die Ansicht, aus der man kam – auch dieselbe nochmal wählbar */}
+            {mode === 'timetable' && <option value="__last" hidden>{VIEW_LABELS.find(([m]) => m === lastCalMode)?.[1] ?? 'Kalender'}</option>}
             {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree' && m !== 'timetable').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
           </select>
         </label>
