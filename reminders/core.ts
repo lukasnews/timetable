@@ -220,7 +220,7 @@ const dateText = (d: string, today: string) =>
     : new Date(d + 'T12:00:00Z').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', timeZone: 'UTC' });
 
 /** Tages- bzw. Wochenübersicht: je Topic eine Nachricht mit den passenden Terminen */
-export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; from: string; days: number; title: string; appUrl?: string; timetables?: Timetable[] }): Notification[] {
+export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: Partial<FamilySettings>; from: string; days: number; title: string; appUrl?: string; timetables?: Timetable[]; drivers?: boolean }): Notification[] {
   const { persons, family, from, days } = opts;
   // Mitbringen aus dem Stundenplan (nur Tagesübersicht, nur an Schultagen)
   const schoolBring = new Map<string, string[]>(); // personId → Zeilen
@@ -242,6 +242,21 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
     const drv = persons.filter((p) => ev.driverIds?.includes(p.id)).map((p) => p.name).join(', ');
     return `${dayPart}${t}${displayTitle(ev)}${names ? ` (${names})` : ''}${drv ? ` 🚗 ${drv}` : ''}${ev.bring ? ` 🎒 ${ev.bring}` : ''}`;
   };
+  // Fahrdienst-Block (Wochenübersicht): je Fahrer eine Zeile
+  const driverLine = (p: Person) => {
+    const mine = occs.filter((o) => o.event.driverIds?.includes(p.id));
+    if (!mine.length) return '';
+    const items = mine.map((o) => {
+      const kids = persons.filter((x) => o.event.personIds.includes(x.id) && x.id !== p.id).map((x) => x.name).join(', ');
+      return `${dateText(o.start.slice(0, 10), '')}${o.event.allDay ? '' : ' ' + o.start.slice(11)} ${o.event.title}${kids ? ` (${kids})` : ''}`;
+    });
+    return `${p.name}: ${items.join(' · ')}`;
+  };
+  const driverBlock = (only?: string): string[] => {
+    if (!opts.drivers || days <= 1) return [];
+    const lines = persons.filter((p) => !only || p.id === only).map(driverLine).filter(Boolean);
+    return lines.length ? ['', only ? '🚗 Du fährst:' : '🚗 Fahrdienst diese Woche:', ...lines.map((l) => (only ? l.replace(/^[^:]+: /, '') : l))] : [];
+  };
   const targets = new Map<string, string | null>(); // topic → personId (null = alle)
   if (family?.ntfyFamilyTopic) targets.set(family.ntfyFamilyTopic, null);
   for (const p of persons) if (p.ntfyTopic && !targets.has(p.ntfyTopic)) targets.set(p.ntfyTopic, p.id);
@@ -252,7 +267,8 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
     const me = pid ? persons.find((p) => p.id === pid) : undefined;
     const bring = [...schoolBring.entries()].filter(([kid]) => pid === null || kid === pid || !me?.hasTimetable).flatMap(([, l]) => l);
     if (!mine.length && !bring.length) continue;
-    out.push({ topic, title: opts.title, message: [...mine.slice(0, 40).map(line), ...bring].join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
+    const drv = driverBlock(pid ?? undefined);
+    out.push({ topic, title: opts.title, message: [...mine.slice(0, 40).map(line), ...bring, ...drv].join('\n'), priority: 3, tags: ['spiral_calendar'], ...(opts.appUrl ? { click: opts.appUrl } : {}) });
   }
   return out;
 }
@@ -438,7 +454,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
       next.lastDaily = today;
     }
     if (wantWeekly) {
-      for (const n of digest({ events: all, persons, family, from: addDays(today, 1), days: 7, title: 'Nächste Woche im Kalender', appUrl: cfg.appUrl })) await send(n);
+      for (const n of digest({ events: all, persons, family, from: addDays(today, 1), days: 7, title: 'Nächste Woche im Kalender', appUrl: cfg.appUrl, drivers: family?.ntfyWeeklyDrivers !== false })) await send(n);
       next.lastWeekly = today;
     }
   }

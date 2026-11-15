@@ -7,6 +7,7 @@ import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
 import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
+import { DriverList } from './components/DriverList';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
@@ -64,6 +65,11 @@ export default function App() {
   };
   useEffect(() => { document.documentElement.classList.toggle('printing', printing); }, [printing]);
   const [detail, setDetail] = useState<{ eventId: string; occStart: string } | null>(null);
+  // Liste: alle Termine oder nur Fahrdienste (nach Fahrer gruppiert)
+  const [driverMode, setDriverMode] = useState(() => { try { return localStorage.getItem('fk.driverList') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('fk.driverList', driverMode ? '1' : '0'); } catch { /* egal */ } }, [driverMode]);
+  const hasDrivers = useMemo(() => events.some((e) => e.driverIds?.length), [events]);
+  const showDrivers = mode === 'listUpcoming' && driverMode && hasDrivers;
   // „Rückgängig“-Leiste nach Löschen/Verschieben
   const [undo, setUndo] = useState<{ text: string; m: import('./lib/recurrence').Mutation } | null>(null);
   useEffect(() => {
@@ -317,9 +323,21 @@ export default function App() {
                 personIds: [kidId], kind: 'event', category: 'test', reminderMinutes: 2880 } });
             }} />
         ) : (
-          <div className="cal-wrap" ref={calWrap}>
-            <h1 className="print-title">Familienkalender · <RangeTitle range={range} /></h1>
+          <div className={'cal-wrap' + (showDrivers ? ' drivers' : '')} ref={calWrap}>
+            <h1 className="print-title">{showDrivers ? 'Fahrdienst' : 'Familienkalender'} · <RangeTitle range={range} /></h1>
+            {mode === 'listUpcoming' && hasDrivers && (
+              <div className="list-filter seg" role="group" aria-label="Liste filtern">
+                <button className={!driverMode ? 'on' : ''} onClick={() => setDriverMode(false)}>Alle Termine</button>
+                <button className={driverMode ? 'on' : ''} onClick={() => setDriverMode(true)}>🚗 Fahrdienst</button>
+              </div>
+            )}
+            {showDrivers && range && (
+              <DriverList events={events} persons={persons} selected={selected} from={fromNative(range.start, true)} to={fromNative(range.end, true)}
+                onOpen={(id, occ) => open(id, occ)} />
+            )}
+            <div className="cal-inner">
             <CalendarView ref={calRef} view={mode} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
+            </div>
           </div>
         )}
       </main>
