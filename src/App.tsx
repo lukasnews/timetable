@@ -455,10 +455,16 @@ export default function App() {
         {/* mittlere Breiten (Tablet hochkant, kleines Tablet): eine Auswahl statt sechs Knöpfen */}
         <label className="view-select">
           <span className="sr-only">Ansicht</span>
-          <select value={mode} onChange={(e) => changeMode(e.target.value as Mode)}>
-            {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
+          <select value={mode} onChange={(e) => changeMode(e.target.value as Mode)} className={mode === 'timetable' ? 'off' : ''}>
+            {mode === 'timetable' && <option value="timetable" hidden>Kalender</option>}
+            {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree' && m !== 'timetable').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
           </select>
         </label>
+        {persons.some((p) => p.hasTimetable) && (
+          <button className={'tt-btn' + (mode === 'timetable' ? ' on' : '')} onClick={() => changeMode('timetable')} aria-label="Stundenplan">
+            📚 <span className="long">Stundenplan</span>
+          </button>
+        )}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
             <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : m === 'multiMonthYear' ? ' hide-phone' : '')} onClick={() => changeMode(m)}>
