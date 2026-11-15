@@ -1,4 +1,4 @@
-package online.chaoten.familienkalender;
+package com.javuno.timetable;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;

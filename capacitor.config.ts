@@ -6,7 +6,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * Native Teile: Erinnerungen direkt am Gerät (Local Notifications) und die Zurück-Taste.
  */
 const config: CapacitorConfig = {
-  appId: 'online.chaoten.familienkalender',
+  appId: 'com.javuno.timetable',
   appName: 'Familienkalender',
   webDir: 'dist',
   server: {

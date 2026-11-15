@@ -1,4 +1,4 @@
-package online.chaoten.familienkalender;
+package com.javuno.timetable;
 
 import android.content.Context;
 import com.getcapacitor.JSObject;
