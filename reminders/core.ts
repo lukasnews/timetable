@@ -42,6 +42,8 @@ export interface ReminderState {
   /** Automatische Sicherung: Datum der letzten erfolgreichen / des letzten Versuchs, Fehler */
   lastBackup?: string;
   lastBackupTry?: string;
+  /** Zeitpunkt (ms) des letzten Sicherungsversuchs – nach einem Fehler stündlich neu versuchen */
+  backupTryAt?: number;
   backupError?: string;
 }
 
@@ -163,6 +165,7 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
     lastBackup: { stringValue: s.lastBackup ?? '' },
     lastBackupTry: { stringValue: s.lastBackupTry ?? '' },
     backupError: { stringValue: s.backupError ?? '' },
+    backupTryAt: { integerValue: String(s.backupTryAt ?? 0) },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -494,7 +497,9 @@ async function extras(cfg: Config, token: string, x: { state: ReminderState; nex
   const todo = daily ? auto : urgent;
   // 5) Automatische Sicherung, wenn die letzte mindestens 7 Tage alt ist (ab 03:00, höchstens ein Versuch pro Tag)
   const backupAge = state.lastBackup ? (Date.parse(today) - Date.parse(state.lastBackup)) / 86400000 : Infinity;
-  const wantBackup = backupAge >= 7 && state.lastBackupTry !== today && to >= `${today}T03:00`;
+  // höchstens ein Versuch pro Tag – nach einem Fehler (z. B. Regeln erst später angepasst) stündlich erneut
+  const retryAfterError = !!state.backupError && Date.now() - (state.backupTryAt ?? 0) > 60 * 60_000;
+  const wantBackup = backupAge >= 7 && to >= `${today}T03:00` && (state.lastBackupTry !== today || retryAfterError);
   if (!todo.length && !wantBackup) {
     if (status.length !== (state.icsStatus ?? []).length) { next.icsStatus = status; await saveState(cfg, token, next); }
     return;
@@ -504,7 +509,7 @@ async function extras(cfg: Config, token: string, x: { state: ReminderState; nex
   const pending = todo.map((s) => ({ id: s.id, at: Date.now(), error: 'Abgebrochen – wird morgen erneut versucht' }));
   next.icsStatus = [...status.filter((st) => !todo.some((s) => s.id === st.id)), ...pending];
   if (daily) next.lastIcsSync = today;
-  if (wantBackup) { next.lastBackupTry = today; next.backupError = 'Abgebrochen – wird morgen erneut versucht'; }
+  if (wantBackup) { next.lastBackupTry = today; next.backupTryAt = Date.now(); next.backupError = 'Abgebrochen – wird in einer Stunde erneut versucht'; }
   await saveState(cfg, token, next);
 
   if (todo.length) {

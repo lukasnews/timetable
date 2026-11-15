@@ -222,7 +222,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
         <button className="btn" onClick={() => backupRef.current?.click()}><Icon name="up" size={18} /> Wiederherstellen …</button>
       </div>
       <p className="hint">🔄 <b>Automatisch:</b> {serviceUrl ? <>jede Woche eine Sicherung beim Erinnerungsdienst, 13 Wochen lang aufbewahrt. {service.lastBackup ? `Letzte: ${new Date(service.lastBackup + 'T12:00:00').toLocaleDateString('de-AT')}.` : 'Die erste folgt in den nächsten Stunden.'}</> : 'sobald der Erinnerungsdienst (Cloudflare) eingerichtet ist.'}</p>
-      {service.backupError && <p className="error">Automatische Sicherung: {/permission|403/i.test(service.backupError) ? 'Zugriff verweigert – die Firestore-Regeln müssen einmal aktualisiert werden (siehe Anleitung).' : service.backupError}</p>}
+      {service.backupError && <p className="error">Automatische Sicherung: {/permission|403/i.test(service.backupError) ? 'Zugriff verweigert – die Firestore-Regeln müssen einmal aktualisiert werden (siehe Anleitung).' : service.backupError} <small className="hint">(neuer Versuch spätestens in einer Stunde)</small></p>}
       {serviceUrl && (autoList == null ? (
         <button className="btn small link-btn" onClick={loadAutoBackups}>Automatische Sicherungen anzeigen …</button>
       ) : (
