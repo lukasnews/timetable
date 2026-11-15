@@ -53,7 +53,7 @@ export function TimetableView({ requirePin, printing, onPrint, onAddTest, onOpen
         </div>
         {currentWeek && <span className="tag">Diese Woche: {currentWeek}-Woche</span>}
         <span className="spacer" />
-        {!editing && onPrint && <button className="btn hide-phone" onClick={onPrint}><Icon name="print" size={18} /> <span className="long">Drucken</span></button>}
+        {!editing && onPrint && <button className="btn" onClick={onPrint}><Icon name="print" size={18} /> <span className="long">Drucken</span></button>}
         <button className={'btn' + (editing ? ' primary' : '')} onClick={async () => { if (editing) setEditing(false); else if (await requirePin()) setEditing(true); }}>
           <Icon name="edit" size={18} /> <span className={editing ? '' : 'long'}>{editing ? 'Fertig' : 'Bearbeiten'}</span>
         </button>

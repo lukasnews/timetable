@@ -8,6 +8,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Eigenes Plugin: Termine für das Startbildschirm-Widget
         registerPlugin(WidgetPlugin.class);
+        // Drucken (window.print() gibt es in der App nicht)
+        registerPlugin(PrintPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
