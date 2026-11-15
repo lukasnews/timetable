@@ -456,14 +456,25 @@ export default function App() {
         )}
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         {/* mittlere Breiten (Tablet hochkant, kleines Tablet): eine Auswahl statt sechs Knöpfen */}
-        <label className="view-select">
-          <span className="sr-only">Ansicht</span>
-          <select value={mode === 'timetable' ? '__last' : mode} onChange={(e) => changeMode((e.target.value === '__last' ? lastCalMode : e.target.value) as Mode)} className={mode === 'timetable' ? 'off' : ''}>
-            {/* im Stundenplan: zeigt die Ansicht, aus der man kam – auch dieselbe nochmal wählbar */}
-            {mode === 'timetable' && <option value="__last" hidden>{VIEW_LABELS.find(([m]) => m === lastCalMode)?.[1] ?? 'Kalender'}</option>}
-            {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree' && m !== 'timetable').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
-          </select>
-        </label>
+        {mode === 'timetable' ? (
+          /* im Stundenplan geteilt: Name = zurück zur letzten Ansicht, Pfeil = andere Ansicht wählen */
+          <span className="view-select view-split">
+            <button type="button" className="vs-back" onClick={() => changeMode(lastCalMode)}>{VIEW_LABELS.find(([m]) => m === lastCalMode)?.[1] ?? 'Kalender'}</button>
+            <label className="vs-arrow" aria-label="Andere Ansicht wählen">
+              <select value="" onChange={(e) => e.target.value && changeMode(e.target.value as Mode)}>
+                <option value="" disabled hidden>Ansicht</option>
+                {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree' && m !== 'timetable').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
+              </select>
+            </label>
+          </span>
+        ) : (
+          <label className="view-select">
+            <span className="sr-only">Ansicht</span>
+            <select value={mode} onChange={(e) => changeMode(e.target.value as Mode)}>
+              {VIEW_LABELS.filter(([m]) => m !== 'timeGridThree' && m !== 'timetable').map(([m, label]) => <option key={m} value={m}>{label}</option>)}
+            </select>
+          </label>
+        )}
         {persons.some((p) => p.hasTimetable) && (
           <button className={'tt-btn' + (mode === 'timetable' ? ' on' : '')} onClick={() => changeMode('timetable')} aria-label="Stundenplan">
             📚 <span className="long">Stundenplan</span>
