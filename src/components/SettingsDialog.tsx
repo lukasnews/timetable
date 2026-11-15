@@ -41,7 +41,7 @@ export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: Settin
         ))}
       </nav>
       {tab === 'persons' && <PersonsTab />}
-      {tab === 'device' && <DeviceTab />}
+      {tab === 'device' && <DeviceTab onClose={onClose} />}
       {tab === 'sync' && <SyncTab />}
       {tab === 'notify' && <NotifyTab />}
       {tab === 'data' && <DataTab onPrint={onPrint} />}
@@ -99,7 +99,7 @@ function PersonsTab() {
   );
 }
 
-function DeviceTab() {
+function DeviceTab({ onClose }: { onClose?: () => void }) {
   const { device, setDevice } = useData();
   const inst = useInstall();
   return (
@@ -160,6 +160,29 @@ function DeviceTab() {
             </div>
           )}
           <button className="btn" onClick={() => document.documentElement.requestFullscreen?.()}><Icon name="expand" size={18} /> Vollbild</button>
+        </>
+      )}
+
+      <h3>🌙 Bildschirmschoner</h3>
+      <p className="hint">Erscheint, wenn das Gerät eine Weile nicht berührt wurde – Antippen bringt den Kalender zurück. Ideal fürs Wand-Tablet.</p>
+      <Toggle checked={device.saverDay} onChange={(v) => setDevice({ saverDay: v })} label="Tagsüber: Uhr und nächste Termine"
+        hint="Große Uhr, Datum, Wetter und was heute und morgen ansteht" />
+      <Toggle checked={device.saverNight} onChange={(v) => setDevice({ saverNight: v })} label="Nachts: gedimmte Uhr"
+        hint="Fast schwarz, blendet nicht – mit dem nächsten Termin" />
+      {(device.saverDay || device.saverNight) && (
+        <>
+          <label className="field"><span className="label">Nach wie vielen Minuten ohne Berührung?</span>
+            <select value={device.saverMinutes} onChange={(e) => setDevice({ saverMinutes: Number(e.target.value) })}>
+              {[1, 2, 3, 5, 10, 15, 30, 60].map((m) => <option key={m} value={m}>{m} {m === 1 ? 'Minute' : 'Minuten'}</option>)}
+            </select>
+          </label>
+          <div className="grid2">
+            <label className="field"><span className="label">Nacht von</span><input type="time" value={device.nightFrom} onChange={(e) => e.target.value && setDevice({ nightFrom: e.target.value })} /></label>
+            <label className="field"><span className="label">bis</span><input type="time" value={device.nightTo} onChange={(e) => e.target.value && setDevice({ nightTo: e.target.value })} /></label>
+          </div>
+          <small className="hint">{device.saverDay && !device.saverNight ? 'Nachts erscheint kein Bildschirmschoner.' : !device.saverDay && device.saverNight ? 'Tagsüber erscheint kein Bildschirmschoner.' : 'Gleicher Zeitraum wie der Nachtmodus im Kiosk.'}</small>
+          <button className="btn" onClick={() => { onClose?.(); setTimeout(() => window.dispatchEvent(new Event('fk-saver')), 200); }}>Vorschau zeigen</button>
+          {!device.kiosk && <small className="hint">Tipp: Damit sich der Bildschirm nicht vorher abschaltet, im Kiosk-Modus „Bildschirm nicht abschalten“ aktivieren.</small>}
         </>
       )}
 
