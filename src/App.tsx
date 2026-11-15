@@ -27,6 +27,7 @@ import { isNight, slideIn, useClock, useIdle, useMedia, usePullToRefresh, useRem
 type Mode = ViewName | 'timetable';
 
 const VIEW_LABELS: [Mode, string, string][] = [
+  ['multiMonthYear', 'Jahr', 'J'],
   ['dayGridMonth', 'Monat', 'M'],
   ['timeGridWeek', 'Woche', 'W'],
   ['timeGridThree', '3 Tage', '3'],
@@ -422,7 +423,7 @@ export default function App() {
         {device.kiosk && <span className="clock">{now.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })}</span>}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
-            <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : '')} onClick={() => changeMode(m)}>
+            <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : m === 'multiMonthYear' ? ' hide-phone' : '')} onClick={() => changeMode(m)}>
               <span className="long">{label}</span><span className="short">{short}</span>
             </button>
           ))}
@@ -532,6 +533,7 @@ function RangeTitle({ range, compact }: { range: { type: string; start: Date; en
       </>
     );
   }
+  if (type === 'multiMonthYear') return <span className="rt-main">{start.getFullYear()}</span>;
   if (type === 'listUpcoming' || type === 'timeGridThree') {
     const f = (d: Date) => `${d.getDate()}. ${d.toLocaleDateString('de-AT', { month: 'short' })}`;
     return <span className="rt-main">{f(start)} – {f(end)}</span>;
