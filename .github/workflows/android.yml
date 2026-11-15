@@ -4,7 +4,8 @@ name: Android-App bauen
 # und stellt beides als „Release“ bereit: GitHub → Releases → neueste „Android-App“.
 #
 # Die App lädt die veröffentlichte Web-App – Änderungen am Kalender brauchen KEINE neue APK.
-# Neu gebaut wird nur, wenn sich der Android-Teil ändert (oder per „Run workflow“).
+# Neu gebaut wird nur, wenn sich der Android-Teil ändert (android/, capacitor.config.ts) oder per „Run workflow“.
+# (src/native.ts ist Web-Code und kommt wie der Rest automatisch über die Website.)
 #
 # Signierschlüssel: wird beim ersten Lauf automatisch erzeugt, mit dem Secret FAMILY_ID
 # verschlüsselt und in einem privaten Entwurfs-Release („android-signing“) aufbewahrt.
@@ -13,7 +14,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['android/**', 'capacitor.config.ts', 'src/native.ts', 'package-lock.json', '.github/workflows/android.yml']
+    paths: ['android/**', 'capacitor.config.ts', '.github/workflows/android.yml']
 
 permissions:
   contents: write
