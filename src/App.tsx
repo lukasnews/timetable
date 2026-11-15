@@ -194,6 +194,32 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [events, now.toDateString(), family.showSchoolHolidays, hasKids, isPhone]);
 
+  // Countdown in der Leiste: „bis …“ nur, wenn der Platz reicht; sonst nur „39 Tage“ (Antippen zeigt den Text)
+  const cdRef = useRef<HTMLSpanElement>(null);
+  const [cdShort, setCdShort] = useState(false);
+  const [cdBubble, setCdBubble] = useState<{ text: string; x: number; y: number } | null>(null);
+  useEffect(() => {
+    const el = cdRef.current;
+    if (!el) return;
+    const check = () => {
+      el.classList.remove('short');
+      const tooBig = [...el.querySelectorAll<HTMLElement>('.countdown')].some((c) => c.offsetParent && c.scrollWidth > c.clientWidth + 1)
+        || el.scrollWidth > el.clientWidth + 1;
+      if (tooBig) el.classList.add('short');
+      setCdShort(tooBig);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
+    return () => ro.disconnect();
+  }, [countdowns, device.showCountdown]);
+  useEffect(() => {
+    if (!cdBubble) return;
+    const t = setTimeout(() => setCdBubble(null), 3000);
+    return () => clearTimeout(t);
+  }, [cdBubble]);
+
   // Bildschirmschoner: tagsüber Uhr + nächste Termine, nachts gedimmte Uhr – nach X Minuten ohne Berührung
   const saverWeather = useWeather(family.weather, device.showWeather && device.saverDay);
   const [saverOn, setSaverOn] = useState<false | 'idle' | 'preview'>(false);
@@ -414,9 +440,14 @@ export default function App() {
           </button>
         )}
         {device.showCountdown && countdowns.length > 0 && (
-          <span className="countdowns">
+          <span className={'countdowns' + (cdShort ? ' short' : '')} ref={cdRef}>
             {countdowns.map((c) => (
-              <span key={c.title + c.date} className="countdown" title={c.date.split('-').reverse().join('.')}>⏳ <b>{c.days === 1 ? 'Morgen' : `${c.days} Tage`}</b> <span className="cd-title">bis {c.title}</span></span>
+              <span key={c.title + c.date} className="countdown" title={`bis ${c.title} (${c.date.split('-').reverse().join('.')})`}
+                onClick={(e) => {
+                  if (!cdShort) return;
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setCdBubble({ text: `⏳ ${c.days === 1 ? 'Morgen' : `${c.days} Tage`} bis ${c.title}`, x: r.left, y: r.bottom + 6 });
+                }}>⏳ <b>{c.days === 1 ? 'Morgen' : `${c.days} Tage`}</b> <span className="cd-title">bis {c.title}</span></span>
             ))}
           </span>
         )}
@@ -502,6 +533,7 @@ export default function App() {
         <Screensaver variant={(saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device))!} events={events} persons={persons} weather={saverWeather}
           place={family.weather?.name} countdowns={device.showCountdown ? countdowns : []} onClose={() => setSaverOn(false)} />
       )}
+      {cdBubble && <div className="cd-bubble" style={{ left: Math.min(cdBubble.x, window.innerWidth - 260), top: cdBubble.y }}>{cdBubble.text}</div>}
       {scopeAsk && <ScopeDialog action={scopeAsk.action} onPick={(s) => scopeAsk.resolve(s)} />}
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
