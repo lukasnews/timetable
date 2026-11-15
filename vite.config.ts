@@ -16,13 +16,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon-64.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Familienkalender',
         short_name: 'Familienkalender',
         description: 'Familienkalender für Tablet und Handy',
         theme_color: '#0e0f15',
-        background_color: '#0e0f15',
+        background_color: '#f3c896',
         display: 'standalone',
         orientation: 'any',
         start_url: './',
@@ -34,7 +34,6 @@ export default defineConfig({
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {

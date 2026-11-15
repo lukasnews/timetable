@@ -92,8 +92,8 @@ export function useReminders(events: CalEvent[], persons: Person[], device: Devi
         const names = ev.personIds.map((id) => persons.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
         const body = [o.event.allDay ? 'Ganztägig' : `${o.start.slice(11)} Uhr`, names, ev.location].filter(Boolean).join(' · ');
         const reg = await navigator.serviceWorker?.getRegistration();
-        if (reg) reg.showNotification(ev.title, { body, icon: './icon.svg', tag: ev.id + o.occStart });
-        else new Notification(ev.title, { body, icon: './icon.svg' });
+        if (reg) reg.showNotification(ev.title, { body, icon: './icon-192.png', tag: ev.id + o.occStart });
+        else new Notification(ev.title, { body, icon: './icon-192.png' });
       }
     };
     const t = setInterval(check, 20000);
