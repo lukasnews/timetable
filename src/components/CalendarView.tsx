@@ -43,6 +43,12 @@ interface Props {
   printing?: boolean;
 }
 
+/** Zur aktuellen Uhrzeit (eine Stunde davor) scrollen; nachts ab 7 Uhr */
+const nowScrollTime = () => {
+  const h = new Date().getHours();
+  return h > 1 ? `${String(h - 1).padStart(2, '0')}:00:00` : '07:00:00';
+};
+
 function stripe(persons: Person[]): string {
   if (persons.length === 0) return 'var(--family)';
   const step = 100 / persons.length;
@@ -231,7 +237,9 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       allDayText="Ganzt."
       slotMinTime={(props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart) + ':00'}
       slotMaxTime={(props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd) + ':00'}
-      scrollTime={new Date().getHours() > 1 ? `${String(Math.max(0, new Date().getHours() - 1)).padStart(2, '0')}:00:00` : '07:00:00'}
+      scrollTime={nowScrollTime()}
+      // scrollTime greift nicht zuverlässig, wenn die Höhe beim ersten Zeichnen noch 0 ist (Handy/App) – darum nachziehen
+      viewDidMount={(arg) => { if (arg.view.type.startsWith('timeGrid')) setTimeout(() => arg.view.calendar.scrollToTime(nowScrollTime()), 150); }}
       slotDuration="00:30:00"
       snapDuration="00:15:00"
       slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
