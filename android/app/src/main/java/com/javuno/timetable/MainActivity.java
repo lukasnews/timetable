@@ -1,4 +1,4 @@
-package online.chaoten.familienkalender;
+package com.javuno.timetable;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
