@@ -5,12 +5,14 @@ import { importDeviceSettings, migrateIfNeeded } from './migrate';
 import { updateState } from './update';
 import { DataProvider } from './data/DataContext';
 import App from './App';
-import { setupBackButton } from './native';
+import { isNative, setupBackButton } from './native';
 import './styles.css';
 
 importDeviceSettings();
 migrateIfNeeded();
 setupBackButton();
+// Android-App: kein Browser drumherum (für CSS, z. B. Höhe ohne Browser-Leisten)
+if (isNative()) document.documentElement.classList.add('native-app');
 
 // Updates: regelmäßig und beim Zurückkehren in die App nach einer neuen Version suchen.
 // Eine neue Version wird erst aktiviert, wenn kein Fenster (Termin, Einstellungen …) offen ist –
