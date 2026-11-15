@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CalEvent, EventTemplate, Person, Recurrence } from '../types';
 import { findConflicts } from '../lib/conflicts';
-import { CATEGORIES } from '../lib/categories';
+import { CATEGORIES, guessCategory } from '../lib/categories';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { addDays, addMinutes, diffMinutes, todayLocal, uid, weekdayMo0 } from '../lib/dates';
@@ -43,6 +43,15 @@ export function EventDialog(props: {
   const e0 = props.draft.event;
   const [moreOpen, setMoreOpen] = useState(!!(e0.location || e0.bring || e0.driverIds?.length || e0.countdown || e0.notes));
   const [tplSaved, setTplSaved] = useState(false);
+  // Neue Termine: Kategorie aus dem Titel erraten, bis jemand selbst eine wählt
+  const [catAuto, setCatAuto] = useState(props.draft.isNew && !e0.category);
+  const catRow = useRef<HTMLDivElement>(null);
+  // automatisch gewählte Kategorie sichtbar machen (die Leiste scrollt am Handy seitlich)
+  useEffect(() => {
+    if (!catAuto || !ev.category) return;
+    catRow.current?.querySelector<HTMLElement>('.cat-chip.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }, [ev.category, catAuto]);
+  const setTitle = (title: string) => setEv((e) => ({ ...e, title, ...(catAuto && e.kind !== 'birthday' ? { category: guessCategory(title) } : {}) }));
   const set = (p: Partial<CalEvent>) => setEv((e) => ({ ...e, ...p }));
 
   const date = ev.start.slice(0, 10);
@@ -97,6 +106,7 @@ export function EventDialog(props: {
     set({ title: t.title, allDay: t.allDay, start, end: addMinutes(start, t.durationMin, t.allDay), personIds: t.personIds.filter((id) => props.persons.some((p) => p.id === id)),
       driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, reminderMinutes: t.reminderMinutes ?? null, category: t.category, bring: t.bring });
     if (t.location || t.bring || t.driverIds?.length) setMoreOpen(true);
+    setCatAuto(false);
   };
   const saveAsTemplate = () => {
     const t: EventTemplate = { id: uid(), title: ev.title.trim(), durationMin: diffMinutes(ev.start, ev.end), allDay: ev.allDay, time: ev.allDay ? undefined : ev.start.slice(11, 16),
@@ -110,7 +120,7 @@ export function EventDialog(props: {
   const applyQuick = () => {
     if (!quick) return;
     const d = quick.date ?? date;
-    const p: Partial<CalEvent> = { title: quick.title };
+    const p: Partial<CalEvent> = { title: quick.title, ...(catAuto ? { category: guessCategory(quick.title) } : {}) };
     if (quick.personIds.length) p.personIds = [...new Set([...ev.personIds, ...quick.personIds])];
     if (quick.start && !quick.allDay) {
       const start = `${d}T${quick.start}`;
@@ -168,7 +178,7 @@ export function EventDialog(props: {
     >
       <form onSubmit={(e) => { e.preventDefault(); save(); }} className="form">
         <input className="title-input" autoFocus={props.draft.isNew} placeholder={isBirthday ? 'Wer hat Geburtstag?' : props.draft.isNew ? 'Titel – z. B. „Morgen 15 Uhr Zahnarzt Lena“' : 'Titel'}
-          value={ev.title} onChange={(e) => set({ title: e.target.value })}
+          value={ev.title} onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && quickUseful) { e.preventDefault(); applyQuick(); } }} />
         {quickUseful && (
           <button type="button" className="quick-hint" onClick={applyQuick}>
@@ -199,12 +209,12 @@ export function EventDialog(props: {
         </div>
 
         <div className="field">
-          <span className="label">Art</span>
-          <div className="cat-row" role="group" aria-label="Kategorie">
+          <span className="label">Art{catAuto && ev.category && <small className="hint"> · automatisch erkannt</small>}</span>
+          <div className="cat-row" ref={catRow} role="group" aria-label="Kategorie">
             <button type="button" className={'cat-chip' + (isBirthday ? ' on' : '')} onClick={() => setBirthday(!isBirthday)}>🎂 Geburtstag</button>
             {!isBirthday && CATEGORIES.map((c) => (
               <button type="button" key={c.key} className={'cat-chip' + (ev.category === c.key ? ' on' : '')} title={c.label}
-                onClick={() => set({ category: ev.category === c.key ? undefined : c.key })}>
+                onClick={() => { setCatAuto(false); set({ category: ev.category === c.key ? undefined : c.key }); }}>
                 <span aria-hidden="true">{c.icon}</span> {c.label}
               </button>
             ))}
