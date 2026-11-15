@@ -186,6 +186,12 @@ export interface DeviceSettings {
   theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
+  /** Bildschirmschoner: tagsüber Uhr + nächste Termine */
+  saverDay: boolean;
+  /** Bildschirmschoner: nachts gedimmte Uhr (Zeitraum = nightFrom–nightTo) */
+  saverNight: boolean;
+  /** Bildschirmschoner nach so vielen Minuten ohne Berührung */
+  saverMinutes: number;
   /** Version der gespeicherten Geräte-Einstellungen */
   v?: number;
 }

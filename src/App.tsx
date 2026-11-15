@@ -9,6 +9,8 @@ import { TimetableView } from './components/TimetableView';
 import { SearchDialog } from './components/SearchDialog';
 import { EventDetails } from './components/EventDetails';
 import { DriverList } from './components/DriverList';
+import { Screensaver } from './components/Screensaver';
+import { useWeather } from './lib/weather';
 import { isNative, nativePrint, setSystemBarsHidden, syncNativeReminders, syncWidget } from './native';
 import { PinDialog, ScopeDialog } from './components/Dialogs';
 import { Avatar, Icon } from './components/ui';
@@ -190,6 +192,20 @@ export default function App() {
   const countdowns = useMemo(() => nextCountdowns(events, fromNative(now, true), family.showSchoolHolidays && hasKids, isPhone ? 1 : 2),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [events, now.toDateString(), family.showSchoolHolidays, hasKids, isPhone]);
+
+  // Bildschirmschoner: tagsüber Uhr + nächste Termine, nachts gedimmte Uhr – nach X Minuten ohne Berührung
+  const saverWeather = useWeather(family.weather, device.showWeather && device.saverDay);
+  const [saverOn, setSaverOn] = useState<false | 'idle' | 'preview'>(false);
+  const nightNow = isNight(now, device.nightFrom, device.nightTo);
+  const saverVariant: 'day' | 'night' | null = nightNow ? (device.saverNight ? 'night' : null) : (device.saverDay ? 'day' : null);
+  useIdle(device.saverMinutes || 5, device.saverDay || device.saverNight, () => {
+    if (!document.querySelector('.modal-backdrop')) setSaverOn('idle');
+  });
+  useEffect(() => {
+    const preview = () => setSaverOn('preview');
+    window.addEventListener('fk-saver', preview);
+    return () => window.removeEventListener('fk-saver', preview);
+  }, []);
   // Wer ist heute abwesend? (für die Personen-Chips)
   const absentToday = useMemo(() => {
     const t = fromNative(now, true);
@@ -474,11 +490,18 @@ export default function App() {
           <button className="btn small" onClick={() => { data.apply(undo.m); setUndo(null); }}>Rückgängig</button>
         </div>
       )}
+      {saverOn && (saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device)) && (
+        <Screensaver variant={(saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device))!} events={events} persons={persons} weather={saverWeather}
+          place={family.weather?.name} countdowns={device.showCountdown ? countdowns : []} onClose={() => setSaverOn(false)} />
+      )}
       {scopeAsk && <ScopeDialog action={scopeAsk.action} onPick={(s) => scopeAsk.resolve(s)} />}
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
   );
 }
+
+/** Vorschau aus den Einstellungen, auch wenn gerade die andere Tageszeit ist */
+const saverPreview = (d: { saverDay: boolean; saverNight: boolean }): 'day' | 'night' | null => (d.saverDay ? 'day' : d.saverNight ? 'night' : null);
 
 /** Gut lesbarer Titel: „Freitag, 13. November“ · „KW 46 · 9.–15. November“ · „November 2026“ */
 function RangeTitle({ range, compact }: { range: { type: string; start: Date; end: Date } | null; compact?: boolean }) {

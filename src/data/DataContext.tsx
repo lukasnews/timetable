@@ -28,6 +28,9 @@ export const DEFAULT_DEVICE: DeviceSettings = {
   theme: 'auto',
   dayStart: '00:00',
   dayEnd: '24:00',
+  saverDay: false,
+  saverNight: false,
+  saverMinutes: 5,
 };
 
 interface Data {
