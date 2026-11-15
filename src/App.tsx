@@ -176,6 +176,21 @@ export default function App() {
     return () => { clearInterval(t); window.removeEventListener('fk-resume', apply); };
   }, [device.kiosk]);
 
+  // Browser / installierte Web-App im Kiosk-Modus: Vollbild (blendet Adress-, Status- und Navigationsleiste aus).
+  // Browser erlauben Vollbild nur nach einer Berührung – darum beim nächsten Antippen (und nach dem Verlassen wieder).
+  useEffect(() => {
+    if (isNative() || !document.fullscreenEnabled) return;
+    if (!device.kiosk) {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      return;
+    }
+    const enter = () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+    };
+    window.addEventListener('pointerup', enter);
+    return () => window.removeEventListener('pointerup', enter);
+  }, [device.kiosk]);
+
   // Android-App: Erinnerungen am Gerät vorausplanen (auch bei geschlossener App)
   const [nativeTick, setNativeTick] = useState(0);
   useEffect(() => {
