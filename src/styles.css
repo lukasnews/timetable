@@ -75,7 +75,7 @@ a { color: var(--accent); }
    Dann kann die Seite um die Leistenhöhe scrollen und der Browser blendet Adress- und
    Werkzeugleiste beim Wischen aus. Installiert/App: kein Unterschied (dort gibt es diese Leisten nicht). */
 @media (display-mode: browser) {
-  .app { height: 100lvh !important; }
+  :root:not(.native-app) .app { height: 100lvh; }
 }
 .app {
   height: 100dvh;
