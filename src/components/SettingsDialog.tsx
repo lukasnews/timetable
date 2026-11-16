@@ -160,7 +160,6 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
               <label className="field"><span className="label">Bis</span><input type="time" value={device.nightTo} onChange={(e) => setDevice({ nightTo: e.target.value })} /></label>
             </div>
           )}
-          <button className="btn" onClick={() => document.documentElement.requestFullscreen?.()}><Icon name="expand" size={18} /> Vollbild</button>
         </>
       )}
 
