@@ -85,7 +85,13 @@ function AppField({ value, onChange }: { value?: string; onChange: (pkg: string 
   return (
     <div className="ql-app">
       <input value={text} placeholder="oder Android-App: Play-Store-Link einfügen" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-        onChange={(e) => setText(e.target.value)} onBlur={() => { onChange(pkg); if (pkg) setText(pkg); }} />
+        onChange={(e) => {
+          // sofort speichern (nicht erst beim Verlassen – sonst geht es verloren, wenn man gleich schließt)
+          setText(e.target.value);
+          const p = parsePackage(e.target.value);
+          if (p || !e.target.value.trim()) onChange(p);
+        }}
+        onBlur={() => { if (pkg) setText(pkg); }} />
       {text.trim() && <small className={pkg ? 'hint' : 'error'}>{pkg ? `📱 startet die App ${pkg}` : 'Kein gültiger Play-Store-Link bzw. Paketname'}</small>}
     </div>
   );
