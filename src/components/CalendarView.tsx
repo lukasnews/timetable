@@ -103,18 +103,21 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   }, [allEvents, isYear, isTimeGrid]);
   // Ganztags-Zeile nur zeigen, wenn etwas Ganztägiges im Zeitraum liegt (spart Platz)
   const hasAllDay = fcEvents.some((e) => e.allDay && e.display !== 'background');
-  // nächster bzw. laufender Termin heute – wird hervorgehoben
+  // heute: laufende Termine dezent, der nächste beginnende deutlich hervorheben (nur Termine mit Uhrzeit am selben Tag)
   const nowStr = fromNative(new Date(), false);
-  const nextKey = useMemo(() => {
-    let best: { key: string; start: string } | undefined;
+  const highlight = useMemo(() => {
+    const running = new Set<string>();
+    let next: { key: string; start: string } | undefined;
     for (const e of allEvents) {
       if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') continue;
       const x = e.extendedProps as OccProps | undefined;
       if (!x?.eventId || x.kind === 'school') continue;
-      if (e.start.slice(0, 10) !== nowStr.slice(0, 10) || e.end <= nowStr) continue;
-      if (!best || e.start < best.start) best = { key: x.eventId + '|' + x.occStart, start: e.start };
+      if (e.start.slice(0, 10) !== nowStr.slice(0, 10) || e.end.slice(0, 10) !== nowStr.slice(0, 10) || e.end <= nowStr) continue;
+      const key = x.eventId + '|' + x.occStart;
+      if (e.start <= nowStr) running.add(key);
+      else if (!next || e.start < next.start) next = { key, start: e.start };
     }
-    return best?.key;
+    return { running, next: next?.key };
   }, [allEvents, nowStr.slice(0, 15)]); // eslint-disable-line react-hooks/exhaustive-deps
   const yearDots = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -352,7 +355,9 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       slotEventOverlap={false}
       eventClassNames={(arg) => {
         const x = arg.event.extendedProps as OccProps;
-        return nextKey && x.eventId && `${x.eventId}|${x.occStart}` === nextKey ? ['ev-next'] : [];
+        if (!x.eventId) return [];
+        const key = `${x.eventId}|${x.occStart}`;
+        return key === highlight.next ? ['ev-next'] : highlight.running.has(key) ? ['ev-now'] : [];
       }}
       snapDuration="00:15:00"
       slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
