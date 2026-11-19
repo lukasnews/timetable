@@ -165,13 +165,21 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     const isList = arg.view.type.startsWith('list');
     // Tag/Woche: Gesichter – Uhrzeit – Titel (2 Zeilen); kurze Termine verdichten sich per CSS (Container-Abfrage auf die Höhe)
     if (arg.view.type.startsWith('timeGrid') && !arg.event.allDay && x.kind !== 'school') {
+      // mehrtägig: in jedem Tagesstück die echte Dauer („Fr 14:15 – So 11:00“) statt nur des sichtbaren Stücks
+      const st = arg.event.start, en = arg.event.end;
+      let timeText = arg.timeText;
+      if (st && en && fromNative(st, true) !== fromNative(new Date(en.getTime() - 1), true)) {
+        const wd = (d: Date) => d.toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '');
+        const hm = (d: Date) => d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+        timeText = `${wd(st)} ${hm(st)} – ${wd(en)} ${hm(en)}`;
+      }
       return (
         <div className="ev-inner tg">
           {/* mitwandernd: bleibt beim Scrollen oben sichtbar (lange bzw. mehrtägige Termine) */}
           <div className="ev-tg-body">
           <div className="ev-tg-head">
             {ps.length > 0 && <span className="ev-avatars">{ps.slice(0, 4).map((p) => <Avatar key={p.id} person={p} size={24} />)}</span>}
-            <span className="ev-time">{arg.timeText}</span>
+            <span className="ev-time">{timeText}</span>
             {x.recurring && <span className="ev-rec" title="Serie">↻</span>}
           </div>
           <span className="ev-title">{title}</span>
