@@ -965,3 +965,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .rows-compact .fc .fc-timegrid-slot { height: 1.15em; }
 .rows-compact .fc .fc-timegrid-slot-label-cushion { font-size: 0.72rem; }
 .rows-large .fc .fc-timegrid-slot { height: 3em; }
+
+/* Mehrtägige Termine als Balken oben (Tag/Woche) */
+.ev-inner.ev-span { align-items: center; gap: 6px; padding: 2px 8px; }
+.ev-inner.ev-span .ev-title { flex: 0 1 auto; }
+.ev-span-time { font-size: 0.75rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Jetzt-Linie deutlich (auch aus der Entfernung) */
+.fc .fc-timegrid-now-indicator-line { border-top-width: 3px; margin-top: -1px; }
+.fc .fc-direction-ltr .fc-timegrid-now-indicator-arrow { border-width: 7px 0 7px 9px; margin-top: -7px; }
+
+/* nächster bzw. laufender Termin heute */
+.fc .fc-event.ev-next { box-shadow: 0 0 0 2px var(--accent), 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); animation: ev-next 2.4s ease-in-out 3; }
+@keyframes ev-next { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent), 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); } }
+:root.printing .fc .fc-event.ev-next { box-shadow: none; animation: none; }

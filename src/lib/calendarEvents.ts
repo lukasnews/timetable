@@ -19,6 +19,8 @@ export interface OccProps {
   /** Position des Schul-Streifens (0, 1, 2 …) */
   stripIndex?: number;
   timeText?: string;
+  /** Mehrtägiger Termin mit Uhrzeit, in Tag/Woche oben als Balken gezeigt: echte Zeit für die Anzeige */
+  spanText?: string;
 }
 
 /** Ist ein Termin bei gewählten Personen sichtbar? Termine ohne Person = ganze Familie, immer sichtbar */

@@ -177,7 +177,11 @@ export default function App() {
   const api = () => calRef.current?.getApi();
   const calWrap = useRef<HTMLDivElement>(null);
   const go = (dir: 1 | -1) => {
-    if (dir > 0) api()?.next(); else api()?.prev();
+    const a = api();
+    if (mode === 'timeGridFocus' && a) {
+      // Fokus-Woche: genau 7 Tage weiter/zurück (FullCalendar würde auf den Wochenbeginn ausrichten)
+      const d = a.getDate(); d.setDate(d.getDate() + 7 * dir); a.gotoDate(d);
+    } else if (dir > 0) a?.next(); else a?.prev();
     slideIn(calWrap.current?.querySelector('.fc-view-harness'), dir);
   };
   useSwipe(calWrap, () => go(1), () => go(-1), mode !== 'timetable');
@@ -188,6 +192,7 @@ export default function App() {
   useIdle(device.idleReturnMinutes, device.kiosk, () => {
     setDraft(null); setSettings(null); setScopeAsk(null); setDetail(null); setSearching(false);
     data.setDevice({ locked: true });
+    setHidden(new Set()); // wieder alle Personen zeigen
     const m = defaultMode();
     setMode(m);
     setTimeout(() => { api()?.changeView(m); api()?.today(); });
