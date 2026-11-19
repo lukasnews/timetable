@@ -63,6 +63,7 @@ export default function App() {
   // Abonnierte/importierte Kalender (z. B. Müll) ein-/ausblenden – pro Gerät, in den Einstellungen (optional Knöpfe in der Leiste)
   const sources = device.sourceChips ? family.icsSources ?? [] : [];
   const hiddenSources = useMemo(() => new Set(device.hiddenSources ?? []), [device.hiddenSources]);
+  const shownEvents = useMemo(() => hiddenSources.size ? events.filter((e) => !e.importSource || !hiddenSources.has(e.importSource)) : events, [events, hiddenSources]);
   const toggleSource = (name: string) => data.setDevice({ hiddenSources: hiddenSources.has(name) ? [...hiddenSources].filter((x) => x !== name) : [...hiddenSources, name] });
 
   // Personenleiste: passt sie nicht, zuerst Namen ausblenden, dann seitlich scrollen
@@ -605,7 +606,7 @@ export default function App() {
         </div>
       )}
       {saverOn && (saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device)) && (
-        <Screensaver variant={(saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device))!} events={events} persons={persons} weather={saverWeather}
+        <Screensaver variant={(saverOn === 'idle' ? saverVariant : saverVariant ?? saverPreview(device))!} events={shownEvents} persons={persons} weather={saverWeather}
           place={family.weather?.name} countdowns={device.showCountdown ? countdowns : []} onClose={() => setSaverOn(false)} />
       )}
       {cdBubble && <div className="cd-bubble" style={{ left: Math.min(cdBubble.x, window.innerWidth - 260), top: cdBubble.y }}>{cdBubble.text}</div>}
