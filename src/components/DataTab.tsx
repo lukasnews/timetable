@@ -41,7 +41,8 @@ function newFeedToken(): string {
 }
 
 export function DataTab({ onPrint }: { onPrint?: () => void }) {
-  const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl, service } = useData();
+  const { events, persons, timetables, family, store, apply, templates, saveTemplates, saveFamily, serviceUrl, service, device, setDevice } = useData();
+  const hiddenSrc = device.hiddenSources ?? [];
   const [autoList, setAutoList] = useState<{ id: string; exportedAt: string; data: string; persons?: number; events?: number }[] | null>(null);
   const [autoErr, setAutoErr] = useState('');
   const [feedPerson, setFeedPerson] = useState('');
@@ -304,6 +305,8 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
       {sources.length > 0 && (
         <>
           <h3>Importierte Kalender</h3>
+          <Toggle checked={!!device.sourceChips} onChange={(v) => setDevice({ sourceChips: v })} label="Knöpfe in der oberen Leiste"
+            hint="Zum schnellen Ein-/Ausblenden neben den Personen (nur auf diesem Gerät)" />
           <ul className="source-cards">
             {sources.map(([name, n]) => {
               const src = sourceOf(name);
@@ -314,6 +317,10 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
                   <div className="source-head">
                     <span><strong>{name}</strong> <small className="hint">{n} Termin(e)</small></span>
                     <button className="btn small danger" onClick={() => setConfirmDel(name)} aria-label="Entfernen"><Icon name="trash" size={16} /></button>
+                  </div>
+                  <div className="source-row">
+                    <Toggle checked={!hiddenSrc.includes(name)} onChange={(v) => setDevice({ hiddenSources: v ? hiddenSrc.filter((x) => x !== name) : [...hiddenSrc, name] })}
+                      label="👁 Im Kalender anzeigen" hint="Nur auf diesem Gerät – Erinnerungen kommen trotzdem" />
                   </div>
                   <div className="source-row">
                     <span className="label"><Icon name="bell" size={15} /> Erinnerung</span>

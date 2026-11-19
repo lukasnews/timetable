@@ -59,10 +59,11 @@ export default function App() {
   useEffect(() => localStorage.setItem('fk.hidden', JSON.stringify([...hidden])), [hidden]);
   const selected = useMemo(() => new Set(persons.map((p) => p.id).filter((id) => !hidden.has(id))), [persons, hidden]);
   const toggle = (id: string) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const solo = (id: string) => setHidden((h) => new Set([...persons.map((p) => p.id).filter((x) => x !== id), ...[...h].filter((k) => k.startsWith('src:'))]));
-  // Abonnierte/importierte Kalender (z. B. Müll) einzeln ein-/ausblenden – gilt pro Gerät
-  const sources = family.icsSources ?? [];
-  const hiddenSources = useMemo(() => new Set([...hidden].filter((k) => k.startsWith('src:')).map((k) => k.slice(4))), [hidden]);
+  const solo = (id: string) => setHidden(new Set(persons.map((p) => p.id).filter((x) => x !== id)));
+  // Abonnierte/importierte Kalender (z. B. Müll) ein-/ausblenden – pro Gerät, in den Einstellungen (optional Knöpfe in der Leiste)
+  const sources = device.sourceChips ? family.icsSources ?? [] : [];
+  const hiddenSources = useMemo(() => new Set(device.hiddenSources ?? []), [device.hiddenSources]);
+  const toggleSource = (name: string) => data.setDevice({ hiddenSources: hiddenSources.has(name) ? [...hiddenSources].filter((x) => x !== name) : [...hiddenSources, name] });
 
   // Personenleiste: passt sie nicht, zuerst Namen ausblenden, dann seitlich scrollen
   const chipsRef = useRef<HTMLDivElement>(null);
@@ -196,7 +197,7 @@ export default function App() {
   useIdle(device.idleReturnMinutes, device.kiosk, () => {
     setDraft(null); setSettings(null); setScopeAsk(null); setDetail(null); setSearching(false);
     data.setDevice({ locked: true });
-    setHidden((h) => new Set([...h].filter((k) => k.startsWith('src:')))); // wieder alle Personen zeigen (ausgeblendete Kalender bleiben aus)
+    setHidden(new Set()); // wieder alle Personen zeigen
     const m = defaultMode();
     setMode(m);
     setTimeout(() => { api()?.changeView(m); api()?.today(); });
@@ -444,7 +445,7 @@ export default function App() {
           {sources.map((src) => {
             const on = !hiddenSources.has(src.name);
             return (
-              <button key={src.id} className={'chip chip-src' + (on ? ' on' : '')} onClick={() => toggle('src:' + src.name)}
+              <button key={src.id} className={'chip chip-src' + (on ? ' on' : '')} onClick={() => toggleSource(src.name)}
                 aria-pressed={on} title={`Kalender „${src.name}“ ${on ? 'ausblenden' : 'einblenden'}`}>
                 <span className="chip-src-icon" style={{ width: isPhone ? 34 : 40, height: isPhone ? 34 : 40 }}>{/müll|abfall|abfuhr|mist/i.test(src.name) ? '🗑️' : '📅'}</span>
                 <span className="chip-name">{src.name}</span>
