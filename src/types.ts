@@ -200,6 +200,8 @@ export interface DeviceSettings {
   theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
+  /** Anzeigegröße (1 = 100 %) – z. B. 1.3 fürs Wand-Tablet */
+  uiScale: number;
   /** Bildschirmschoner: tagsüber Uhr + nächste Termine */
   saverDay: boolean;
   /** Bildschirmschoner: nachts gedimmte Uhr (Zeitraum = nightFrom–nightTo) */

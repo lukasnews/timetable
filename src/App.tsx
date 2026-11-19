@@ -118,6 +118,14 @@ export default function App() {
     setTimeout(() => { api()?.updateSize(); setTimeout(() => window.print(), 250); }, 150);
   };
   useEffect(() => { document.documentElement.classList.toggle('printing', printing); }, [printing]);
+  // Anzeigegröße pro Gerät (beim Drucken immer 100 %)
+  useEffect(() => {
+    const f = printing ? 1 : Math.min(2, Math.max(0.7, device.uiScale || 1));
+    const t = applyUiScale(f, () => api()?.updateSize());
+    const re = () => applyUiScale(f, () => api()?.updateSize());
+    window.addEventListener('orientationchange', re);
+    return () => { clearTimeout(t); window.removeEventListener('orientationchange', re); };
+  }, [device.uiScale, printing]); // eslint-disable-line react-hooks/exhaustive-deps
   // Auch über das Browser-Menü („Drucken“, „Als PDF speichern“) die Druckansicht verwenden:
   // beforeprint läuft synchron vor dem Druck – Klasse sofort setzen und React sofort neu zeichnen lassen.
   useEffect(() => {
@@ -564,6 +572,27 @@ export default function App() {
       {pinAsk && family.pinHash && <PinDialog pinHash={family.pinHash} onResult={pinAsk} />}
     </div>
   );
+}
+
+/**
+ * Anzeigegröße über den Viewport: das Gerät verhält sich wie ein kleineres –
+ * Leisten und Layout passen sich von selbst an. Am Computer gilt der Browser-Zoom (Strg +).
+ */
+const BASE_VIEWPORT = 'width=device-width, initial-scale=1, viewport-fit=cover';
+function applyUiScale(f: number, done: () => void): number {
+  const root = document.documentElement;
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  const useZoom = (z: number) => { root.style.setProperty('--z', String(z)); root.style.zoom = z === 1 ? '' : String(z); root.classList.toggle('zoomed', z !== 1); };
+  useZoom(1);
+  if (f === 1 || !meta) { if (meta) meta.content = BASE_VIEWPORT; return window.setTimeout(done, 50); }
+  const target = Math.round(screen.width / f);
+  meta.content = `width=${target}, initial-scale=${f}, viewport-fit=cover`;
+  return window.setTimeout(() => {
+    // Viewport nicht übernommen (Computer-Browser, ältere App-Version): normale Größe lassen –
+    // CSS-Zoom verträgt sich nicht mit den Kalender-Berechnungen
+    if (Math.abs(window.innerWidth - target) > 40) meta.content = BASE_VIEWPORT;
+    done();
+  }, 350);
 }
 
 /** Geburtstag aus einem Profil als (nur lesbarer) Termin für die Detailansicht */
