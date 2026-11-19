@@ -71,6 +71,7 @@ export interface ServiceState {
   ntfyServer?: string;
   /** Topics, an die nicht gesendet wurde (ohne Präfix) */
   blockedTopics?: string[];
+  ntfyError?: string;
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -136,7 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setServiceUrl(m.find((x) => x.id === 'service')?.url || (store.mode === 'cloud' ? DEFAULT_SERVICE_URL : undefined));
         const r = m.find((x) => x.id === 'reminders');
         setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at,
-          topicPrefix: r.topicPrefix || undefined, ntfyServer: r.ntfyServer || undefined, blockedTopics: r.blockedTopics?.length ? r.blockedTopics : undefined } : {});
+          topicPrefix: r.topicPrefix || undefined, ntfyServer: r.ntfyServer || undefined, blockedTopics: r.blockedTopics?.length ? r.blockedTopics : undefined, ntfyError: r.ntfyError || undefined } : {});
       }),
     ];
     return () => offs.forEach((o) => o());

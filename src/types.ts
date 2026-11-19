@@ -155,6 +155,8 @@ export interface FamilySettings {
   ntfyFamilyTopic?: string;
   /** Eigener ntfy-Server der Familie (leer = Server des Erinnerungsdienstes) */
   ntfyServer?: string;
+  /** Zugangsschlüssel für den eigenen ntfy-Server (z. B. ntfy.sh-Konto) – nur für die eigene Familie sichtbar */
+  ntfyToken?: string;
   /** Geheimer Schlüssel für den Abo-Link (Kalender in Google/Outlook abonnieren) */
   feedToken?: string;
   /** Tagesübersicht per ntfy: Uhrzeit "HH:mm" (leer = aus) */

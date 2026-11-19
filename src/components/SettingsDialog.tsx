@@ -265,11 +265,17 @@ function NotifyTab() {
               ? 'Hier hin schickt der Dienst eure Push-Nachrichten.'
               : 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
           </label>
+          <label className="field"><span className="label">Zugangsschlüssel (optional)</span>
+            <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyToken ?? '')) saveFamily({ ntfyToken: v || undefined }); }} />
+            <small className="hint">Für ntfy.sh empfohlen: ohne Konto gilt dort ein gemeinsames Tageslimit, das schnell erreicht ist. Konto auf ntfy.sh anlegen → Zugangstoken erstellen → hier eintragen. Nur eure Familie sieht ihn.</small>
+          </label>
           <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
             für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
           {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {family.ntfyServer ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : 'kein ntfy-Server eingetragen.'}</p>}
         </>
       ) : service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')}</p>}
+      {service.ntfyError && <p className="error">Letzter Versandfehler: {/429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.' : service.ntfyError}</p>}
       <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
         <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onChange={(e) => setFamTopic(e.target.value)} /></label>

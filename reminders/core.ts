@@ -52,6 +52,8 @@ export interface ReminderState {
   topicPrefix?: string;
   ntfyServer?: string;
   blockedTopics?: string[];
+  /** Letzter Versandfehler (z. B. Kontingent des ntfy-Servers erreicht) */
+  ntfyError?: string;
 }
 
 export interface IcsStatus {
@@ -176,6 +178,7 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
     topicPrefix: { stringValue: s.topicPrefix ?? '' },
     ntfyServer: { stringValue: s.ntfyServer ?? '' },
     blockedTopics: { arrayValue: { values: (s.blockedTopics ?? []).map((x) => ({ stringValue: x })) } },
+    ntfyError: { stringValue: s.ntfyError ?? '' },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -209,10 +212,10 @@ export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: C
   const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer);
   const prefix = cfg.topicPrefix;
   if (!prefix) {
-    return ownOk ? { cfg: { ...cfg, ntfyServer: own!, ntfyToken: undefined }, allowed: () => true } : { cfg, allowed: () => true };
+    return ownOk ? { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined }, allowed: () => true } : { cfg, allowed: () => true };
   }
   if (!ownOk) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
-  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: undefined }, allowed: (t) => t === prefix || t.startsWith(prefix + '-') };
+  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined }, allowed: (t) => t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */
@@ -527,6 +530,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
 
   // Hinweis in der App bleibt, bis Topic bzw. Server korrigiert sind (nicht nur bis zum nächsten Lauf)
   next.blockedTopics = [...new Set([...blocked, ...(state.blockedTopics ?? []).filter((t) => !nt.allowed(t) && knownTopics.has(t))])].slice(0, 20);
+  next.ntfyError = errors.length ? errors[0].slice(0, 200) : due.length ? '' : state.ntfyError ?? '';
   log(`Zeitfenster ${from} – ${to}: ${due.length} Erinnerung(en), ${errors.length} Fehler`);
   await saveState(cfg, token, next);
 
