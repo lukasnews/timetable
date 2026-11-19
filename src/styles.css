@@ -911,3 +911,37 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 /* Anzeigegröße (Einstellungen → Gerät): die App wird per zoom vergrößert, der Bildschirmschoner bleibt bildschirmfüllend */
 .saver { zoom: calc(1 / var(--z, 1)); }
 :root.zoomed .app { width: calc(100vw / var(--z, 1)); }
+
+/* ---------- Termine in Tag/Woche: Gesichter · Uhrzeit · Titel (2 Zeilen) ---------- */
+.fc-timegrid-event .fc-event-main { height: 100%; container-type: size; }
+.ev-inner.tg { flex-direction: column; gap: 2px; overflow: hidden; padding: 4px 6px 3px 9px; }
+.ev-tg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-width: 0; }
+.ev-inner.tg .ev-avatars { flex-direction: row; }
+.ev-inner.tg .ev-avatars .avatar + .avatar { margin: 0 0 0 -6px; }
+.ev-inner.tg .ev-time { flex-basis: 100%; order: 2; }
+.ev-inner.tg .ev-rec { order: 1; margin-left: auto; }
+.ev-inner.tg .ev-title { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.2; }
+.ev-inner.tg .ev-loc { flex: none; }
+/* mittel (~30–45 min): Gesichter + Uhrzeit in einer Zeile, Titel einzeilig */
+@container (max-height: 74px) {
+  .ev-inner.tg { gap: 1px; padding-top: 2px; }
+  .ev-inner.tg .ev-time { flex-basis: auto; order: 0; }
+  .ev-inner.tg .ev-avatars .avatar { width: 18px !important; height: 18px !important; }
+  .ev-inner.tg .ev-title { -webkit-line-clamp: 1; line-clamp: 1; }
+  .ev-inner.tg .ev-loc { display: none; }
+}
+/* kurz (~30 min): eine Zeile – Gesichter, Uhrzeit, Titel nebeneinander */
+@container (max-height: 50px) {
+  .ev-inner.tg { flex-direction: row; align-items: center; gap: 5px; padding: 0 4px 0 8px; }
+  .ev-inner.tg .ev-tg-head { flex-wrap: nowrap; flex: none; }
+  .ev-inner.tg .ev-rec { display: none; }
+  .ev-inner.tg .ev-title { white-space: nowrap; display: block; text-overflow: ellipsis; min-width: 0; }
+}
+/* sehr kurz (~15 min): eine Zeile – erstes Gesicht + Titel */
+@container (max-height: 32px) {
+  .ev-inner.tg { flex-direction: row; align-items: center; gap: 4px; padding: 0 4px 0 8px; }
+  .ev-inner.tg .ev-time, .ev-inner.tg .ev-rec { display: none; }
+  .ev-inner.tg .ev-avatars .avatar + .avatar { display: none; }
+  .ev-inner.tg .ev-avatars .avatar { width: 16px !important; height: 16px !important; }
+  .ev-inner.tg .ev-title { font-size: 0.75rem; white-space: nowrap; display: block; text-overflow: ellipsis; }
+}
