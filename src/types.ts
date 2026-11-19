@@ -195,6 +195,8 @@ export interface DeviceSettings {
   locked: boolean;
   /** Entsperren nur mit PIN */
   lockNeedsPin: boolean;
+  /** Uhrzeit im Schulstreifen anzeigen (sonst schmaler Streifen nur mit Farbe und Gesicht) */
+  schoolTimes?: boolean;
   /** Schulzeiten im Kalender anzeigen (Schalter in der Leiste) */
   showSchool: boolean;
   theme: 'auto' | 'light' | 'dark';
