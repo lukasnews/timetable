@@ -79,8 +79,16 @@ const Ctx = createContext<Data | null>(null);
 function createStore(): Store {
   const join = readJoinLink();
   if (join) {
-    saveCloudConfig(join);
     history.replaceState(null, '', location.pathname + location.search);
+    const current = loadCloudConfig();
+    // Schon mit einem ANDEREN Familienkalender verbunden: nicht stillschweigend wechseln (sonst wäre der eigene weg)
+    const ok = !current || current.familyId === join.familyId
+      || window.confirm('Dieses Gerät ist schon mit einem Familienkalender verbunden.\n\nZu dem Familienkalender aus dem Link wechseln? '
+        + 'Der bisherige bleibt erhalten und kann unter ⚙️ → Synchronisation wieder verbunden werden.');
+    if (ok) {
+      if (current && current.familyId !== join.familyId) localStorage.setItem('fk.cloud.prev', JSON.stringify(current));
+      saveCloudConfig(join);
+    }
   }
   const cfg = loadCloudConfig();
   if (cfg) {

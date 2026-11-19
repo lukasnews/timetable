@@ -24,7 +24,10 @@ interface Env {
   APP_URL?: string;
 }
 
-interface Entry { id: string; familyId: string; feedToken?: string; at?: number }
+interface Entry { id: string; familyId: string; feedToken?: string; at?: number; seen?: number }
+
+/** Familien, deren App sich so lange nicht gemeldet hat, nimmt der Dienst aus dem Verzeichnis (sie melden sich beim nächsten Öffnen neu an) */
+const STALE_MS = 60 * 86400_000;
 
 let cached: { token: string; until: number } | null = null;
 
@@ -83,20 +86,36 @@ async function check(env: Env, log: (s: string) => void = console.log) {
   try { await run(base, token, new Date(), log, { by: 'cloudflare' }); } catch (e) { mainError = e; }
   const others = (await registry(env, token, true).catch(() => [] as Entry[])).filter((e) => e.familyId !== env.FAMILY_ID);
   const budget = Number(env.SUBREQUEST_BUDGET) || 45;
-  const startAt = Math.floor(Date.now() / 300_000) % others.length;
-  for (let i = 0; i < others.length; i++) {
-    if (calls + 8 > budget) { log(`Budget erreicht – ${others.length - i} Familie(n) beim nächsten Lauf`); break; }
-    const e = others[(startAt + i) % others.length];
+  // Verlassene Familien entfernen (auch Schutz davor, das Verzeichnis mit Schein-Familien zu füllen)
+  const stale = others.filter((e) => Date.now() - (e.seen ?? e.at ?? 0) > STALE_MS);
+  if (stale.length) {
+    await commit(config(env, env.REGISTRY_ID), token, 'meta', [], stale.map((e) => e.id)).catch(() => {});
+    regCache = null;
+    console.log(`${stale.length} Familie(n) seit 60 Tagen inaktiv – aus dem Verzeichnis entfernt`);
+  }
+  const active = others.filter((e) => !stale.includes(e));
+  if (!active.length) { if (mainError) throw mainError; return; }
+  const startAt = Math.floor(Date.now() / 300_000) % active.length;
+  for (let i = 0; i < active.length; i++) {
+    if (calls + 8 > budget) { console.log(`Budget erreicht – ${active.length - i} Familie(n) beim nächsten Lauf`); break; }
+    const e = active[(startAt + i) % active.length];
     try { await run(await familyConfig(env, e.familyId), token, new Date(), () => {}, { by: 'cloudflare', dropIfEmpty: true }); }
     catch (err) {
       if (String(err).includes('FAMILY_GONE')) {
         await commit(config(env, env.REGISTRY_ID), token, 'meta', [], [e.id]).catch(() => {});
         regCache = null;
-        log(`Familie ${e.id.slice(0, 6)}: keine Daten mehr – aus dem Verzeichnis entfernt`);
-      } else log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`);
+        console.log(`Familie ${e.id.slice(0, 6)}: keine Daten mehr – aus dem Verzeichnis entfernt`);
+      } else console.log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`); // nur ins Server-Protokoll, nie in die Ausgabe einer anderen Familie
     }
   }
   if (mainError) throw mainError;
+}
+
+/** Ein Feld in meta/reminders setzen, ohne den Rest zu überschreiben */
+async function setStateField(cfg: Config, token: string, field: string, value: string) {
+  await fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/families/${cfg.familyId}/meta/reminders?updateMask.fieldPaths=${field}`, {
+    method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ fields: { [field]: { stringValue: value } } }),
+  });
 }
 
 /** Familie beim Dienst anmelden (nur wer die geheime Familien-ID kennt; die Familie muss Daten haben) */
@@ -113,10 +132,12 @@ async function register(env: Env, familyId: string, serviceUrl: string): Promise
   const max = Number(env.MAX_FAMILIES) || 50;
   if (!known && familyId !== env.FAMILY_ID && all.length >= max) return new Response('Der Dienst ist derzeit voll', { status: 503, headers: cors });
   const feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
-  if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken)) {
-    await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now() } as Entry]);
+  if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken || Date.now() - (known.seen ?? 0) > 86400_000)) {
+    await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now() } as Entry]);
     regCache = null;
   }
+  // Präfix sofort in der App anzeigen (nicht erst nach dem ersten Lauf)
+  if (familyId !== env.FAMILY_ID && !known) await setStateField(cfg, token, 'topicPrefix', await topicPrefix(familyId));
   if (meta.find((m) => m.id === 'service')?.url !== serviceUrl) await commit(cfg, token, 'meta', [{ id: 'service', url: serviceUrl } as { id: string }]);
   return new Response('ok', { headers: cors });
 }
