@@ -199,6 +199,10 @@ export interface DeviceSettings {
   schoolTimes?: boolean;
   /** Schulzeiten im Kalender anzeigen (Schalter in der Leiste) */
   showSchool: boolean;
+  /** importierte Kalender (Name), die auf diesem Gerät ausgeblendet sind */
+  hiddenSources?: string[];
+  /** Knöpfe zum Ein-/Ausblenden der importierten Kalender in der oberen Leiste */
+  sourceChips?: boolean;
   theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
