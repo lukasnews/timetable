@@ -103,6 +103,8 @@ function fromValue(v: any): any {
   return undefined;
 }
 const fromFields = (f: Record<string, any>) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, fromValue(v)]));
+/** nur für Tests */
+export const fromFieldsForTest = fromFields;
 
 export function toValue(v: unknown): any {
   if (v === null || v === undefined) return { nullValue: null };

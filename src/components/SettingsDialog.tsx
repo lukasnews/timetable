@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import { useData } from '../data/DataContext';
 import type { Person } from '../types';
@@ -335,6 +335,24 @@ function SyncTab() {
   const [joinId, setJoinId] = useState('');
   const [err, setErr] = useState('');
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [wipeStep, setWipeStep] = useState(0);
+  const prevCloud = useMemo<CloudConfig | null>(() => { try { return JSON.parse(localStorage.getItem('fk.cloud.prev') || 'null'); } catch { return null; } }, []);
+  const wipe = async () => {
+    setBusy(true); setErr('');
+    try {
+      if (!(store instanceof FirebaseStore)) throw new Error('Nicht mit der Cloud verbunden');
+      await Promise.race([store.wipe(), new Promise((_, rej) => setTimeout(() => rej(new Error('Zeitüberschreitung – bitte Internetverbindung prüfen')), 60000))]);
+      try {
+        localStorage.removeItem('fk.registered');
+        if (prevCloud?.familyId === cloud?.familyId) localStorage.removeItem('fk.cloud.prev');
+      } catch { /* egal */ }
+      saveCloudConfig(null);
+      location.reload();
+    } catch (e) {
+      setBusy(false);
+      setErr('Löschen fehlgeschlagen: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  };
   const [busy, setBusy] = useState(false);
   const [takeLocal, setTakeLocal] = useState(true);
   const buildCfg = buildTimeFirebase();
@@ -393,6 +411,10 @@ function SyncTab() {
   return (
     <div className="settings-section">
       <p className="status-line"><Icon name={store.mode === 'cloud' ? 'cloud' : 'cloudOff'} size={18} /> {statusText}</p>
+      {prevCloud && prevCloud.familyId !== cloud?.familyId && (
+        <button className="btn" onClick={() => { if (cloud) localStorage.setItem('fk.cloud.prev', JSON.stringify(cloud)); saveCloudConfig(prevCloud); location.reload(); }}>
+          Zurück zum vorherigen Familienkalender</button>
+      )}
       {cloud ? (
         <>
           <h3>Weiteres Gerät verbinden</h3>
@@ -411,7 +433,15 @@ function SyncTab() {
           )}
           <button className="btn danger" onClick={() => setConfirmLeave(true)}>Dieses Gerät trennen</button>
           {confirmLeave && <ConfirmDialog text="Dieses Gerät von der Cloud trennen? Die Daten bleiben online erhalten; hier wird wieder der lokale Speicher genutzt." confirm="Trennen"
-            onResult={(ok) => { setConfirmLeave(false); if (ok) { saveCloudConfig(null); switchStore(); } }} />}
+            onResult={(ok) => { setConfirmLeave(false); if (ok) { localStorage.setItem('fk.cloud.prev', JSON.stringify(cloud)); saveCloudConfig(null); switchStore(); } }} />}
+          <h3>Familienkalender löschen</h3>
+          <p className="hint">Löscht alle Personen, Termine, Stundenpläne, Einstellungen und Sicherungen dieses Familienkalenders in der Cloud – auf allen Geräten. Vorher am besten unter „Daten“ eine Sicherung herunterladen.</p>
+          <button className="btn danger" disabled={busy} onClick={() => setWipeStep(1)}>{busy ? 'Wird gelöscht …' : 'Familienkalender endgültig löschen'}</button>
+          {err && <p className="error">{err}</p>}
+          {wipeStep === 1 && <ConfirmDialog text="Den gesamten Familienkalender in der Cloud löschen? Alle Geräte der Familie verlieren damit ihre Daten." confirm="Weiter"
+            onResult={(ok) => setWipeStep(ok ? 2 : 0)} />}
+          {wipeStep === 2 && <ConfirmDialog text="Wirklich endgültig löschen? Das lässt sich nicht rückgängig machen." confirm="Endgültig löschen"
+            onResult={(ok) => { setWipeStep(0); if (ok) wipe(); }} />}
         </>
       ) : (
         <>

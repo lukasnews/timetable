@@ -136,6 +136,18 @@ export class FirebaseStore implements Store {
     return snap.docs.map((d) => ({ ...(d.data() as T), id: d.id }));
   }
 
+  /** Familienkalender endgültig löschen: alle Dokumente aller Sammlungen, wartet auf den Server */
+  async wipe(): Promise<number> {
+    await this.authReady;
+    let n = 0;
+    for (const c of ['events', 'timetables', 'backups', 'persons', 'meta'] as Collection[]) {
+      const snap = await getDocsFromServer(this.col(c));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      n += snap.size;
+    }
+    return n;
+  }
+
   remove(c: Collection, id: string) {
     deleteDoc(doc(this.col(c), id)).catch((e) => console.error('Löschen fehlgeschlagen', e));
   }
