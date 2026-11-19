@@ -153,7 +153,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
     const plan = planSync(preview.events, events, src, today);
     apply({ put: plan.put, del: plan.del });
     saveSource(src);
-    setMsg(`✓ „${preview.source}“: ${plan.total} Termin(e)${plan.del.length ? `, ${plan.del.length} veraltete entfernt` : ''}${link && auto && serviceUrl ? ' – wird ab jetzt täglich automatisch aktualisiert' : ''}.`);
+    setMsg(`✓ „${preview.source}“: ${plan.total ? `${plan.total} Termin(e)` : 'abonniert, noch keine Termine'}${plan.del.length ? `, ${plan.del.length} veraltete entfernt` : ''}${link && auto && serviceUrl ? ' – wird ab jetzt täglich automatisch aktualisiert' : ''}.`);
     setPreview(null);
   };
 
@@ -270,6 +270,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
             {preview.events.length} Termin(e) gefunden{preview.skipped ? `, ${preview.skipped} übersprungen` : ''}.
             {' '}Beispiele: {preview.events.slice(0, 3).map((e) => `${e.title} (${e.start.slice(0, 10).split('-').reverse().join('.')})`).join(', ')}
           </p>
+          {!preview.events.length && preview.url && <p className="hint">Der Kalender ist gerade noch leer (Google braucht nach Änderungen oft ein paar Stunden). Du kannst ihn trotzdem schon abonnieren – die Termine kommen dann beim täglichen Abgleich von selbst.</p>}
           <Toggle checked={futureOnly} onChange={setFutureOnly} label="Nur zukünftige Termine" hint={`${toImport.length} werden importiert`} />
           <div className="field">
             <span className="label">Für wen?</span>
@@ -294,7 +295,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
             <Toggle checked={auto} onChange={setAuto} label="🔄 Täglich automatisch aktualisieren" hint="Der Dienst lädt den Link jeden Morgen neu – Änderungen der Gemeinde kommen von selbst" />
           )}
           <div className="row">
-            <button className="btn primary" disabled={!toImport.length} onClick={doImport}>Importieren</button>
+            <button className="btn primary" disabled={!toImport.length && !(preview.url && auto && serviceUrl)} onClick={doImport}>{toImport.length ? 'Importieren' : 'Abonnieren'}</button>
             <button className="btn" onClick={() => setPreview(null)}>Abbrechen</button>
           </div>
         </div>
