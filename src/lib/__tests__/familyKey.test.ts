@@ -32,6 +32,7 @@ describe('Trennung zwischen Familien', () => {
     expect(eigen.cfg.ntfyToken).toBeUndefined();
     expect(eigen.allowed('fk-abc-mama')).toBe(true);
     expect(eigen.allowed('mama')).toBe(false);
+    expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'https://ntfy.sh', ntfyToken: 'tk_fam' }).cfg.ntfyToken).toBe('tk_fam');
     expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'http://unsicher.example' }).missingServer).toBe(true);
     // eigene Familie: wie bisher
     expect(ntfyFor(cfg, {}).allowed('mama')).toBe(true);

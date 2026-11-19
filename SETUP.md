@@ -150,6 +150,8 @@ einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
   dorthin wird ohne Token gesendet, und nur an Topics mit ihrem geheimen Präfix (`fk-…`, aus der
   Familien-ID abgeleitet). Ohne eigenen Server bekommt eine fremde Familie keine Push-Nachrichten –
   den Server des Dienstes einzutragen hilft nicht, er ist für sie gesperrt.
+  Für ntfy.sh sollte die Familie einen **Zugangsschlüssel** (ntfy.sh-Konto) eintragen: anonym gilt
+  dort ein Tageslimit pro IP-Adresse, und Cloudflare-Worker teilen sich ihre IP-Adressen.
 - **Kalender-Abo**: Der Abo-Link enthält einen eigenen geheimen Schlüssel und liefert nur die
   Termine der zugehörigen Familie.
 
