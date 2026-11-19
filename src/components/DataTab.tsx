@@ -122,7 +122,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
     try {
       new URL(u);
       // 1) direkt (klappt nur, wenn der Server es erlaubt), 2) über den eigenen Dienst
-      try { const r = await fetch(u); if (r.ok) text = await r.text(); } catch { /* CORS */ }
+      try { const r = await fetch(u); if (r.ok) { const t = await r.text(); if (/BEGIN:VCALENDAR/i.test(t)) text = t; } } catch { /* CORS */ }
       const fid = loadCloudConfig()?.familyId;
       if (text == null && serviceUrl && fid) {
         const r = await fetch(`${serviceUrl}/ics?family=${encodeURIComponent(fid)}&url=${encodeURIComponent(u)}`);
@@ -251,7 +251,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
       )}
 
       <h3><Icon name="up" size={18} /> Import (.ics)</h3>
-      <p className="hint">Z. B. den Müllkalender deiner Gemeinde: am besten den <b>Link</b> zur .ics-Datei (iCal) einfügen – dann wird er jeden Tag automatisch aktualisiert. Oder die Datei herunterladen und auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln.</p>
+      <p className="hint">Z. B. den Müllkalender deiner Gemeinde: am besten den <b>Link</b> zur .ics-Datei (iCal) einfügen – dann wird er jeden Tag automatisch aktualisiert. Oder die Datei herunterladen und auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln. Gemeinden mit Gem2Go-Webseite: bei „Abfuhrtermine“ die Straße suchen und den Link der Ergebnisseite (…/kalender.aspx?…) einfügen.</p>
       <input ref={fileRef} type="file" accept=".ics,text/calendar" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
       <div className="row">
         <button className="btn primary" onClick={() => fileRef.current?.click()}><Icon name="plus" size={18} /> Datei wählen</button>

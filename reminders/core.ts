@@ -8,6 +8,7 @@ import { addDays, addMinutes } from '../src/lib/dates';
 import type { CalEvent, FamilySettings, IcsSource, Person, Timetable } from '../src/types';
 import { parseICS } from '../src/lib/ics';
 import { planSync } from '../src/lib/icsSync';
+import { fetchRisIcs, isRisKalender } from '../src/lib/risMuell';
 import { displayTitle } from '../src/lib/categories';
 import { isKidDayOff, lessonsForDay } from '../src/lib/calendarEvents';
 import { isSchoolFree } from '../src/lib/holidays';
@@ -357,6 +358,13 @@ export function dueNotifications(opts: {
 
 export async function fetchIcs(url: string): Promise<string> {
   const u = url.trim().replace(/^webcal:\/\//i, 'https://');
+  if (isRisKalender(u)) {
+    return fetchRisIcs(u, async (x) => {
+      const r = await fetch(x, { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (Familienkalender)' } });
+      if (!r.ok) throw new Error(`Gemeindeseite antwortet mit ${r.status}`);
+      return r.text();
+    });
+  }
   const r = await fetch(u, { headers: { accept: 'text/calendar, text/plain, */*', 'user-agent': 'Familienkalender/1.0 (+https://timetable.chaoten.online)' } });
   if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
   const text = await r.text();
