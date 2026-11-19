@@ -138,8 +138,9 @@ Die App kann von beliebig vielen Familien genutzt werden – jede legt unter ⚙
 einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
 
 - **Daten**: Jede Familie liegt in Firestore unter ihrer geheimen, zufälligen Familien-ID
-  (`families/<ID>/…`). Die Regeln (`firestore.rules`) erlauben nur den Zugriff auf eine bekannte ID;
-  eine Liste aller Familien oder Abfragen über alle Familien hinweg sind nicht erlaubt.
+  (`families/<ID>/…`, mind. 16 Zeichen, zufällig erzeugt). Die Regeln (`firestore.rules`) erlauben nur
+  den Zugriff auf eine bekannte ID; eine Liste aller Familien oder Abfragen über alle Familien hinweg
+  sind nicht erlaubt (live geprüft: beides wird mit 403 abgewiesen).
 - **Erinnerungsdienst**: Die App meldet ihre Familie beim Worker an (`POST /register?family=…`).
   Der Worker speichert das Verzeichnis unter `families/<REGISTRY_ID>/meta/…`; `REGISTRY_ID` wird beim
   ersten Deploy zufällig erzeugt und liegt nur als Secret in Cloudflare. Alle 5 Minuten wird zuerst
