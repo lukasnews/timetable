@@ -54,8 +54,10 @@ function focusRange(current: Date) {
 
 /** Zur aktuellen Uhrzeit (eine Stunde davor) scrollen; nachts ab 7 Uhr */
 const nowScrollTime = () => {
-  const h = new Date().getHours();
-  return h > 1 ? `${String(h - 1).padStart(2, '0')}:00:00` : '07:00:00';
+  // eine halbe Stunde vor jetzt, auf die halbe Stunde abgerundet (16:40 → 16:00); nachts ab 07:00
+  const d = new Date(Date.now() - 30 * 60000);
+  if (new Date().getHours() < 1) return '07:00:00';
+  return `${String(d.getHours()).padStart(2, '0')}:${d.getMinutes() < 30 ? '00' : '30'}:00`;
 };
 
 function stripe(persons: Person[]): string {
@@ -99,6 +101,25 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     }
     return m;
   }, [allEvents, isYear, byId]);
+
+  // Sichtbarer Tagesbereich: eingestellt (Drucken: 6–22 Uhr), aber nie kürzer als die Termine im Zeitraum –
+  // sonst wäre z. B. ein Termin um 22 Uhr bei „Tag endet 21 Uhr“ unsichtbar. Mehrtägige Termine zählen nicht.
+  const span = useMemo(() => {
+    let min = props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart;
+    let max = props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd;
+    for (const e of allEvents) {
+      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') continue;
+      if ((e.extendedProps as OccProps | undefined)?.kind === 'school') continue;
+      const sd = e.start.slice(0, 10), ed = e.end.slice(0, 10);
+      const toMidnight = ed === addDays(sd, 1) && e.end.slice(11, 16) === '00:00';
+      if (sd !== ed && !toMidnight) continue;
+      const st = e.start.slice(11, 13) + ':00';
+      const en = toMidnight ? '24:00' : e.end.slice(14, 16) === '00' ? e.end.slice(11, 16) : `${String(Number(e.end.slice(11, 13)) + 1).padStart(2, '0')}:00`;
+      if (st < min) min = st;
+      if (en > max) max = en;
+    }
+    return { min, max };
+  }, [allEvents, device.dayStart, device.dayEnd, props.printing]);
 
   // Tage mit Schulzeit (nur dort rechts Platz für die Schul-Streifen freihalten)
   const schoolDays = useMemo(() => new Set(fcEvents.filter((e) => (e.extendedProps as OccProps | undefined)?.kind === 'school' && typeof e.start === 'string')
@@ -274,8 +295,8 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       dayMaxEvents={props.printing ? false : isPhone ? 3 : 5}
       moreLinkText={(n) => `+${n} weitere`}
       allDayText="Ganzt."
-      slotMinTime={(props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart) + ':00'}
-      slotMaxTime={(props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd) + ':00'}
+      slotMinTime={span.min + ':00'}
+      slotMaxTime={span.max + ':00'}
       scrollTime={nowScrollTime()}
       // scrollTime greift nicht zuverlässig, wenn die Höhe beim ersten Zeichnen noch 0 ist (Handy/App) – darum nachziehen
       viewDidMount={(arg) => { if (arg.view.type.startsWith('timeGrid')) setTimeout(() => arg.view.calendar.scrollToTime(nowScrollTime()), 150); }}
