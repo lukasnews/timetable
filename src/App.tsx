@@ -59,7 +59,10 @@ export default function App() {
   useEffect(() => localStorage.setItem('fk.hidden', JSON.stringify([...hidden])), [hidden]);
   const selected = useMemo(() => new Set(persons.map((p) => p.id).filter((id) => !hidden.has(id))), [persons, hidden]);
   const toggle = (id: string) => setHidden((h) => { const n = new Set(h); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const solo = (id: string) => setHidden(new Set(persons.map((p) => p.id).filter((x) => x !== id)));
+  const solo = (id: string) => setHidden((h) => new Set([...persons.map((p) => p.id).filter((x) => x !== id), ...[...h].filter((k) => k.startsWith('src:'))]));
+  // Abonnierte/importierte Kalender (z. B. Müll) einzeln ein-/ausblenden – gilt pro Gerät
+  const sources = family.icsSources ?? [];
+  const hiddenSources = useMemo(() => new Set([...hidden].filter((k) => k.startsWith('src:')).map((k) => k.slice(4))), [hidden]);
 
   // Personenleiste: passt sie nicht, zuerst Namen ausblenden, dann seitlich scrollen
   const chipsRef = useRef<HTMLDivElement>(null);
@@ -193,7 +196,7 @@ export default function App() {
   useIdle(device.idleReturnMinutes, device.kiosk, () => {
     setDraft(null); setSettings(null); setScopeAsk(null); setDetail(null); setSearching(false);
     data.setDevice({ locked: true });
-    setHidden(new Set()); // wieder alle Personen zeigen
+    setHidden((h) => new Set([...h].filter((k) => k.startsWith('src:')))); // wieder alle Personen zeigen (ausgeblendete Kalender bleiben aus)
     const m = defaultMode();
     setMode(m);
     setTimeout(() => { api()?.changeView(m); api()?.today(); });
@@ -438,6 +441,16 @@ export default function App() {
               {absentToday.has(p.id) && <span className="chip-absent" title={`Abwesend: ${absentToday.get(p.id)}`}>🧳</span>}
             </button>
           ))}
+          {sources.map((src) => {
+            const on = !hiddenSources.has(src.name);
+            return (
+              <button key={src.id} className={'chip chip-src' + (on ? ' on' : '')} onClick={() => toggle('src:' + src.name)}
+                aria-pressed={on} title={`Kalender „${src.name}“ ${on ? 'ausblenden' : 'einblenden'}`}>
+                <span className="chip-src-icon" style={{ width: isPhone ? 34 : 40, height: isPhone ? 34 : 40 }}>{/müll|abfall|abfuhr|mist/i.test(src.name) ? '🗑️' : '📅'}</span>
+                <span className="chip-name">{src.name}</span>
+              </button>
+            );
+          })}
           {persons.length === 0 && <button className="btn" onClick={() => openSettings('persons')}>Personen anlegen</button>}
         </div>
         <div className="top-right">
@@ -558,7 +571,7 @@ export default function App() {
                 onOpen={(id, occ) => open(id, occ)} />
             )}
             <div className="cal-inner">
-            <CalendarView ref={calRef} view={mode} onOpenBirthday={(pid, date) => setDetail({ eventId: 'pbday-' + pid, occStart: date })} selected={selected} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
+            <CalendarView ref={calRef} view={mode} onOpenBirthday={(pid, date) => setDetail({ eventId: 'pbday-' + pid, occStart: date })} selected={selected} hiddenSources={hiddenSources} onRange={(type, start, end) => setRange({ type, start, end })} onOpen={open} onCreate={newEvent} onChange={change} locked={device.locked} printing={printing} onNavDay={(d) => { setMode('timeGridDay'); setTimeout(() => api()?.changeView('timeGridDay', d)); }} />
             </div>
           </div>
         )}
