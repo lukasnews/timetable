@@ -128,6 +128,22 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
         : x.kind === 'school' ? `🏫 ${arg.timeText}` : arg.event.title;
     const compact = arg.view.type === 'dayGridMonth' || arg.view.type === 'multiMonthYear';
     const isList = arg.view.type.startsWith('list');
+    // Tag/Woche: Gesichter – Uhrzeit – Titel (2 Zeilen); kurze Termine verdichten sich per CSS (Container-Abfrage auf die Höhe)
+    if (arg.view.type.startsWith('timeGrid') && !arg.event.allDay && x.kind !== 'school') {
+      return (
+        <div className="ev-inner tg">
+          <div className="ev-tg-head">
+            {ps.length > 0 && <span className="ev-avatars">{ps.slice(0, 4).map((p) => <Avatar key={p.id} person={p} size={24} />)}</span>}
+            <span className="ev-time">{arg.timeText}</span>
+            {x.recurring && <span className="ev-rec" title="Serie">↻</span>}
+          </div>
+          <span className="ev-title">{title}</span>
+          {x.location && <span className="ev-loc">📍 {x.location}</span>}
+          {x.bring && <span className="ev-loc">🎒 {x.bring}</span>}
+          {!!x.driverIds?.length && <span className="ev-loc">🚗 {x.driverIds.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}</span>}
+        </div>
+      );
+    }
     return (
       <div className={'ev-inner' + (compact ? ' compact' : '')}>
         {ps.length > 0 && (
