@@ -81,7 +81,17 @@ jobs:
         env:
           RT: ${{ steps.fb.outputs.rt }}
         run: |
-          node -e "console.log(JSON.stringify({FAMILY_ID:process.env.FAMILY_ID.trim(),NTFY_TOKEN:process.env.NTFY_TOKEN.trim(),FIREBASE_REFRESH_TOKEN:process.env.RT}))" > /tmp/secrets.json
+          # Verzeichnis weiterer Familien: geheimer Pfad, einmalig zufällig erzeugt, liegt nur in Cloudflare
+          # (nie überschreiben – schlägt die Abfrage fehl, lieber abbrechen)
+          LIST=$(npx --yes wrangler@4 secret list --format json)
+          if echo "$LIST" | grep -q '"REGISTRY_ID"'; then
+            export REGISTRY_ID=""
+          else
+            export REGISTRY_ID=$(node -e "const a='abcdefghijkmnpqrstuvwxyz23456789';console.log([...crypto.getRandomValues(new Uint8Array(32))].map(b=>a[b%32]).join(''))")
+            echo "::add-mask::$REGISTRY_ID"
+            echo "Verzeichnis für weitere Familien wird angelegt."
+          fi
+          node -e "const o={FAMILY_ID:process.env.FAMILY_ID.trim(),NTFY_TOKEN:process.env.NTFY_TOKEN.trim(),FIREBASE_REFRESH_TOKEN:process.env.RT};if(process.env.REGISTRY_ID)o.REGISTRY_ID=process.env.REGISTRY_ID;console.log(JSON.stringify(o))" > /tmp/secrets.json
           npx --yes wrangler@4 secret bulk /tmp/secrets.json
           rm /tmp/secrets.json
           echo "SINCE=$(date +%s%3N)" >> "$GITHUB_ENV"

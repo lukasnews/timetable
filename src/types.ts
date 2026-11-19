@@ -153,6 +153,8 @@ export interface FamilySettings {
   showSchoolHolidays: boolean;
   /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
   ntfyFamilyTopic?: string;
+  /** Eigener ntfy-Server der Familie (leer = Server des Erinnerungsdienstes) */
+  ntfyServer?: string;
   /** Geheimer Schlüssel für den Abo-Link (Kalender in Google/Outlook abonnieren) */
   feedToken?: string;
   /** Tagesübersicht per ntfy: Uhrzeit "HH:mm" (leer = aus) */

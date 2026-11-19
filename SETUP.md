@@ -131,3 +131,26 @@ neue Version automatisch im internen Test.
 
 > Für eine **öffentliche** Veröffentlichung verlangt Google bei neuen privaten Entwicklerkonten zuerst einen
 > geschlossenen Test mit mindestens 12 Testern über 14 Tage. Für die Familie reicht der interne Test.
+
+## 7. Weitere Familien
+
+Die App kann von beliebig vielen Familien genutzt werden – jede legt unter ⚙️ → Synchronisation
+einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
+
+- **Daten**: Jede Familie liegt in Firestore unter ihrer geheimen, zufälligen Familien-ID
+  (`families/<ID>/…`). Die Regeln (`firestore.rules`) erlauben nur den Zugriff auf eine bekannte ID;
+  eine Liste aller Familien oder Abfragen über alle Familien hinweg sind nicht erlaubt.
+- **Erinnerungsdienst**: Die App meldet ihre Familie beim Worker an (`POST /register?family=…`).
+  Der Worker speichert das Verzeichnis unter `families/<REGISTRY_ID>/meta/…`; `REGISTRY_ID` wird beim
+  ersten Deploy zufällig erzeugt und liegt nur als Secret in Cloudflare. Alle 5 Minuten wird zuerst
+  die eigene Familie (`FAMILY_ID`) geprüft, danach reihum die angemeldeten – so viele, wie das
+  Cloudflare-Limit erlaubt (`SUBREQUEST_BUDGET`, Standard 45; höchstens `MAX_FAMILIES`, Standard 50).
+- **ntfy**: Auf dem gemeinsamen Server bekommen andere Familien nur Topics mit ihrem geheimen
+  Präfix (`fk-…`, aus der Familien-ID abgeleitet, steht in der App unter Erinnerungen). Alternativ
+  trägt eine Familie einen eigenen ntfy-Server ein – dorthin wird ohne den Token des Dienstes gesendet.
+- **Kalender-Abo**: Der Abo-Link enthält einen eigenen geheimen Schlüssel und liefert nur die
+  Termine der zugehörigen Familie.
+
+Damit andere Familien die ntfy-Topics auf dem eigenen Server abonnieren können, muss der Server
+anonymes Lesen erlauben (bzw. Benutzer für sie anlegen). Firestore-Kosten wachsen mit der Zahl der
+Familien – bei vielen Familien das Kontingent in der Firebase-Konsole im Auge behalten.

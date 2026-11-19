@@ -120,6 +120,32 @@ describe('Lauf gegen gemockte APIs', () => {
   });
 });
 
+describe('Fremde Familie auf dem gemeinsamen Server', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('sendet nicht an Topics ohne Präfix und meldet sie in der App', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url.endsWith(':runQuery')) return new Response(JSON.stringify([{ document: { name: 'x/e1', fields: {
+        title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
+        personIds: { arrayValue: { values: [sv('mama'), sv('papa')] } }, reminderMinutes: { integerValue: '30' } } } }]));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [
+        { name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } },
+        { name: 'x/papa', fields: { name: sv('Papa'), ntfyTopic: sv('fk-abc-papa') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      return new Response('{}');
+    });
+    const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', ntfyToken: 'TOK', timezone: 'Europe/Vienna', topicPrefix: 'fk-abc' };
+    await run(cfg, 'id', new Date('2026-11-13T08:31:00Z'), () => {});
+    const topics = calls.filter((c) => c.url === 'https://ntfy.example').map((c) => JSON.parse(c.init!.body as string).topic);
+    expect(topics).toEqual(['fk-abc-papa']);
+    const save = JSON.parse(calls.find((c) => c.url.endsWith('/meta/reminders'))!.init!.body as string).fields;
+    expect(save.blockedTopics.arrayValue.values.map((v: any) => v.stringValue)).toEqual(['mama']);
+    expect(save.topicPrefix.stringValue).toBe('fk-abc');
+  });
+});
+
 describe('Importierte Kalender und Sicherung im Lauf', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('lädt neuen Link, schreibt Termine mit Vorabend-Erinnerung und legt eine Sicherung an', async () => {
