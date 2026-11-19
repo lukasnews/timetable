@@ -129,6 +129,7 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
           <option value="auto">Automatisch (Tablet: Woche, Handy: Tag)</option>
           <option value="month">Monat</option>
           <option value="week">Woche</option>
+          <option value="focus">Fokus-Woche (ab gestern, heute + 2 Tage breiter – Tablet)</option>
           <option value="day">Tag</option>
         </select>
       </label>

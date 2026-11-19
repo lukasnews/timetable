@@ -12,12 +12,12 @@ import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { Person } from '../types';
 import { useData } from '../data/DataContext';
 import { buildEvents, type OccProps } from '../lib/calendarEvents';
-import { fromNative } from '../lib/dates';
+import { addDays, fromNative } from '../lib/dates';
 import { tint } from '../lib/avatars';
 import { Avatar } from './ui';
 import { useWeather, weatherIcon, weatherText, type DayWeather } from '../lib/weather';
 
-export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridThree' | 'timeGridDay' | 'listUpcoming' | 'multiMonthYear';
+export type ViewName = 'dayGridMonth' | 'timeGridWeek' | 'timeGridThree' | 'timeGridDay' | 'listUpcoming' | 'multiMonthYear' | 'timeGridFocus';
 
 export interface ChangeInfo {
   eventId: string;
@@ -43,6 +43,13 @@ interface Props {
   locked: boolean;
   /** Druckansicht: volle Höhe, alle Termine, Tageszeit 6–22 Uhr */
   printing?: boolean;
+}
+
+/** Fokus-Woche: gestern + 6 Tage */
+function focusRange(current: Date) {
+  const start = new Date(current); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 1);
+  const end = new Date(start); end.setDate(end.getDate() + 7);
+  return { start, end };
 }
 
 /** Zur aktuellen Uhrzeit (eine Stunde davor) scrollen; nachts ab 7 Uhr */
@@ -93,6 +100,13 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     return m;
   }, [allEvents, isYear, byId]);
 
+  // Tage mit Schulzeit (nur dort rechts Platz für die Schul-Streifen freihalten)
+  const schoolDays = useMemo(() => new Set(fcEvents.filter((e) => (e.extendedProps as OccProps | undefined)?.kind === 'school' && typeof e.start === 'string')
+    .map((e) => (e.start as string).slice(0, 10))), [fcEvents]);
+  // Fokus-Woche: heute und die nächsten 2 Tage breiter
+  const today = fromNative(new Date(), true);
+  const focusDays = new Set([today, addDays(today, 1), addDays(today, 2)]);
+
   // Platz rechts im Tag für die Schul-Streifen
   const stripCount = device.showSchool && props.view !== 'dayGridMonth'
     ? new Set(fcEvents.filter((e) => (e.extendedProps as OccProps | undefined)?.kind === 'school').map((e) => (e.extendedProps as OccProps).stripIndex)).size
@@ -132,6 +146,8 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     if (arg.view.type.startsWith('timeGrid') && !arg.event.allDay && x.kind !== 'school') {
       return (
         <div className="ev-inner tg">
+          {/* mitwandernd: bleibt beim Scrollen oben sichtbar (lange bzw. mehrtägige Termine) */}
+          <div className="ev-tg-body">
           <div className="ev-tg-head">
             {ps.length > 0 && <span className="ev-avatars">{ps.slice(0, 4).map((p) => <Avatar key={p.id} person={p} size={24} />)}</span>}
             <span className="ev-time">{arg.timeText}</span>
@@ -141,6 +157,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
           {x.location && <span className="ev-loc">📍 {x.location}</span>}
           {x.bring && <span className="ev-loc">🎒 {x.bring}</span>}
           {!!x.driverIds?.length && <span className="ev-loc">🚗 {x.driverIds.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}</span>}
+          </div>
         </div>
       );
     }
@@ -201,17 +218,21 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   };
 
   const isPhone = typeof window !== 'undefined' && window.innerWidth < 640;
+  // stabil halten: neue Ansichts-Definitionen bei jedem Zeichnen würden FullCalendar zurücksetzen
+  const views = useMemo(() => ({
+    listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone },
+    timeGridThree: { type: 'timeGrid', duration: { days: 3 } },
+    // Fokus-Woche: 7 Tage ab gestern; heute + 2 Tage breiter (CSS .fk-focus)
+    timeGridFocus: { type: 'timeGrid', visibleRange: focusRange, dateIncrement: { days: 7 } },
+    multiMonthYear: { type: 'multiMonth', duration: { years: 1 }, multiMonthMaxColumns: 4, multiMonthMinWidth: 230, showNonCurrentDates: false, fixedWeekCount: false, dayMaxEvents: 2, moreLinkText: (n: number) => `+${n}` },
+  }), [isPhone]);
 
   return (
     <div className="cal-inner" style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
       plugins={[dayGridPlugin, timeGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin]}
-      views={{
-        listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone },
-        timeGridThree: { type: 'timeGrid', duration: { days: 3 } },
-        multiMonthYear: { type: 'multiMonth', duration: { years: 1 }, multiMonthMaxColumns: 4, multiMonthMinWidth: 230, showNonCurrentDates: false, fixedWeekCount: false, dayMaxEvents: 2, moreLinkText: (n: number) => `+${n}` },
-      }}
+      views={views}
       listDayFormat={{ weekday: 'long', day: 'numeric', month: 'long' }}
       listDaySideFormat={false}
       noEventsContent="Keine Termine in den nächsten 30 Tagen"
@@ -302,6 +323,11 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       navLinks
       navLinkDayClick={(date) => props.onNavDay(date)}
       dateClick={(arg: DateClickArg) => { if (isYear) props.onNavDay(arg.date); }}
+      dayCellClassNames={(arg) => {
+        const d = fromNative(arg.date, true);
+        return [schoolDays.has(d) ? 'has-school' : '', focusDays.has(d) ? 'fk-focus' : ''].filter(Boolean);
+      }}
+      dayHeaderClassNames={(arg) => (focusDays.has(fromNative(arg.date, true)) ? ['fk-focus'] : [])}
     />
     </div>
   );
