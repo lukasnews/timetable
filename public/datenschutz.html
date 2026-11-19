@@ -21,7 +21,7 @@
   <small>Familienkalender (Web-App und Android-App) · Stand: November 2026</small>
 
   <h2>Worum es geht</h2>
-  <p>Der Familienkalender ist ein privater Kalender für eine Familie. Es gibt keine Werbung, kein Tracking, keine Analyse-Tools und keinen Verkauf oder Weitergabe von Daten zu Werbezwecken.</p>
+  <p>Der Familienkalender ist ein privater Kalender für Familien. Jede Familie hat ihren eigenen, abgetrennten Kalender – keine Familie sieht die Daten einer anderen. Es gibt keine Werbung, kein Tracking, keine Analyse-Tools und keinen Verkauf oder Weitergabe von Daten zu Werbezwecken.</p>
 
   <h2>Welche Daten gespeichert werden</h2>
   <ul>
@@ -39,7 +39,14 @@
     <li>Die Web-App wird über <b>GitHub Pages</b> ausgeliefert (GitHub, Inc.); dabei fallen technisch übliche Zugriffsprotokolle (z. B. IP-Adresse) beim Anbieter an.</li>
   </ul>
 
-  <h2>Berechtigungen der Android-App</h2>
+  <h2>Trennung zwischen Familien</h2>
+    <ul>
+      <li>Jeder Familienkalender ist nur über seine <b>geheime, zufällige Familien-ID</b> (90 Bit, im Einladungslink bzw. QR-Code) erreichbar. Eine Liste aller Familien kann niemand abfragen – auch nicht über die App.</li>
+      <li>Der Erinnerungsdienst führt ein Verzeichnis der angemeldeten Familien unter einem eigenen geheimen Schlüssel, den nur der Dienst kennt. Er verarbeitet die Daten einer Familie nur, um deren Erinnerungen, Übersichten, Kalender-Abos, importierte Kalender und Sicherungen zu erstellen.</li>
+      <li>Kalender-Abo-Links enthalten einen eigenen geheimen Schlüssel und zeigen nur die Termine der jeweiligen Familie. Ein neuer Link macht den alten ungültig.</li>
+      <li>Wer den Familien-Link hat, gehört zur Familie: bitte nur innerhalb der Familie teilen. Wurde er versehentlich weitergegeben, Daten sichern, einen neuen Familienkalender anlegen und die Sicherung dort einspielen.</li>
+    </ul>
+    <h2>Berechtigungen der Android-App</h2>
   <ul>
     <li><b>Internet</b> – zum Synchronisieren des Kalenders.</li>
     <li><b>Benachrichtigungen, exakte Alarme, Start nach Neustart</b> – damit Termin-Erinnerungen pünktlich am Gerät erscheinen, auch wenn die App geschlossen ist.</li>

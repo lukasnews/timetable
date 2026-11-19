@@ -7,6 +7,8 @@ import { FirebaseStore } from './firebaseStore';
 import type { Mutation } from '../lib/recurrence';
 import { seedDemo } from './seed';
 
+/** Erinnerungsdienst (Cloudflare) – für alle Familien; jede meldet sich mit ihrer geheimen ID an */
+const DEFAULT_SERVICE_URL = (import.meta.env.VITE_SERVICE_URL as string | undefined) || undefined;
 const DEFAULT_FAMILY: FamilySettings = { id: 'settings', showHolidays: true, showSchoolHolidays: true };
 
 export const DEFAULT_DEVICE: DeviceSettings = {
@@ -63,6 +65,12 @@ export interface ServiceState {
   lastBackup?: string;
   backupError?: string;
   at?: number;
+  /** Nötiges Präfix für ntfy-Topics dieser Familie ('' = keins) */
+  topicPrefix?: string;
+  /** Server, über den der Dienst verschickt */
+  ntfyServer?: string;
+  /** Topics, an die nicht gesendet wurde (ohne Präfix) */
+  blockedTopics?: string[];
 }
 
 const Ctx = createContext<Data | null>(null);
@@ -125,13 +133,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
       store.subscribe<any>('meta', (m) => {
         setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
         setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
-        setServiceUrl(m.find((x) => x.id === 'service')?.url || undefined);
+        setServiceUrl(m.find((x) => x.id === 'service')?.url || (store.mode === 'cloud' ? DEFAULT_SERVICE_URL : undefined));
         const r = m.find((x) => x.id === 'reminders');
-        setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at } : {});
+        setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at,
+          topicPrefix: r.topicPrefix || undefined, ntfyServer: r.ntfyServer || undefined, blockedTopics: r.blockedTopics?.length ? r.blockedTopics : undefined } : {});
       }),
     ];
     return () => offs.forEach((o) => o());
   }, [store]);
+
+  // Beim Erinnerungsdienst anmelden (einmal am Tag bzw. wenn sich der Abo-Schlüssel ändert) – nur mit der eigenen geheimen ID
+  const hasData = persons.length > 0;
+  useEffect(() => {
+    const fid = loadCloudConfig()?.familyId;
+    if (store.mode !== 'cloud' || !serviceUrl || !fid || !hasData) return;
+    const key = `${fid}|${family.feedToken ?? ''}|${new Date().toISOString().slice(0, 10)}`;
+    try { if (localStorage.getItem('fk.registered') === key) return; } catch { return; }
+    const t = setTimeout(() => {
+      fetch(`${serviceUrl}/register?family=${encodeURIComponent(fid)}`, { method: 'POST' })
+        .then((r) => { if (r.ok) localStorage.setItem('fk.registered', key); })
+        .catch(() => { /* offline – später erneut */ });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [store, serviceUrl, hasData, family.feedToken]);
 
   const setDevice = useCallback((d: Partial<DeviceSettings>) => {
     setDeviceState((prev) => {

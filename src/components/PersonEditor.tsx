@@ -3,8 +3,11 @@ import type { Person } from '../types';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed, type AvatarStyleKey } from '../lib/avatars';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { AvatarBuilder } from './AvatarBuilder';
+import { useData } from '../data/DataContext';
+import { suggestTopic, topicAllowed } from '../lib/familyKey';
 
 export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p: Person) => void; onDelete?: () => void; onClose: () => void }) {
+  const prefix = useData().service.topicPrefix;
   const [p, setP] = useState<Person>(props.person);
   const [seedBase, setSeedBase] = useState(randomSeed());
   const set = (x: Partial<Person>) => setP((o) => ({ ...o, ...x }));
@@ -69,7 +72,10 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
           <label className="field"><span className="label">🎂 Geburtstag (optional)</span>
             <input type="date" value={p.birthday ?? ''} onChange={(e) => set({ birthday: e.target.value || undefined })} /></label>
           <label className="field"><span className="label">🔔 ntfy-Topic für Erinnerungen</span>
-            <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="z. B. mama" onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} /></label>
+            <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={prefix ? suggestTopic(prefix, p.name || 'name') : 'z. B. mama'} onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} />
+            {prefix && p.ntfyTopic && !topicAllowed(p.ntfyTopic, prefix) && <small className="error">Muss mit „{prefix}-“ beginnen, sonst wird nichts gesendet (Schutz vor fremden Familien).</small>}
+            {prefix && !p.ntfyTopic && <button type="button" className="btn small" onClick={() => set({ ntfyTopic: suggestTopic(prefix, p.name || 'person') })}>Sicheres Topic erzeugen</button>}
+          </label>
         </div>
         {p.birthday && (
           <label className="field"><span className="label">🔔 An den Geburtstag erinnern</span>

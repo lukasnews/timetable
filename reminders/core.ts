@@ -21,6 +21,8 @@ export interface Config {
   ntfyToken?: string;
   timezone: string;
   appUrl?: string;
+  /** Wenn gesetzt: auf dem Standard-Server nur Topics mit diesem Präfix (Schutz zwischen Familien) */
+  topicPrefix?: string;
 }
 
 export interface ReminderState {
@@ -46,6 +48,10 @@ export interface ReminderState {
   /** Zeitpunkt (ms) des letzten Sicherungsversuchs – nach einem Fehler stündlich neu versuchen */
   backupTryAt?: number;
   backupError?: string;
+  /** Für die Anzeige in der App: nötiges Topic-Präfix ('' = keins), verwendeter Server, abgewiesene Topics */
+  topicPrefix?: string;
+  ntfyServer?: string;
+  blockedTopics?: string[];
 }
 
 export interface IcsStatus {
@@ -167,6 +173,9 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
     lastBackupTry: { stringValue: s.lastBackupTry ?? '' },
     backupError: { stringValue: s.backupError ?? '' },
     backupTryAt: { integerValue: String(s.backupTryAt ?? 0) },
+    topicPrefix: { stringValue: s.topicPrefix ?? '' },
+    ntfyServer: { stringValue: s.ntfyServer ?? '' },
+    blockedTopics: { arrayValue: { values: (s.blockedTopics ?? []).map((x) => ({ stringValue: x })) } },
   } };
   const r = await fetch(`${docsUrl(cfg)}/meta/reminders`, {
     method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify(body),
@@ -184,6 +193,22 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
   const hint = r.status === 401 || r.status === 403 ? ' → Token oder Rechte für dieses Topic falsch'
     : r.status === 400 ? ' → Payload-Format falsch' : '';
   throw new Error(`ntfy ${r.status}${hint}: ${await r.text()}`);
+}
+
+const normServer = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase();
+
+/**
+ * Versand-Einstellungen für eine Familie: eigener Server der Familie (ohne den Token des Dienstes!)
+ * oder der Standard-Server – dort nur Topics mit dem Präfix der Familie, damit keine Familie
+ * Nachrichten einer anderen bekommt oder abonnieren kann.
+ */
+export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean } {
+  const own = family?.ntfyServer?.trim();
+  if (own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer)) {
+    return { cfg: { ...cfg, ntfyServer: own, ntfyToken: undefined }, allowed: () => true };
+  }
+  const prefix = cfg.topicPrefix;
+  return { cfg, allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */
@@ -443,8 +468,13 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   const sent = new Set(state.sent ?? []);
   const next: ReminderState = { ...state, id: 'reminders', lastRun: to, by: opts.by, at: now.getTime() };
   const errors: string[] = [];
+  const nt = ntfyFor(cfg, family);
+  const blocked = new Set<string>();
+  next.topicPrefix = cfg.topicPrefix ?? '';
+  next.ntfyServer = nt.cfg.ntfyServer;
   const send = async (n: Notification) => {
-    try { await sendNtfy(cfg, n); log(`✓ ${n.topic}: ${n.title}`); return true; }
+    if (!nt.allowed(n.topic)) { blocked.add(n.topic); log(`✗ ${n.topic}: Topic ohne Präfix ${cfg.topicPrefix} – nicht gesendet`); return true; }
+    try { await sendNtfy(nt.cfg, n); log(`✓ ${n.topic}: ${n.title}`); return true; }
     catch (e) { errors.push(String(e instanceof Error ? e.message : e)); return false; }
   };
 
@@ -486,6 +516,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     next.changesAt = 0;
   }
 
+  next.blockedTopics = [...blocked];
   log(`Zeitfenster ${from} – ${to}: ${due.length} Erinnerung(en), ${errors.length} Fehler`);
   await saveState(cfg, token, next);
 
