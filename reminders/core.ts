@@ -445,6 +445,8 @@ export interface RunOptions {
   by?: string;
   /** Ersatz-Lauf: überspringen, wenn ein anderer Dienst in den letzten Minuten geprüft hat */
   skipIfActive?: { other: string; withinMin: number };
+  /** Fremde Familien: abbrechen (FAMILY_GONE), wenn es keine Daten mehr gibt */
+  dropIfEmpty?: boolean;
 }
 
 export async function run(cfg: Config, token: string, now = new Date(), log = console.log, opts: RunOptions = {}) {
@@ -456,6 +458,8 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     list<Person>(cfg, token, 'persons'),
     list<any>(cfg, token, 'meta'),
   ]);
+  // Familie gelöscht (keine Personen, keine Einstellungen) → der Dienst nimmt sie aus dem Verzeichnis
+  if (opts.dropIfEmpty && !persons.length && !meta.some((m) => m.id === 'settings')) throw new Error('FAMILY_GONE');
   const state = (meta.find((m) => m.id === 'reminders') ?? { id: 'reminders' }) as ReminderState;
   if (opts.skipIfActive && state.by === opts.skipIfActive.other && state.at && now.getTime() - state.at < opts.skipIfActive.withinMin * 60000) {
     log(`${opts.skipIfActive.other} ist aktiv (letzter Lauf ${Math.round((now.getTime() - state.at) / 60000)} min her) – nichts zu tun.`);

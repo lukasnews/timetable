@@ -87,8 +87,14 @@ async function check(env: Env, log: (s: string) => void = console.log) {
   for (let i = 0; i < others.length; i++) {
     if (calls + 8 > budget) { log(`Budget erreicht – ${others.length - i} Familie(n) beim nächsten Lauf`); break; }
     const e = others[(startAt + i) % others.length];
-    try { await run(await familyConfig(env, e.familyId), token, new Date(), () => {}, { by: 'cloudflare' }); }
-    catch (err) { log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`); }
+    try { await run(await familyConfig(env, e.familyId), token, new Date(), () => {}, { by: 'cloudflare', dropIfEmpty: true }); }
+    catch (err) {
+      if (String(err).includes('FAMILY_GONE')) {
+        await commit(config(env, env.REGISTRY_ID), token, 'meta', [], [e.id]).catch(() => {});
+        regCache = null;
+        log(`Familie ${e.id.slice(0, 6)}: keine Daten mehr – aus dem Verzeichnis entfernt`);
+      } else log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`);
+    }
   }
   if (mainError) throw mainError;
 }
@@ -138,7 +144,7 @@ export default {
           const cfg = await familyConfig(env, fam);
           const token = await idToken(cfg, env);
           if (!(await isKnown(env, token, fam))) return new Response('Nicht angemeldet', { status: 403 });
-          await run(cfg, token, new Date(), (s) => lines.push(s), { by: 'cloudflare' });
+          await run(cfg, token, new Date(), (s) => lines.push(s), { by: 'cloudflare', dropIfEmpty: true });
         }
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
       } catch (e) {
