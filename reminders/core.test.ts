@@ -122,7 +122,7 @@ describe('Lauf gegen gemockte APIs', () => {
 
 describe('Fremde Familie auf dem gemeinsamen Server', () => {
   afterEach(() => vi.unstubAllGlobals());
-  it('sendet nicht an Topics ohne Präfix und meldet sie in der App', async () => {
+  it('sendet nur über den eigenen Server, nicht an Topics ohne Präfix, und meldet sie in der App', async () => {
     const sv = (s: string) => ({ stringValue: s });
     const calls: { url: string; init?: RequestInit }[] = [];
     vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
@@ -133,13 +133,16 @@ describe('Fremde Familie auf dem gemeinsamen Server', () => {
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [
         { name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } },
         { name: 'x/papa', fields: { name: sv('Papa'), ntfyTopic: sv('fk-abc-papa') } }] }));
-      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.familie.example') } }] }));
       return new Response('{}');
     });
     const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', ntfyToken: 'TOK', timezone: 'Europe/Vienna', topicPrefix: 'fk-abc' };
     await run(cfg, 'id', new Date('2026-11-13T08:31:00Z'), () => {});
-    const topics = calls.filter((c) => c.url === 'https://ntfy.example').map((c) => JSON.parse(c.init!.body as string).topic);
-    expect(topics).toEqual(['fk-abc-papa']);
+    expect(calls.some((c) => c.url === 'https://ntfy.example')).toBe(false);
+    const own = calls.filter((c) => c.url === 'https://ntfy.familie.example');
+    expect(own.map((c) => JSON.parse(c.init!.body as string).topic)).toEqual(['fk-abc-papa']);
+    expect((own[0].init!.headers as Record<string, string>).Authorization).toBeUndefined();
     const save = JSON.parse(calls.find((c) => c.url.endsWith('/meta/reminders'))!.init!.body as string).fields;
     expect(save.blockedTopics.arrayValue.values.map((v: any) => v.stringValue)).toEqual(['mama']);
     expect(save.topicPrefix.stringValue).toBe('fk-abc');

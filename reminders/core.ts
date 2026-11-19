@@ -198,17 +198,21 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
 const normServer = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase();
 
 /**
- * Versand-Einstellungen für eine Familie: eigener Server der Familie (ohne den Token des Dienstes!)
- * oder der Standard-Server – dort nur Topics mit dem Präfix der Familie, damit keine Familie
- * Nachrichten einer anderen bekommt oder abonnieren kann.
+ * Versand-Einstellungen für eine Familie.
+ * - Eigene Familie (kein topicPrefix): Server des Dienstes mit Token, eigene Topics.
+ * - Fremde Familien: nur ihr EIGENER Server (ohne den Token des Dienstes) – der Server des Dienstes
+ *   ist für sie gesperrt, auch wenn sie ihn eintragen. Topics nur mit dem geheimen Präfix der Familie,
+ *   damit sie auf öffentlichen Servern (z. B. ntfy.sh) nicht erratbar sind.
  */
-export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean } {
+export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean; missingServer?: boolean } {
   const own = family?.ntfyServer?.trim();
-  if (own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer)) {
-    return { cfg: { ...cfg, ntfyServer: own, ntfyToken: undefined }, allowed: () => true };
-  }
+  const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer);
   const prefix = cfg.topicPrefix;
-  return { cfg, allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
+  if (!prefix) {
+    return ownOk ? { cfg: { ...cfg, ntfyServer: own!, ntfyToken: undefined }, allowed: () => true } : { cfg, allowed: () => true };
+  }
+  if (!ownOk) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
+  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: undefined }, allowed: (t) => t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */
@@ -477,7 +481,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   next.topicPrefix = cfg.topicPrefix ?? '';
   next.ntfyServer = nt.cfg.ntfyServer;
   const send = async (n: Notification) => {
-    if (!nt.allowed(n.topic)) { blocked.add(n.topic); log(`✗ ${n.topic}: Topic ohne Präfix ${cfg.topicPrefix} – nicht gesendet`); return true; }
+    if (!nt.allowed(n.topic)) { blocked.add(n.topic); log(`✗ ${n.topic}: ${nt.missingServer ? 'kein eigener ntfy-Server eingetragen' : `Topic ohne Präfix ${cfg.topicPrefix}`} – nicht gesendet`); return true; }
     try { await sendNtfy(nt.cfg, n); log(`✓ ${n.topic}: ${n.title}`); return true; }
     catch (e) { errors.push(String(e instanceof Error ? e.message : e)); return false; }
   };
