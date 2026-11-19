@@ -163,6 +163,29 @@ describe('Fremde Familie auf dem gemeinsamen Server', () => {
   });
 });
 
+describe('Versandfehler', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('lässt das Zeitfenster offen und meldet den Fehler, damit der nächste Lauf nachholt', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const saves: any[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url === 'https://ntfy.example') return new Response('{"error":"limit reached: daily message quota reached"}', { status: 429 });
+      if (url.endsWith(':runQuery')) return new Response(JSON.stringify([{ document: { name: 'x/e1', fields: {
+        title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
+        personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }]));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      if (url.endsWith('/meta/reminders')) saves.push(JSON.parse(init!.body as string));
+      return new Response('{}');
+    });
+    const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', timezone: 'Europe/Vienna' };
+    await expect(run(cfg, 'id', new Date('2026-11-13T08:31:00Z'), () => {})).rejects.toThrow('429');
+    expect(saves[0].fields.lastRun.stringValue).toBe('2026-11-13T09:20');
+    expect(saves[0].fields.ntfyError.stringValue).toContain('429');
+    expect(saves[0].fields.sent.arrayValue.values ?? []).toEqual([]);
+  });
+});
+
 describe('Importierte Kalender und Sicherung im Lauf', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('lädt neuen Link, schreibt Termine mit Vorabend-Erinnerung und legt eine Sicherung an', async () => {
