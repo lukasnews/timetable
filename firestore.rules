@@ -5,7 +5,7 @@ service cloud.firestore {
     // Die Liste aller Familien kann niemand abfragen.
     match /families/{familyId}/{col}/{docId} {
       allow read, write: if request.auth != null
-        && familyId.matches('^[a-z0-9]{16,40}$')
+        && familyId.size() >= 16
         && col in ['persons', 'events', 'timetables', 'meta', 'backups'];
     }
   }
