@@ -146,6 +146,10 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
 
       <h3>Anzeigen</h3>
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="🏫 Schulzeiten" hint="Auch über den 🏫-Schalter in der Leiste" />
+      {device.showSchool && (
+        <Toggle checked={!!device.schoolTimes} onChange={(v) => setDevice({ schoolTimes: v || undefined })} label="… mit Uhrzeit im Streifen"
+          hint="Aus: schmaler Streifen nur mit Farbe und Gesicht – mehr Platz für Termine. Die Zeiten stehen im Stundenplan." />
+      )}
       {device.showSchool && <Toggle checked={device.schoolInMonth} onChange={(v) => setDevice({ schoolInMonth: v })} label="… auch in der Monatsansicht" />}
       <Toggle checked={device.showWeather} onChange={(v) => setDevice({ showWeather: v })} label="🌤️ Wetter" hint="Ort unter Kalender → Wetter" />
       <Toggle checked={device.showCountdown} onChange={(v) => setDevice({ showCountdown: v })} label="⏳ Countdown" hint="„Noch 12 Tage bis Weihnachtsferien“ in der Kopfzeile" />

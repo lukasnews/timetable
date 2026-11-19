@@ -228,7 +228,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   }), [isPhone]);
 
   return (
-    <div className="cal-inner" style={{ ['--strips' as string]: stripCount }}>
+    <div className={'cal-inner' + (device.schoolTimes ? '' : ' strips-slim')} style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
       plugins={[dayGridPlugin, timeGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin]}
