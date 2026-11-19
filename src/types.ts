@@ -173,7 +173,7 @@ export interface FamilySettings {
 }
 
 export interface DeviceSettings {
-  defaultView: 'auto' | 'month' | 'week' | 'day';
+  defaultView: 'auto' | 'month' | 'week' | 'focus' | 'day';
   kiosk: boolean;
   wakeLock: boolean;
   idleReturnMinutes: number;

@@ -31,6 +31,7 @@ const VIEW_LABELS: [Mode, string, string][] = [
   ['multiMonthYear', 'Jahr', 'J'],
   ['dayGridMonth', 'Monat', 'M'],
   ['timeGridWeek', 'Woche', 'W'],
+  ['timeGridFocus', 'Fokus', 'F'],
   ['timeGridThree', '3 Tage', '3'],
   ['timeGridDay', 'Tag', 'T'],
   ['listUpcoming', 'Liste', 'L'],
@@ -44,7 +45,7 @@ export default function App() {
   const calRef = useRef<FullCalendar>(null);
 
   const defaultMode = (): ViewName =>
-    device.defaultView === 'month' ? 'dayGridMonth' : device.defaultView === 'week' ? 'timeGridWeek' : device.defaultView === 'day' ? 'timeGridDay' : isPhone ? 'timeGridDay' : 'timeGridWeek';
+    device.defaultView === 'month' ? 'dayGridMonth' : device.defaultView === 'week' ? 'timeGridWeek' : device.defaultView === 'focus' ? (isPhone ? 'timeGridThree' : 'timeGridFocus') : device.defaultView === 'day' ? 'timeGridDay' : isPhone ? 'timeGridDay' : 'timeGridWeek';
   const [mode, setMode] = useState<Mode>(defaultMode);
   // zuletzt benutzte Kalenderansicht (für die Auswahl, solange der Stundenplan offen ist)
   const [lastCalMode, setLastCalMode] = useState<ViewName>(defaultMode);
@@ -494,7 +495,7 @@ export default function App() {
         )}
         <div className="seg views">
           {VIEW_LABELS.map(([m, label, short]) => (
-            <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : m === 'multiMonthYear' ? ' hide-phone' : '')} onClick={() => changeMode(m)}>
+            <button key={m} className={(mode === m ? 'on' : '') + (m === 'timeGridThree' ? ' only-phone' : m === 'multiMonthYear' || m === 'timeGridFocus' ? ' hide-phone' : '')} onClick={() => changeMode(m)}>
               <span className="long">{label}</span><span className="short">{short}</span>
             </button>
           ))}
@@ -637,7 +638,7 @@ function RangeTitle({ range, compact }: { range: { type: string; start: Date; en
     );
   }
   if (type === 'multiMonthYear') return <span className="rt-main">{start.getFullYear()}</span>;
-  if (type === 'listUpcoming' || type === 'timeGridThree') {
+  if (type === 'listUpcoming' || type === 'timeGridThree' || type === 'timeGridFocus') {
     const f = (d: Date) => `${d.getDate()}. ${d.toLocaleDateString('de-AT', { month: 'short' })}`;
     return <span className="rt-main">{f(start)} – {f(end)}</span>;
   }

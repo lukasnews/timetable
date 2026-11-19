@@ -399,7 +399,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 
 /* Schulzeit als Streifen rechts im Tag (Woche/Tag) */
 .cal-inner { height: 100%; --strip-w: 22px; }
-.fc .fc-timegrid-col-events { margin-right: calc(var(--strips, 0) * (var(--strip-w) + 2px) + 2px); }
+.fc .fc-timegrid-col-events { margin-right: 2px; }
+.fc .fc-timegrid-col.has-school .fc-timegrid-col-events { margin-right: calc(var(--strips, 0) * (var(--strip-w) + 2px) + 2px); }
 .fc .fc-timegrid-bg-harness:has(.bg-school) { left: auto !important; right: calc(var(--strip-i, 0) * (var(--strip-w) + 2px) + 1px); width: var(--strip-w); }
 .fc .fc-bg-event.bg-school {
   background: color-mix(in srgb, var(--pc) 22%, transparent);
@@ -914,7 +915,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 
 /* ---------- Termine in Tag/Woche: Gesichter · Uhrzeit · Titel (2 Zeilen) ---------- */
 .fc-timegrid-event .fc-event-main { height: 100%; container-type: size; }
-.ev-inner.tg { flex-direction: column; gap: 2px; overflow: hidden; padding: 4px 6px 3px 9px; }
+.ev-inner.tg { display: block; padding: 0; overflow: visible; }
+.ev-tg-body { position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; padding: 4px 6px 3px 9px; max-height: 100%; overflow: hidden; }
 .ev-tg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-width: 0; }
 .ev-inner.tg .ev-avatars { flex-direction: row; }
 .ev-inner.tg .ev-avatars .avatar + .avatar { margin: 0 0 0 -6px; }
@@ -924,7 +926,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .ev-inner.tg .ev-loc { flex: none; }
 /* mittel (~30–45 min): Gesichter + Uhrzeit in einer Zeile, Titel einzeilig */
 @container (max-height: 74px) {
-  .ev-inner.tg { gap: 1px; padding-top: 2px; }
+  .ev-tg-body { gap: 1px; padding-top: 2px; }
   .ev-inner.tg .ev-time { flex-basis: auto; order: 0; }
   .ev-inner.tg .ev-avatars .avatar { width: 18px !important; height: 18px !important; }
   .ev-inner.tg .ev-title { -webkit-line-clamp: 1; line-clamp: 1; }
@@ -932,16 +934,23 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 /* kurz (~30 min): eine Zeile – Gesichter, Uhrzeit, Titel nebeneinander */
 @container (max-height: 50px) {
-  .ev-inner.tg { flex-direction: row; align-items: center; gap: 5px; padding: 0 4px 0 8px; }
+  .ev-tg-body { flex-direction: row; align-items: center; gap: 5px; padding: 0 4px 0 8px; height: 100%; }
   .ev-inner.tg .ev-tg-head { flex-wrap: nowrap; flex: none; }
   .ev-inner.tg .ev-rec { display: none; }
   .ev-inner.tg .ev-title { white-space: nowrap; display: block; text-overflow: ellipsis; min-width: 0; }
 }
 /* sehr kurz (~15 min): eine Zeile – erstes Gesicht + Titel */
 @container (max-height: 32px) {
-  .ev-inner.tg { flex-direction: row; align-items: center; gap: 4px; padding: 0 4px 0 8px; }
+  .ev-tg-body { flex-direction: row; align-items: center; gap: 4px; padding: 0 4px 0 8px; height: 100%; }
   .ev-inner.tg .ev-time, .ev-inner.tg .ev-rec { display: none; }
   .ev-inner.tg .ev-avatars .avatar + .avatar { display: none; }
   .ev-inner.tg .ev-avatars .avatar { width: 16px !important; height: 16px !important; }
   .ev-inner.tg .ev-title { font-size: 0.75rem; white-space: nowrap; display: block; text-overflow: ellipsis; }
 }
+/* mitwandernder Titel: Termin selbst darf nicht abschneiden (der Inhalt bleibt durch .ev-tg-body begrenzt) */
+.fc .fc-timegrid-event:has(.ev-tg-body) { overflow: visible; }
+
+/* Fokus-Woche (Tablet): heute + 2 Tage ca. 1,6× so breit wie die übrigen */
+.fc-timeGridFocus-view table { table-layout: fixed; }
+.fc-timeGridFocus-view .fc-col-header-cell.fk-focus, .fc-timeGridFocus-view .fc-timegrid-col.fk-focus, .fc-timeGridFocus-view .fc-daygrid-day.fk-focus { width: 18%; }
+.fc-timeGridFocus-view .fc-col-header-cell.fk-focus .dh-d { font-size: 1.25em; }
