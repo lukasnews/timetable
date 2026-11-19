@@ -147,6 +147,20 @@ describe('Fremde Familie auf dem gemeinsamen Server', () => {
     expect(save.blockedTopics.arrayValue.values.map((v: any) => v.stringValue)).toEqual(['mama']);
     expect(save.topicPrefix.stringValue).toBe('fk-abc');
   });
+  it('Hinweis auf abgewiesene Topics bleibt auch in Läufen ohne fällige Erinnerung', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const saves: any[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url.endsWith(':runQuery')) return new Response('[]');
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), blockedTopics: { arrayValue: { values: [sv('mama'), sv('alt')] } } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.familie.example') } }] }));
+      if (url.endsWith('/meta/reminders')) saves.push(JSON.parse(init!.body as string));
+      return new Response('{}');
+    });
+    await run({ apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', timezone: 'Europe/Vienna', topicPrefix: 'fk-abc' }, 'id', new Date('2026-11-13T08:31:00Z'), () => {});
+    expect(saves[0].fields.blockedTopics.arrayValue.values.map((v: any) => v.stringValue)).toEqual(['mama']); // „alt“ gibt es nicht mehr
+  });
 });
 
 describe('Importierte Kalender und Sicherung im Lauf', () => {

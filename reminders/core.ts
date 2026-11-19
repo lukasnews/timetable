@@ -477,6 +477,7 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   const next: ReminderState = { ...state, id: 'reminders', lastRun: to, by: opts.by, at: now.getTime() };
   const errors: string[] = [];
   const nt = ntfyFor(cfg, family);
+  const knownTopics = new Set([family?.ntfyFamilyTopic, ...persons.map((p) => p.ntfyTopic)].filter(Boolean) as string[]);
   const blocked = new Set<string>();
   next.topicPrefix = cfg.topicPrefix ?? '';
   next.ntfyServer = nt.cfg.ntfyServer;
@@ -524,7 +525,8 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     next.changesAt = 0;
   }
 
-  next.blockedTopics = [...blocked];
+  // Hinweis in der App bleibt, bis Topic bzw. Server korrigiert sind (nicht nur bis zum nächsten Lauf)
+  next.blockedTopics = [...new Set([...blocked, ...(state.blockedTopics ?? []).filter((t) => !nt.allowed(t) && knownTopics.has(t))])].slice(0, 20);
   log(`Zeitfenster ${from} – ${to}: ${due.length} Erinnerung(en), ${errors.length} Fehler`);
   await saveState(cfg, token, next);
 
