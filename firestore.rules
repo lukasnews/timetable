@@ -2,11 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Zugriff nur mit der geheimen Familien-ID (aus dem Einladungslink/QR-Code).
-    // Die Liste aller Familien kann niemand abfragen.
+    // Die Liste aller Familien kann niemand abfragen; Abfragen über alle Familien hinweg
+    // (Collection-Group) sind ohne rekursive Regel ebenfalls verboten.
     match /families/{familyId}/{col}/{docId} {
-      allow read, write: if request.auth != null
-        && familyId.size() >= 16
-        && col in ['persons', 'events', 'timetables', 'meta', 'backups'];
+      function allowedPath() {
+        return request.auth != null
+          && familyId.matches('^[a-z0-9]{16,40}$')
+          && col in ['persons', 'events', 'timetables', 'meta', 'backups']
+          && docId.size() <= 200;
+      }
+      allow read, delete: if allowedPath();
+      // Schreiben: Dokumente in vernünftiger Größe (Schutz vor Missbrauch des Speichers)
+      allow create, update: if allowedPath() && request.resource.data.size() <= 200;
     }
   }
 }

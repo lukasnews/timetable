@@ -156,5 +156,19 @@ einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
 - **Kalender-Abo**: Der Abo-Link enthält einen eigenen geheimen Schlüssel und liefert nur die
   Termine der zugehörigen Familie.
 
-Firestore-Kosten wachsen mit der Zahl der
-Familien – bei vielen Familien das Kontingent in der Firebase-Konsole im Auge behalten.
+Schutz vor Missbrauch: höchstens 3 neue Familien pro Anschluss und Tag (IP nur gehasht, nach
+einem Tag gelöscht), insgesamt `MAX_FAMILIES`, inaktive Familien fliegen nach 60 Tagen aus dem
+Verzeichnis. Die Firestore-Regeln begrenzen Feldanzahl und ID-Länge je Dokument.
+
+**Firestore-Regeln veröffentlichen**: entweder einmal den Inhalt von `firestore.rules` in der
+Firebase-Konsole (Firestore → Regeln) einfügen und veröffentlichen – oder das Secret
+`FIREBASE_SERVICE_ACCOUNT` anlegen (Google Cloud → IAM → Dienstkonten → Konto mit Rolle
+„Firebase Rules Admin“ → Schlüssel als JSON); dann veröffentlicht der Workflow
+„Firestore-Regeln veröffentlichen“ jede Änderung automatisch.
+
+**Kosten im Blick**: In der Google-Cloud-Konsole unter Abrechnung → Budgets eine Budget-Warnung
+(z. B. 1 €) anlegen – Firestore-Kosten wachsen mit der Zahl der Familien.
+
+**Eigene Adresse für den Dienst**: Liegt die Domain der App (aus `public/CNAME`) im selben
+Cloudflare-Konto, richtet der Deploy-Workflow automatisch `erinnerungen.<domain>` ein; sonst bleibt
+der Dienst unter `*.workers.dev` erreichbar.
