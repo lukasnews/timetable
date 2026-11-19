@@ -108,6 +108,15 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
       <p className="hint">Diese Einstellungen gelten nur für dieses Gerät.</p>
       <h3>Darstellung</h3>
       <div className="field">
+        <span className="label">Anzeigegröße</span>
+        <div className="seg">
+          {[[0.9, '90 %'], [1, '100 %'], [1.15, '115 %'], [1.3, '130 %'], [1.5, '150 %']].map(([v, l]) => (
+            <button key={l} className={Math.abs((device.uiScale || 1) - (v as number)) < 0.01 ? 'on' : ''} onClick={() => setDevice({ uiScale: v as number })}>{l}</button>
+          ))}
+        </div>
+        <small className="hint">Alles größer oder kleiner – nur auf diesem Gerät, z. B. 130 % fürs Wand-Tablet. Wirkt auf Tablet und Handy (in der Android-App ab Version 1.0.7); am Computer stattdessen Strg + bzw. Strg −.</small>
+      </div>
+      <div className="field">
         <span className="label">Farbschema</span>
         <div className="seg">
           {([['auto', 'Automatisch'], ['light', 'Hell'], ['dark', 'Dunkel']] as const).map(([k, l]) => (
