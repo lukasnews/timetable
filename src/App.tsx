@@ -18,6 +18,7 @@ import { Avatar, Icon } from './components/ui';
 import { applyChange, applyDelete, type Scope } from './lib/recurrence';
 import { findConflicts } from './lib/conflicts';
 import { addDays, addMinutes, diffMinutes, fromNative, isoWeek, uid, weekdayMo0 } from './lib/dates';
+import { staleImports } from './lib/icsSync';
 import { isSchoolFree } from './lib/holidays';
 import { isKidDayOff } from './lib/calendarEvents';
 import { nextCountdowns } from './lib/countdown';
@@ -308,6 +309,26 @@ export default function App() {
     }, 2000);
     return () => clearTimeout(t);
   }, [events, persons, device.reminders, device.reminderPersons, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Kiosk: nachts um 3 Uhr einmal neu laden (frische Version, kein Speicherstau)
+  useEffect(() => {
+    if (!device.kiosk) return;
+    const check = () => {
+      const d = new Date();
+      const today = fromNative(d, false).slice(0, 10);
+      if (d.getHours() !== 3 || d.getMinutes() > 20 || document.querySelector('.modal-backdrop')) return;
+      try { if (localStorage.getItem('fk.nightReload') === today) return; localStorage.setItem('fk.nightReload', today); } catch { return; }
+      location.reload();
+    };
+    const t = setInterval(check, 5 * 60_000);
+    return () => clearInterval(t);
+  }, [device.kiosk]);
+  // Alte importierte Termine (z. B. Müllkalender) nach einem Jahr aufräumen – einmal am Tag
+  useEffect(() => {
+    if (!events.length) return;
+    const today = fromNative(new Date(), false).slice(0, 10);
+    try { if (localStorage.getItem('fk.cleanup') === today) return; localStorage.setItem('fk.cleanup', today); } catch { return; }
+    staleImports(events, today).forEach((id) => data.store.remove('events', id));
+  }, [events]); // eslint-disable-line react-hooks/exhaustive-deps
   const inst = useInstall();
   // App / installierte Web-App: nach unten ziehen lädt neu (holt auch eine neue Version)
   usePullToRefresh((isNative() || inst.installed) && !device.kiosk, () => location.reload());

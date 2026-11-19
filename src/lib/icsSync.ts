@@ -71,3 +71,11 @@ export function setSourceReminder(s: IcsSource, value: string): IcsSource {
   if (value === 'evening') return { ...s, evening: s.evening || '19:00', reminder: null };
   return { ...s, evening: null, reminder: value === '' ? null : Number(value) };
 }
+
+/** Importierte Einzeltermine, die vor mehr als einem Jahr geendet haben (eigene Termine und Serien bleiben) */
+export function staleImports<T extends { id: string; importSource?: string; recurrence?: unknown; end: string }>(events: T[], today: string): string[] {
+  const d = new Date(today + 'T12:00:00');
+  d.setFullYear(d.getFullYear() - 1);
+  const cutoff = d.toISOString().slice(0, 10);
+  return events.filter((e) => e.importSource && !e.recurrence && e.end.slice(0, 10) < cutoff).map((e) => e.id);
+}
