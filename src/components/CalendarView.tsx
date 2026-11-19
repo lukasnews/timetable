@@ -85,9 +85,37 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   }, [events, persons, timetables, props.selected, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth, device.showSchool]);
   // Jahresansicht: nur Ganztägiges (Ferien, Feiertage, Geburtstage, Urlaube …) als Balken – Termine mit Uhrzeit als Punkte am Tag
   // Ferien: im Jahr nur als grüne Einfärbung (die Balken würden sich jede Woche wiederholen)
-  const fcEvents = useMemo(() => (isYear
-    ? allEvents.filter((e) => (e.allDay || e.display === 'background') && !(e.display !== 'background' && (e.extendedProps as OccProps | undefined)?.kind === 'ferien'))
-    : allEvents), [allEvents, isYear]);
+  const isTimeGrid = props.view.startsWith('timeGrid');
+  const fcEvents = useMemo(() => {
+    if (isYear) return allEvents.filter((e) => (e.allDay || e.display === 'background') && !(e.display !== 'background' && (e.extendedProps as OccProps | undefined)?.kind === 'ferien'));
+    if (!isTimeGrid) return allEvents;
+    // Tag/Woche: Termine mit Uhrzeit über mehrere Tage oben in der Ganztags-Zeile als Balken (wie Google/Outlook)
+    return allEvents.map((e) => {
+      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') return e;
+      const sd = e.start.slice(0, 10), ed = e.end.slice(0, 10);
+      if (sd === ed || (ed === addDays(sd, 1) && e.end.slice(11, 16) === '00:00')) return e;
+      const fmt = (v: string) => `${new Date(v.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')} ${v.slice(11, 16)}`;
+      return {
+        ...e, allDay: true, start: sd, end: e.end.slice(11, 16) === '00:00' ? ed : addDays(ed, 1), editable: false,
+        extendedProps: { ...(e.extendedProps as OccProps), spanText: `${fmt(e.start)} – ${fmt(e.end)}` },
+      };
+    });
+  }, [allEvents, isYear, isTimeGrid]);
+  // Ganztags-Zeile nur zeigen, wenn etwas Ganztägiges im Zeitraum liegt (spart Platz)
+  const hasAllDay = fcEvents.some((e) => e.allDay && e.display !== 'background');
+  // nächster bzw. laufender Termin heute – wird hervorgehoben
+  const nowStr = fromNative(new Date(), false);
+  const nextKey = useMemo(() => {
+    let best: { key: string; start: string } | undefined;
+    for (const e of allEvents) {
+      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') continue;
+      const x = e.extendedProps as OccProps | undefined;
+      if (!x?.eventId || x.kind === 'school') continue;
+      if (e.start.slice(0, 10) !== nowStr.slice(0, 10) || e.end <= nowStr) continue;
+      if (!best || e.start < best.start) best = { key: x.eventId + '|' + x.occStart, start: e.start };
+    }
+    return best?.key;
+  }, [allEvents, nowStr.slice(0, 15)]); // eslint-disable-line react-hooks/exhaustive-deps
   const yearDots = useMemo(() => {
     const m = new Map<string, string[]>();
     if (!isYear) return m;
@@ -161,6 +189,15 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       x.kind === 'birthday' || x.kind === 'personBirthday'
         ? `${x.kind === 'personBirthday' ? '🎂 ' : ''}${arg.event.title}${x.age !== undefined && x.age > 0 ? ` (${x.age})` : ''}`
         : x.kind === 'school' ? `🏫 ${arg.timeText}` : arg.event.title;
+    if (x.spanText) {
+      return (
+        <div className="ev-inner ev-span">
+          {ps.length > 0 && <span className="ev-avatars">{ps.slice(0, 4).map((p) => <Avatar key={p.id} person={p} size={20} />)}</span>}
+          <span className="ev-title">{title}</span>
+          <span className="ev-span-time">{x.spanText}</span>
+        </div>
+      );
+    }
     const compact = arg.view.type === 'dayGridMonth' || arg.view.type === 'multiMonthYear';
     const isList = arg.view.type.startsWith('list');
     // Tag/Woche: Gesichter – Uhrzeit – Titel (2 Zeilen); kurze Termine verdichten sich per CSS (Container-Abfrage auf die Höhe)
@@ -252,7 +289,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     listUpcoming: { type: 'list', duration: { days: 30 }, displayEventEnd: !isPhone },
     timeGridThree: { type: 'timeGrid', duration: { days: 3 } },
     // Fokus-Woche: 7 Tage ab gestern; heute + 2 Tage breiter (CSS .fk-focus)
-    timeGridFocus: { type: 'timeGrid', visibleRange: focusRange, dateIncrement: { days: 7 } },
+    timeGridFocus: { type: 'timeGrid', visibleRange: focusRange, dateIncrement: { days: 7 }, dateAlignment: 'day' },
     multiMonthYear: { type: 'multiMonth', duration: { years: 1 }, multiMonthMaxColumns: 4, multiMonthMinWidth: 230, showNonCurrentDates: false, fixedWeekCount: false, dayMaxEvents: 2, moreLinkText: (n: number) => `+${n}` },
   }), [isPhone]);
 
@@ -310,6 +347,11 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       viewDidMount={(arg) => { if (arg.view.type.startsWith('timeGrid')) setTimeout(() => arg.view.calendar.scrollToTime(nowScrollTime()), 150); }}
       slotDuration="00:30:00"
       expandRows={!props.printing}
+      allDaySlot={hasAllDay}
+      eventClassNames={(arg) => {
+        const x = arg.event.extendedProps as OccProps;
+        return nextKey && x.eventId && `${x.eventId}|${x.occStart}` === nextKey ? ['ev-next'] : [];
+      }}
       snapDuration="00:15:00"
       slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
       eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
