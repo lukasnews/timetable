@@ -348,6 +348,8 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       slotDuration="00:30:00"
       expandRows={!props.printing}
       allDaySlot={hasAllDay}
+      // gleichzeitige Termine nebeneinander statt versetzt übereinander (nichts wird verdeckt)
+      slotEventOverlap={false}
       eventClassNames={(arg) => {
         const x = arg.event.extendedProps as OccProps;
         return nextKey && x.eventId && `${x.eventId}|${x.occStart}` === nextKey ? ['ev-next'] : [];
