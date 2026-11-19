@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planSync, reminderFor } from '../icsSync';
+import { planSync, reminderFor, staleImports } from '../icsSync';
 import { isKidDayOff } from '../calendarEvents';
 import type { CalEvent, IcsSource } from '../../types';
 
@@ -31,5 +31,17 @@ describe('Importierte Kalender', () => {
     expect(isKidDayOff(tt, '2026-12-07')).toBe(true);
     expect(isKidDayOff(tt, '2027-02-02')).toBe(true);
     expect(isKidDayOff(tt, '2026-12-08')).toBe(false);
+  });
+});
+
+describe('Aufräumen alter Importe', () => {
+  it('löscht nur importierte Einzeltermine älter als ein Jahr', () => {
+    const evs = [
+      { id: 'alt', importSource: 'muell', end: '2025-11-10' },
+      { id: 'neu', importSource: 'muell', end: '2025-12-01' },
+      { id: 'eigen', end: '2024-01-01' },
+      { id: 'serie', importSource: 'muell', end: '2024-01-01', recurrence: { freq: 'weekly' } },
+    ];
+    expect(staleImports(evs, '2026-11-19')).toEqual(['alt']);
   });
 });

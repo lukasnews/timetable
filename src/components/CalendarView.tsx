@@ -12,6 +12,7 @@ import type { EventResizeDoneArg } from '@fullcalendar/interaction';
 import type { Person } from '../types';
 import { useData } from '../data/DataContext';
 import { buildEvents, type OccProps } from '../lib/calendarEvents';
+import { focusRange, highlightKeys, scrollTimeFor, toSpanBars, visibleSpan } from '../lib/viewLogic';
 import { addDays, fromNative } from '../lib/dates';
 import { tint } from '../lib/avatars';
 import { Avatar } from './ui';
@@ -45,20 +46,7 @@ interface Props {
   printing?: boolean;
 }
 
-/** Fokus-Woche: gestern + 6 Tage */
-function focusRange(current: Date) {
-  const start = new Date(current); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - 1);
-  const end = new Date(start); end.setDate(end.getDate() + 7);
-  return { start, end };
-}
-
-/** Zur aktuellen Uhrzeit (eine Stunde davor) scrollen; nachts ab 7 Uhr */
-const nowScrollTime = () => {
-  // eine halbe Stunde vor jetzt, auf die halbe Stunde abgerundet (16:40 → 16:00); nachts ab 07:00
-  const d = new Date(Date.now() - 30 * 60000);
-  if (new Date().getHours() < 1) return '07:00:00';
-  return `${String(d.getHours()).padStart(2, '0')}:${d.getMinutes() < 30 ? '00' : '30'}:00`;
-};
+const nowScrollTime = () => scrollTimeFor(new Date());
 
 function stripe(persons: Person[]): string {
   if (persons.length === 0) return 'var(--family)';
@@ -90,35 +78,13 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
     if (isYear) return allEvents.filter((e) => (e.allDay || e.display === 'background') && !(e.display !== 'background' && (e.extendedProps as OccProps | undefined)?.kind === 'ferien'));
     if (!isTimeGrid) return allEvents;
     // Tag/Woche: Termine mit Uhrzeit über mehrere Tage oben in der Ganztags-Zeile als Balken (wie Google/Outlook)
-    return allEvents.map((e) => {
-      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') return e;
-      const sd = e.start.slice(0, 10), ed = e.end.slice(0, 10);
-      if (sd === ed || (ed === addDays(sd, 1) && e.end.slice(11, 16) === '00:00')) return e;
-      const fmt = (v: string) => `${new Date(v.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short' }).replace('.', '')} ${v.slice(11, 16)}`;
-      return {
-        ...e, allDay: true, start: sd, end: e.end.slice(11, 16) === '00:00' ? ed : addDays(ed, 1), editable: false,
-        extendedProps: { ...(e.extendedProps as OccProps), spanText: `${fmt(e.start)} – ${fmt(e.end)}` },
-      };
-    });
+    return toSpanBars(allEvents);
   }, [allEvents, isYear, isTimeGrid]);
   // Ganztags-Zeile nur zeigen, wenn etwas Ganztägiges im Zeitraum liegt (spart Platz)
   const hasAllDay = fcEvents.some((e) => e.allDay && e.display !== 'background');
   // heute: laufende Termine dezent, der nächste beginnende deutlich hervorheben (nur Termine mit Uhrzeit am selben Tag)
   const nowStr = fromNative(new Date(), false);
-  const highlight = useMemo(() => {
-    const running = new Set<string>();
-    let next: { key: string; start: string } | undefined;
-    for (const e of allEvents) {
-      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') continue;
-      const x = e.extendedProps as OccProps | undefined;
-      if (!x?.eventId || x.kind === 'school') continue;
-      if (e.start.slice(0, 10) !== nowStr.slice(0, 10) || e.end.slice(0, 10) !== nowStr.slice(0, 10) || e.end <= nowStr) continue;
-      const key = x.eventId + '|' + x.occStart;
-      if (e.start <= nowStr) running.add(key);
-      else if (!next || e.start < next.start) next = { key, start: e.start };
-    }
-    return { running, next: next?.key };
-  }, [allEvents, nowStr.slice(0, 15)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const highlight = useMemo(() => highlightKeys(allEvents, nowStr), [allEvents, nowStr.slice(0, 15)]); // eslint-disable-line react-hooks/exhaustive-deps
   const yearDots = useMemo(() => {
     const m = new Map<string, string[]>();
     if (!isYear) return m;
@@ -135,22 +101,9 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
 
   // Sichtbarer Tagesbereich: eingestellt (Drucken: 6–22 Uhr), aber nie kürzer als die Termine im Zeitraum –
   // sonst wäre z. B. ein Termin um 22 Uhr bei „Tag endet 21 Uhr“ unsichtbar. Mehrtägige Termine zählen nicht.
-  const span = useMemo(() => {
-    let min = props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart;
-    let max = props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd;
-    for (const e of allEvents) {
-      if (e.allDay || e.display === 'background' || typeof e.start !== 'string' || typeof e.end !== 'string') continue;
-      if ((e.extendedProps as OccProps | undefined)?.kind === 'school') continue;
-      const sd = e.start.slice(0, 10), ed = e.end.slice(0, 10);
-      const toMidnight = ed === addDays(sd, 1) && e.end.slice(11, 16) === '00:00';
-      if (sd !== ed && !toMidnight) continue;
-      const st = e.start.slice(11, 13) + ':00';
-      const en = toMidnight ? '24:00' : e.end.slice(14, 16) === '00' ? e.end.slice(11, 16) : `${String(Number(e.end.slice(11, 13)) + 1).padStart(2, '0')}:00`;
-      if (st < min) min = st;
-      if (en > max) max = en;
-    }
-    return { min, max };
-  }, [allEvents, device.dayStart, device.dayEnd, props.printing]);
+  const span = useMemo(() => visibleSpan(allEvents,
+    props.printing && device.dayStart < '06:00' ? '06:00' : device.dayStart,
+    props.printing && device.dayEnd > '22:00' ? '22:00' : device.dayEnd), [allEvents, device.dayStart, device.dayEnd, props.printing]);
 
   // Tage mit Schulzeit (nur dort rechts Platz für die Schul-Streifen freihalten)
   const schoolDays = useMemo(() => new Set(fcEvents.filter((e) => (e.extendedProps as OccProps | undefined)?.kind === 'school' && typeof e.start === 'string')
