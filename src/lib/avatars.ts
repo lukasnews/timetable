@@ -106,7 +106,9 @@ function featureOptions(spec: AvatarSpec): Record<string, unknown> {
 
 const cache = new Map<string, string>();
 
-export function avatarUri(spec: AvatarSpec, bg?: string): string {
+export function avatarUri(spec: AvatarSpec | undefined, bg?: string): string {
+  // ältere/importierte Personen ohne Figur: neutrale Standardfigur statt Absturz
+  spec = spec ?? { style: 'adventurer', seed: 'person' };
   const key = `${spec.style}|${spec.seed}|${bg ?? ''}|${spec.opts ? JSON.stringify(spec.opts) : ''}`;
   let uri = cache.get(key);
   if (!uri) {
