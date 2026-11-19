@@ -256,21 +256,24 @@ function NotifyTab() {
       <h3><Icon name="bell" size={18} /> Push per ntfy (für alle)</h3>
       <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
         {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
-      {service.topicPrefix && !family.ntfyServer && (
-        <p className="hint">🔒 Damit keine andere Familie mitlesen kann, beginnen eure Topics mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>).
-          In der ntfy-App mit dem Server <b>{service.ntfyServer}</b> abonnieren. Das Präfix nicht weitergeben.</p>
-      )}
-      {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – Topic muss mit „{service.topicPrefix}-“ beginnen.</p>}
+      {service.topicPrefix ? (
+        <>
+          <label className="field"><span className="label">ntfy-Server eurer Familie</span>
+            <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+              onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
+            <small className={family.ntfyServer ? 'hint' : 'error'}>{family.ntfyServer
+              ? 'Hier hin schickt der Dienst eure Push-Nachrichten.'
+              : 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
+          </label>
+          <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
+            für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
+          {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {family.ntfyServer ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : 'kein ntfy-Server eingetragen.'}</p>}
+        </>
+      ) : service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')}</p>}
       <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
         <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onChange={(e) => setFamTopic(e.target.value)} /></label>
       {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
-      <details className="field">
-        <summary className="label">Eigener ntfy-Server (optional)</summary>
-        <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
-        <small className="hint">Leer = Server des Erinnerungsdienstes. Bei einem eigenen Server (z. B. https://ntfy.sh) bitte lange, zufällige Topics verwenden – dort kann jeder ein Topic abonnieren, der seinen Namen kennt.</small>
-      </details>
       <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
         hint="Jeden Morgen die Termine des Tages und was mitzubringen ist" />
       {!!family.ntfyDaily && (
