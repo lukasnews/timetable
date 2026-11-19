@@ -978,7 +978,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 /* nächster bzw. laufender Termin heute */
 .fc .fc-event.ev-next { box-shadow: 0 0 0 2px var(--accent), 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); animation: ev-next 2.4s ease-in-out 3; }
 @keyframes ev-next { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent), 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent); } }
-:root.printing .fc .fc-event.ev-next { box-shadow: none; animation: none; }
+.fc .fc-event.ev-now { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+:root.printing .fc .fc-event.ev-next, :root.printing .fc .fc-event.ev-now { box-shadow: none; animation: none; }
 
 /* schmale Termine (z. B. mehrere gleichzeitig in der Woche): Gesichter + Titel mehrzeilig, ohne Uhrzeit */
 @container (max-width: 96px) {
