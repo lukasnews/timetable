@@ -960,3 +960,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .strips-slim .school-time { display: none; }
 .strips-slim .school-strip { padding-top: 1px; }
 .strips-slim .school-strip .avatar { width: 11px !important; height: 11px !important; box-shadow: none; }
+
+/* Stundenhöhe (Einstellungen → Gerät) */
+.rows-compact .fc .fc-timegrid-slot { height: 1.15em; }
+.rows-compact .fc .fc-timegrid-slot-label-cushion { font-size: 0.72rem; }
+.rows-large .fc .fc-timegrid-slot { height: 3em; }

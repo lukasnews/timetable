@@ -228,7 +228,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   }), [isPhone]);
 
   return (
-    <div className={'cal-inner' + (device.schoolTimes ? '' : ' strips-slim')} style={{ ['--strips' as string]: stripCount }}>
+    <div className={'cal-inner' + (device.schoolTimes ? '' : ' strips-slim') + (device.rowHeight && device.rowHeight !== 'normal' ? ' rows-' + device.rowHeight : '')} style={{ ['--strips' as string]: stripCount }}>
     <FullCalendar
       ref={ref}
       plugins={[dayGridPlugin, timeGridPlugin, listPlugin, multiMonthPlugin, interactionPlugin]}
@@ -280,6 +280,7 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
       // scrollTime greift nicht zuverlässig, wenn die Höhe beim ersten Zeichnen noch 0 ist (Handy/App) – darum nachziehen
       viewDidMount={(arg) => { if (arg.view.type.startsWith('timeGrid')) setTimeout(() => arg.view.calendar.scrollToTime(nowScrollTime()), 150); }}
       slotDuration="00:30:00"
+      expandRows={!props.printing}
       snapDuration="00:15:00"
       slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
       eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}

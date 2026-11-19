@@ -202,6 +202,8 @@ export interface DeviceSettings {
   theme: 'auto' | 'light' | 'dark';
   dayStart: string;
   dayEnd: string;
+  /** Stundenhöhe in Tag/Woche: kompakt = mehr Stunden sichtbar */
+  rowHeight?: 'compact' | 'normal' | 'large';
   /** Anzeigegröße (1 = 100 %) – z. B. 1.3 fürs Wand-Tablet */
   uiScale: number;
   /** Bildschirmschoner: tagsüber Uhr + nächste Termine */

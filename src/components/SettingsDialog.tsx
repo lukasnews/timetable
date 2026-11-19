@@ -143,6 +143,15 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
             {HOURS.filter((h) => h > device.dayStart).map((h) => <option key={h} value={h}>{h} Uhr</option>)}
           </select></label>
       </div>
+      <div className="field">
+        <span className="label">Stundenhöhe (Tag, Woche, Fokus)</span>
+        <div className="seg">
+          {([['compact', 'Kompakt'], ['normal', 'Normal'], ['large', 'Groß']] as const).map(([k, l]) => (
+            <button key={k} className={(device.rowHeight ?? 'normal') === k ? 'on' : ''} onClick={() => setDevice({ rowHeight: k })}>{l}</button>
+          ))}
+        </div>
+        <small className="hint">Kompakt zeigt etwa doppelt so viele Stunden. Passt der Bereich „Tag beginnt/endet“ ganz auf den Bildschirm, wird er ohne Scrollen eingepasst – z. B. 06–21 Uhr am Wand-Tablet.</small>
+      </div>
 
       <h3>Anzeigen</h3>
       <Toggle checked={device.showSchool} onChange={(v) => setDevice({ showSchool: v })} label="🏫 Schulzeiten" hint="Auch über den 🏫-Schalter in der Leiste" />
