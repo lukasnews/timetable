@@ -34,7 +34,7 @@
   <ul>
     <li><b>Google Firebase (Cloud Firestore, Anonymous Authentication)</b> zur Synchronisation zwischen den Geräten der Familie (Serverstandort gemäß Projekteinstellung, vorgesehen: Frankfurt, EU). Anbieter: Google Ireland Ltd.</li>
     <li><b>Cloudflare Workers</b> für Erinnerungen, Kalender-Abo-Link, das Laden von .ics-Kalendern und wöchentliche Sicherungen. Anbieter: Cloudflare, Inc.</li>
-    <li><b>ntfy</b> (eigener Server der Familie) für Push-Erinnerungen – nur wenn ein ntfy-Topic eingetragen ist.</li>
+    <li><b>ntfy</b> für Push-Erinnerungen – nur wenn eine Familie einen ntfy-Server und Topics eingetragen hat. Die Nachrichten gehen an den von der Familie gewählten Server (z. B. ntfy.sh) und nur an Topics mit dem geheimen Präfix dieser Familie.</li>
     <li><b>Open-Meteo</b> für die Wettervorhersage: übermittelt werden nur die Koordinaten des gewählten Ortes, keine personenbezogenen Daten. Das Wetter lässt sich abschalten.</li>
     <li>Die Web-App wird über <b>GitHub Pages</b> ausgeliefert (GitHub, Inc.); dabei fallen technisch übliche Zugriffsprotokolle (z. B. IP-Adresse) beim Anbieter an.</li>
   </ul>

@@ -145,12 +145,13 @@ einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
   ersten Deploy zufällig erzeugt und liegt nur als Secret in Cloudflare. Alle 5 Minuten wird zuerst
   die eigene Familie (`FAMILY_ID`) geprüft, danach reihum die angemeldeten – so viele, wie das
   Cloudflare-Limit erlaubt (`SUBREQUEST_BUDGET`, Standard 45; höchstens `MAX_FAMILIES`, Standard 50).
-- **ntfy**: Auf dem gemeinsamen Server bekommen andere Familien nur Topics mit ihrem geheimen
-  Präfix (`fk-…`, aus der Familien-ID abgeleitet, steht in der App unter Erinnerungen). Alternativ
-  trägt eine Familie einen eigenen ntfy-Server ein – dorthin wird ohne den Token des Dienstes gesendet.
+- **ntfy**: Der eigene Server (`NTFY_SERVER` mit `NTFY_TOKEN`) gilt nur für die eigene Familie.
+  Andere Familien tragen unter ⚙️ → Erinnerungen ihren **eigenen ntfy-Server** ein (z. B. ntfy.sh);
+  dorthin wird ohne Token gesendet, und nur an Topics mit ihrem geheimen Präfix (`fk-…`, aus der
+  Familien-ID abgeleitet). Ohne eigenen Server bekommt eine fremde Familie keine Push-Nachrichten –
+  den Server des Dienstes einzutragen hilft nicht, er ist für sie gesperrt.
 - **Kalender-Abo**: Der Abo-Link enthält einen eigenen geheimen Schlüssel und liefert nur die
   Termine der zugehörigen Familie.
 
-Damit andere Familien die ntfy-Topics auf dem eigenen Server abonnieren können, muss der Server
-anonymes Lesen erlauben (bzw. Benutzer für sie anlegen). Firestore-Kosten wachsen mit der Zahl der
+Firestore-Kosten wachsen mit der Zahl der
 Familien – bei vielen Familien das Kontingent in der Firebase-Konsole im Auge behalten.
