@@ -32,6 +32,8 @@ export interface ChangeInfo {
 interface Props {
   view: ViewName;
   selected: Set<string>;
+  /** ausgeblendete importierte Kalender (importSource) */
+  hiddenSources?: Set<string>;
   onRange: (viewType: string, start: Date, end: Date) => void;
   onOpen: (eventId: string, occStart: string) => void;
   onCreate: (start: string, end: string, allDay: boolean) => void;
@@ -65,12 +67,13 @@ export const CalendarView = forwardRef<FullCalendar, Props>(function CalendarVie
   const allEvents = useMemo(() => {
     if (!range) return [];
     return buildEvents({
-      events, persons, timetables, selected: props.selected, from: range.from, to: range.to,
+      events: props.hiddenSources?.size ? events.filter((e) => !e.importSource || !props.hiddenSources!.has(e.importSource)) : events,
+      persons, timetables, selected: props.selected, from: range.from, to: range.to,
       showHolidays: family.showHolidays, showSchoolHolidays: family.showSchoolHolidays,
       showSchool: device.showSchool && props.view !== 'multiMonthYear' && (props.view !== 'dayGridMonth' || device.schoolInMonth),
       schoolAsStrip: props.view !== 'dayGridMonth',
     });
-  }, [events, persons, timetables, props.selected, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth, device.showSchool]);
+  }, [events, persons, timetables, props.selected, props.hiddenSources, range, family.showHolidays, family.showSchoolHolidays, props.view, device.schoolInMonth, device.showSchool]);
   // Jahresansicht: nur Ganztägiges (Ferien, Feiertage, Geburtstage, Urlaube …) als Balken – Termine mit Uhrzeit als Punkte am Tag
   // Ferien: im Jahr nur als grüne Einfärbung (die Balken würden sich jede Woche wiederholen)
   const isTimeGrid = props.view.startsWith('timeGrid');
