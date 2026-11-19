@@ -62,6 +62,27 @@ jobs:
           npx --yes wrangler@4 deploy --var FIREBASE_API_KEY:${{ steps.fb.outputs.key }} --var FIREBASE_PROJECT_ID:${{ steps.fb.outputs.pid }} 2>&1 | tee /tmp/deploy.log
           URL=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' /tmp/deploy.log | head -1)
           echo "WORKER_URL=$URL" >> "$GITHUB_ENV"
+      - name: Eigene Adresse für den Dienst (ohne Kontonamen), falls die Domain bei Cloudflare liegt
+        if: steps.check.outputs.ready == 'true' && env.WORKER_URL != ''
+        run: |
+          DOMAIN=$(sed 's/^[^.]*\.//' public/CNAME | tr -d '[:space:]')
+          HOST="erinnerungen.$DOMAIN"
+          API=https://api.cloudflare.com/client/v4
+          ZONES=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$API/zones?name=$DOMAIN")
+          ZONE=$(echo "$ZONES" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.result?.[0]?.id??'')}catch{console.log('')}})")
+          if [ -z "$ZONE" ]; then
+            echo "::notice::$DOMAIN liegt nicht in diesem Cloudflare-Konto (oder dem Token fehlt die Berechtigung) – der Dienst bleibt unter workers.dev erreichbar."
+            echo "$ZONES" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log('Antwort:',j.success,(j.errors||[]).map(e=>e.code+' '+e.message).join('; '))}catch{console.log('keine JSON-Antwort')}})"
+            exit 0
+          fi
+          R=$(curl -s -X PUT "$API/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'content-type: application/json' \
+            -d "{\"hostname\":\"$HOST\",\"service\":\"familienkalender-erinnerungen\",\"zone_id\":\"$ZONE\",\"environment\":\"production\"}")
+          OK=$(echo "$R" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const j=JSON.parse(s);console.log(j.success?'yes':'no '+(j.errors||[]).map(e=>e.code+' '+e.message).join('; '))}catch{console.log('no')}})")
+          echo "Eigene Adresse $HOST: $OK"
+          if [ "$OK" = "yes" ]; then
+            for i in $(seq 1 30); do curl -sf -o /dev/null "https://$HOST/" && break; sleep 10; done
+            if curl -sf -o /dev/null "https://$HOST/"; then echo "WORKER_URL=https://$HOST" >> "$GITHUB_ENV"; echo "✓ Dienst unter https://$HOST erreichbar"; fi
+          fi
       - name: Adresse des Dienstes für den Abo-Link hinterlegen
         if: steps.check.outputs.ready == 'true' && env.WORKER_URL != ''
         env:

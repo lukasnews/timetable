@@ -1,0 +1,39 @@
+name: Firestore-Regeln veröffentlichen
+
+# Veröffentlicht firestore.rules im Firebase-Projekt.
+# Benötigt das Secret FIREBASE_SERVICE_ACCOUNT (JSON-Schlüssel eines Dienstkontos mit der Rolle
+# „Firebase Rules Admin“) – ohne Secret wird nur ein Hinweis ausgegeben.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['firestore.rules', '.github/workflows/firestore-rules.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Secret prüfen
+        id: check
+        run: |
+          if [ -z "$SA" ]; then
+            echo "::notice::FIREBASE_SERVICE_ACCOUNT fehlt – die Regeln bitte einmal in der Firebase-Konsole (Firestore → Regeln) veröffentlichen oder das Secret anlegen."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+      - name: Regeln veröffentlichen
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          echo "$SA" > /tmp/sa.json
+          PID=$(grep '^VITE_FIREBASE_CONFIG=' .env.production | cut -d= -f2- | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).projectId))")
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json npx --yes firebase-tools@13 deploy --only firestore:rules --project "$PID" --non-interactive
+          rm -f /tmp/sa.json

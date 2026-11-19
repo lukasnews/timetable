@@ -28,6 +28,9 @@ interface Entry { id: string; familyId: string; feedToken?: string; at?: number;
 
 /** Familien, deren App sich so lange nicht gemeldet hat, nimmt der Dienst aus dem Verzeichnis (sie melden sich beim nächsten Öffnen neu an) */
 const STALE_MS = 60 * 86400_000;
+/** Neue Familien pro Absender (IP) und Tag */
+const NEW_PER_IP = 3;
+let lastCleanup = '';
 
 let cached: { token: string; until: number } | null = null;
 
@@ -86,6 +89,14 @@ async function check(env: Env, log: (s: string) => void = console.log) {
   try { await run(base, token, new Date(), log, { by: 'cloudflare' }); } catch (e) { mainError = e; }
   const others = (await registry(env, token, true).catch(() => [] as Entry[])).filter((e) => e.familyId !== env.FAMILY_ID);
   const budget = Number(env.SUBREQUEST_BUDGET) || 45;
+  // Zähler für Anmeldungen vom Vortag löschen (einmal am Tag)
+  const today = new Date().toISOString().slice(0, 10);
+  if (lastCleanup !== today && validId(env.REGISTRY_ID ?? null)) {
+    lastCleanup = today;
+    const regCfg = config(env, env.REGISTRY_ID);
+    const oldRl = (await list<{ id: string }>(regCfg, token, 'backups').catch(() => [])).filter((d) => d.id.startsWith('rl-') && !d.id.startsWith(`rl-${today}`));
+    if (oldRl.length) await commit(regCfg, token, 'backups', [], oldRl.map((d) => d.id)).catch(() => {});
+  }
   // Verlassene Familien entfernen (auch Schutz davor, das Verzeichnis mit Schein-Familien zu füllen)
   const stale = others.filter((e) => Date.now() - (e.seen ?? e.at ?? 0) > STALE_MS);
   if (stale.length) {
@@ -119,7 +130,7 @@ async function setStateField(cfg: Config, token: string, field: string, value: s
 }
 
 /** Familie beim Dienst anmelden (nur wer die geheime Familien-ID kennt; die Familie muss Daten haben) */
-async function register(env: Env, familyId: string, serviceUrl: string): Promise<Response> {
+async function register(env: Env, familyId: string, serviceUrl: string, clientIp = ''): Promise<Response> {
   const cors = { 'access-control-allow-origin': '*', 'content-type': 'text/plain; charset=utf-8' };
   if (!validId(env.REGISTRY_ID ?? null)) return new Response('Der Dienst nimmt keine weiteren Familien auf', { status: 503, headers: cors });
   const cfg = config(env, familyId);
@@ -131,6 +142,15 @@ async function register(env: Env, familyId: string, serviceUrl: string): Promise
   const known = all.find((e) => e.id === key);
   const max = Number(env.MAX_FAMILIES) || 50;
   if (!known && familyId !== env.FAMILY_ID && all.length >= max) return new Response('Der Dienst ist derzeit voll', { status: 503, headers: cors });
+  // Schutz vor Massen-Anmeldungen: höchstens NEW_PER_IP neue Familien pro Absender und Tag (IP nur gehasht, nach 1 Tag gelöscht)
+  if (!known && familyId !== env.FAMILY_ID && clientIp) {
+    const day = new Date().toISOString().slice(0, 10);
+    const id = `rl-${day}-${(await registryKey(clientIp + ':' + env.REGISTRY_ID)).slice(0, 16)}`;
+    const regCfg = config(env, env.REGISTRY_ID);
+    const doc = (await list<{ id: string; count?: number }>(regCfg, token, 'backups')).find((d) => d.id === id);
+    if ((doc?.count ?? 0) >= NEW_PER_IP) return new Response('Zu viele neue Familien von diesem Anschluss – bitte morgen erneut versuchen', { status: 429, headers: cors });
+    await commit(regCfg, token, 'backups', [{ id, count: (doc?.count ?? 0) + 1 } as { id: string }]);
+  }
   const feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
   if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken || Date.now() - (known.seen ?? 0) > 86400_000)) {
     await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now() } as Entry]);
@@ -153,7 +173,7 @@ export default {
     if (url.pathname === '/register') {
       if (req.method === 'OPTIONS') return new Response(null, { headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST' } });
       if (req.method !== 'POST' || !validId(fam)) return new Response('Ungültig', { status: 400, headers: { 'access-control-allow-origin': '*' } });
-      try { return await register(env, fam, url.origin); }
+      try { return await register(env, fam, url.origin, req.headers.get('cf-connecting-ip') ?? ''); }
       catch (e) { return new Response(String(e instanceof Error ? e.message : e).slice(0, 200), { status: 500, headers: { 'access-control-allow-origin': '*' } }); }
     }
     // Manuell prüfen (nur mit Familien-ID): /run?family=…

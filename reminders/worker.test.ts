@@ -70,6 +70,19 @@ describe('Worker: mehrere Familien', () => {
     expect(String(db.famaaaaaaaaaaaaaaaa.meta.reminders.topicPrefix)).toMatch(/^fk-/);
   });
 
+  it('höchstens 3 neue Familien pro Absender und Tag', async () => {
+    const db: Db = {};
+    const ids = ['famaaaaaaaaaaaaaaaa', 'fambbbbbbbbbbbbbbbb', 'famcccccccccccccccc', 'famdddddddddddddddd'];
+    for (const id of ids) db[id] = { persons: { p: { name: id } } };
+    const { worker } = await loadWorker(db);
+    const reg = (id: string, ip: string) => worker.fetch(new Request(`${W}/register?family=${id}`, { method: 'POST', headers: { 'cf-connecting-ip': ip } }), env);
+    for (const id of ids.slice(0, 3)) expect((await reg(id, '203.0.113.7')).status).toBe(200);
+    expect((await reg(ids[3], '203.0.113.7')).status).toBe(429);
+    expect((await reg(ids[0], '203.0.113.7')).status).toBe(200); // bereits angemeldet: zählt nicht
+    expect((await reg(ids[3], '198.51.100.9')).status).toBe(200); // anderer Anschluss
+    expect(JSON.stringify(db[REG].backups)).not.toContain('203.0.113.7'); // IP nur gehasht
+  });
+
   it('Import-Proxy und Lauf nur für angemeldete Familien', async () => {
     const db: Db = { famaaaaaaaaaaaaaaaa: { persons: { p1: { name: 'A' } } } };
     const { worker } = await loadWorker(db);
