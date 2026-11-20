@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import QRCode from 'qrcode';
 import { probeService, useData } from '../data/DataContext';
 import type { Person } from '../types';
 import { Advanced, Avatar, Icon, Modal, Toggle } from './ui';
@@ -475,7 +474,7 @@ function SyncTab() {
   const link = cloud ? makeJoinLink(cloud, family.appDomain) : '';
 
   useEffect(() => {
-    if (link) QRCode.toDataURL(link, { width: 260, margin: 1 }).then(setQr);
+    if (link) import('qrcode').then((QR) => QR.default.toDataURL(link, { width: 260, margin: 1 })).then(setQr).catch(() => {});
   }, [link]);
 
   const firebaseFromInput = () => {

@@ -1,27 +1,46 @@
-import { createAvatar } from '@dicebear/core';
-import * as adventurer from '@dicebear/adventurer';
-import * as avataaars from '@dicebear/avataaars';
-import * as bigSmile from '@dicebear/big-smile';
-import * as funEmoji from '@dicebear/fun-emoji';
-import * as lorelei from '@dicebear/lorelei';
-import * as micah from '@dicebear/micah';
-import * as openPeeps from '@dicebear/open-peeps';
-import * as toonHead from '@dicebear/toon-head';
-import * as bottts from '@dicebear/bottts';
 import type { AvatarSpec } from '../types';
 
 /** Comic-Stile von DiceBear (Lizenzen siehe Einstellungen → Info) */
 export const AVATAR_STYLES = {
-  adventurer: { label: 'Abenteurer', style: adventurer, credit: 'Adventurer – Lisa Wischofsky (CC BY 4.0)' },
-  bigSmile: { label: 'Grinser', style: bigSmile, credit: 'Big Smile – Ashley Seo (CC BY 4.0)' },
-  toonHead: { label: 'Toon', style: toonHead, credit: 'Toon Head – Johan Melin (CC BY 4.0)' },
-  avataaars: { label: 'Avataaars', style: avataaars, credit: 'Avataaars – Pablo Stanley (frei nutzbar)' },
-  micah: { label: 'Micah', style: micah, credit: 'Micah – Micah Lanier (CC BY 4.0)' },
-  lorelei: { label: 'Lorelei', style: lorelei, credit: 'Lorelei – Lisa Wischofsky (CC0)' },
-  openPeeps: { label: 'Peeps', style: openPeeps, credit: 'Open Peeps – Pablo Stanley (CC0)' },
-  funEmoji: { label: 'Emoji', style: funEmoji, credit: 'Fun Emoji – Davis Uche (CC BY 4.0)' },
-  bottts: { label: 'Roboter', style: bottts, credit: 'Bottts – Pablo Stanley (frei nutzbar)' },
+  adventurer: { label: 'Abenteurer', credit: 'Adventurer – Lisa Wischofsky (CC BY 4.0)' },
+  bigSmile: { label: 'Grinser', credit: 'Big Smile – Ashley Seo (CC BY 4.0)' },
+  toonHead: { label: 'Toon', credit: 'Toon Head – Johan Melin (CC BY 4.0)' },
+  avataaars: { label: 'Avataaars', credit: 'Avataaars – Pablo Stanley (frei nutzbar)' },
+  micah: { label: 'Micah', credit: 'Micah – Micah Lanier (CC BY 4.0)' },
+  lorelei: { label: 'Lorelei', credit: 'Lorelei – Lisa Wischofsky (CC0)' },
+  openPeeps: { label: 'Peeps', credit: 'Open Peeps – Pablo Stanley (CC0)' },
+  funEmoji: { label: 'Emoji', credit: 'Fun Emoji – Davis Uche (CC BY 4.0)' },
+  bottts: { label: 'Roboter', credit: 'Bottts – Pablo Stanley (frei nutzbar)' },
 } as const;
+
+/* ---------------- Nachladen der Stile ---------------- */
+
+type StyleModule = typeof import('./avatarStyles');
+let mod: StyleModule | null = null;
+let loading: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+let version = 0;
+
+/** Stile laden (einmal); danach zeichnen sich alle Figuren neu */
+export function loadAvatarStyles(): Promise<void> {
+  if (!loading) {
+    loading = import('./avatarStyles').then((m) => {
+      mod = m;
+      cache.clear();
+      version++;
+      listeners.forEach((f) => f());
+    }).catch((e) => { loading = null; console.error('Figuren laden', e); });
+  }
+  return loading;
+}
+export const avatarsVersion = () => version;
+export function onAvatarsReady(f: () => void): () => void { listeners.add(f); return () => { listeners.delete(f); }; }
+
+/** Platzhalter, bis die Stile geladen sind: Kreis in der Farbe der Person */
+function placeholder(bg?: string): string {
+  const fill = bg ?? '#d9dce8';
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="${fill}"/></svg>`);
+}
 
 export type AvatarStyleKey = keyof typeof AVATAR_STYLES;
 
@@ -74,7 +93,8 @@ const FEATURES: Partial<Record<AvatarStyleKey, { key: string; label: string; pro
 export function featuresFor(style: string): FeatureDef[] {
   const defs = FEATURES[style as AvatarStyleKey];
   if (!defs) return [];
-  const schema = (AVATAR_STYLES[style as AvatarStyleKey].style as any).schema?.properties ?? {};
+  if (!mod) { loadAvatarStyles(); return []; }
+  const schema = ((mod.STYLE_MODULES as Record<string, unknown>)[style] as any)?.schema?.properties ?? {};
   return defs.flatMap((d) => {
     const p = schema[d.key];
     if (!p) return [];
@@ -110,12 +130,14 @@ export function avatarUri(spec: AvatarSpec | undefined, bg?: string): string {
   // ältere/importierte Personen ohne Figur: neutrale Standardfigur statt Absturz
   spec = spec ?? { style: 'adventurer', seed: 'person' };
   const key = `${spec.style}|${spec.seed}|${bg ?? ''}|${spec.opts ? JSON.stringify(spec.opts) : ''}`;
+  if (!mod) { loadAvatarStyles(); return placeholder(bg); }
   let uri = cache.get(key);
   if (!uri) {
-    const def = AVATAR_STYLES[spec.style as AvatarStyleKey] ?? AVATAR_STYLES.adventurer;
+    const styles = mod.STYLE_MODULES as Record<string, unknown>;
+    const style = styles[spec.style] ?? styles.adventurer;
     const opts: Record<string, unknown> = { seed: spec.seed, radius: 50, ...featureOptions(spec) };
     if (bg) opts.backgroundColor = [bg.replace('#', '')];
-    uri = createAvatar(def.style as any, opts).toDataUri();
+    uri = mod.createAvatar(style as any, opts).toDataUri();
     if (cache.size > 2000) cache.clear();
     cache.set(key, uri);
   }

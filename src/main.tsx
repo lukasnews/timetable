@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { loadAvatarStyles } from './lib/avatars';
 import './install';
 import { importDeviceSettings, migrateIfNeeded } from './migrate';
 import { updateState } from './update';
@@ -52,3 +53,6 @@ createRoot(document.getElementById('root')!).render(
     </DataProvider>
   </StrictMode>,
 );
+
+// Comic-Figuren gleich im Hintergrund nachladen (nicht im Start-Bundle)
+loadAvatarStyles();

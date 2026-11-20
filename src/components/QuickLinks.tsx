@@ -7,9 +7,14 @@ import { isNative } from '../native';
 /** Link öffnen: Web-Adressen in neuem Tab/externem Browser, App-Links (z. B. whatsapp:) direkt */
 export function openUrl(url: string) {
   const u = url.trim();
+  // Keine ausführbaren Adressen (Schutz vor eingeschleustem Code über gemeinsame Familieneinstellungen)
+  if (!isSafeUrl(u)) return;
   if (/^https?:\/\//i.test(u)) window.open(u, '_blank', 'noopener');
   else window.location.href = u;
 }
+
+/** http(s) und App-Links (whatsapp:, tel:, mailto: …) erlaubt – javascript:, data:, vbscript:, file: nicht */
+export const isSafeUrl = (u: string) => !!u && !/^\s*(javascript|data|vbscript|file|blob):/i.test(u.replace(/[\u0000-\u001F\s]+/g, ''));
 
 const playUrl = (pkg: string) => `https://play.google.com/store/apps/details?id=${encodeURIComponent(pkg)}`;
 const isAndroid = () => /android/i.test(navigator.userAgent);

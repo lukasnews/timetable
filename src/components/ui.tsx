@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 import type { Person } from '../types';
-import { avatarUri, tint } from '../lib/avatars';
+import { avatarUri, avatarsVersion, onAvatarsReady, tint } from '../lib/avatars';
 
 export function Modal(props: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   useEffect(() => {
@@ -24,7 +24,11 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   );
 }
 
+/** Neu zeichnen, sobald die Comic-Stile nachgeladen sind */
+export const useAvatarsReady = () => useSyncExternalStore(onAvatarsReady, avatarsVersion, avatarsVersion);
+
 export function Avatar({ person, size = 32, ring = false }: { person: Person; size?: number; ring?: boolean }) {
+  useAvatarsReady();
   return (
     <img
       className={'avatar' + (ring ? ' ring' : '')}

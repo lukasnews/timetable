@@ -42,6 +42,8 @@ export default defineConfig({
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Dienst (/svc), Datenschutz- und Offline-Seite nicht durch die App-Startseite ersetzen
+        navigateFallbackDenylist: [/^\/svc\//, /^\/datenschutz/, /^\/offline/, /\.(ics|json|txt)$/],
       },
     }),
   ],
