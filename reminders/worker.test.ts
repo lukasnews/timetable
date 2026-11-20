@@ -83,6 +83,16 @@ describe('Worker: mehrere Familien', () => {
     expect(JSON.stringify(db[REG].backups)).not.toContain('203.0.113.7'); // IP nur gehasht
   });
 
+  it('alte workers.dev-Adresse leitet dauerhaft auf die eigene Domain weiter', async () => {
+    const { worker } = await loadWorker({});
+    const e2 = { ...env, PUBLIC_URL: 'https://erinnerungen.example' };
+    const r = await worker.fetch(new Request('https://alt.konto.workers.dev/cal/feedaaaaaaaaaaaaaaaa.ics?p=x'), e2);
+    expect(r.status).toBe(301);
+    expect(r.headers.get('location')).toBe('https://erinnerungen.example/cal/feedaaaaaaaaaaaaaaaa.ics?p=x');
+    expect((await worker.fetch(new Request('https://alt.konto.workers.dev/register?family=x', { method: 'POST' }), e2)).status).toBe(308);
+    expect((await worker.fetch(new Request('https://erinnerungen.example/'), e2)).status).toBe(200);
+  });
+
   it('Import-Proxy und Lauf nur für angemeldete Familien', async () => {
     const db: Db = { famaaaaaaaaaaaaaaaa: { persons: { p1: { name: 'A' } } } };
     const { worker } = await loadWorker(db);
