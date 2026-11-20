@@ -9,6 +9,7 @@ import {
   onSnapshot,
   setDoc,
   deleteDoc,
+  deleteField,
   type Firestore,
   getDocsFromServer,
 } from 'firebase/firestore';
@@ -121,6 +122,13 @@ export class FirebaseStore implements Store {
   put<T extends Item>(c: Collection, item: T) {
     const clean = JSON.parse(JSON.stringify({ ...item, updatedAt: Date.now() }));
     setDoc(doc(this.col(c), item.id), clean).catch((e) => console.error('Speichern fehlgeschlagen', e));
+  }
+
+  patch(c: Collection, id: string, fields: Record<string, unknown>) {
+    const data: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [k, v] of Object.entries(fields)) data[k] = v === undefined ? deleteField() : JSON.parse(JSON.stringify(v));
+    // nur die genannten Felder ersetzen (keine tiefe Zusammenführung, keine anderen Felder überschreiben)
+    setDoc(doc(this.col(c), id), data, { mergeFields: Object.keys(data) }).catch((e) => console.error('Speichern fehlgeschlagen', e));
   }
 
   /** Mehrere Einträge hochladen und warten, bis der Server sie bestätigt hat */

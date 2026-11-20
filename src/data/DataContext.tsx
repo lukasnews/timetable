@@ -162,6 +162,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [serviceUrl, setServiceUrl] = useState<string | undefined>();
   const [service, setService] = useState<ServiceState>({});
   const [family, setFamily] = useState<FamilySettings>(DEFAULT_FAMILY);
+  const [metaLoaded, setMetaLoaded] = useState(false);
   const [device, setDeviceState] = useState<DeviceSettings>(loadDevice);
 
   useEffect(() => {
@@ -172,6 +173,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       store.subscribe<Timetable>('timetables', setTimetables),
       store.subscribe<any>('meta', (m) => {
         setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
+        setMetaLoaded(true);
         setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
         const settings = m.find((x) => x.id === 'settings') as FamilySettings | undefined;
         if (store.mode !== 'cloud') setServiceUrl(undefined);
@@ -199,11 +201,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [family.appDomain, store]);
 
   // Zeitzone der Familie einmalig vom Gerät übernehmen (für Erinnerungsdienst, Import und Export)
-  // nur wenn das Einstellungs-Dokument wirklich geladen ist – sonst würden Standardwerte gespeichert
-  const settingsLoaded = !!family.updatedAt;
+  // erst wenn die Einstellungen geladen sind (sonst wüssten wir nicht, ob schon eine Zeitzone gewählt ist)
+  const settingsLoaded = metaLoaded;
   useEffect(() => {
     if (store.mode !== 'cloud' || !settingsLoaded || family.timezone) return;
-    const t = setTimeout(() => store.put('meta', { ...family, id: 'settings', timezone: deviceTimezone() }), 4000);
+    const t = setTimeout(() => store.patch('meta', 'settings', { timezone: deviceTimezone() }), 4000);
     return () => clearTimeout(t);
   }, [store, settingsLoaded, family.timezone]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -262,7 +264,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         events.filter((e) => e.personIds.includes(id)).forEach((e) => store.put('events', { ...e, personIds: e.personIds.filter((x) => x !== id) }));
       },
       saveTimetable: (t) => store.put('timetables', t),
-      saveFamily: (f) => store.put('meta', { ...family, ...f, id: 'settings' }),
+      saveFamily: (f) => store.patch('meta', 'settings', f as Record<string, unknown>),
       switchStore: () => setStore(createStore()),
     }),
     [store, status, persons, events, timetables, templates, serviceUrl, service, family, device, setDevice],

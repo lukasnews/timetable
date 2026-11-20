@@ -11,6 +11,8 @@ export interface Store {
   readonly mode: 'local' | 'cloud';
   subscribe<T extends Item>(col: Collection, cb: (items: T[]) => void): () => void;
   put<T extends Item>(col: Collection, item: T): void;
+  /** Nur diese Felder eines Dokuments setzen (undefined = Feld löschen) – andere Felder bleiben, auch wenn ein anderes Gerät sie gerade ändert */
+  patch(col: Collection, id: string, fields: Record<string, unknown>): void;
   remove(col: Collection, id: string): void;
   /** Einmal lesen (ohne Live-Verbindung), z. B. die automatischen Sicherungen */
   fetchAll<T extends Item>(col: Collection): Promise<T[]>;

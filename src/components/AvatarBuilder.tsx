@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { Person } from '../types';
 import { featuresFor } from '../lib/avatars';
-import { Avatar, Icon } from './ui';
+import { Avatar, Icon, useAvatarsReady } from './ui';
 
 /** Baukasten: einzelne Merkmale der Comic-Figur gezielt wählen */
 export function AvatarBuilder({ person, onChange }: { person: Person; onChange: (opts: Record<string, string | null> | undefined) => void }) {
+  useAvatarsReady(); // Baukasten erscheint, sobald die Stile geladen sind
   const features = featuresFor(person.avatar.style);
   const [active, setActive] = useState(features[0]?.key);
   useEffect(() => { if (!features.some((f) => f.key === active)) setActive(features[0]?.key); }, [person.avatar.style]); // eslint-disable-line react-hooks/exhaustive-deps

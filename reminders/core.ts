@@ -384,18 +384,36 @@ export function dueNotifications(opts: {
 
 /* ---------------- Importierte Kalender ---------------- */
 
+/** Höchstgröße einer Kalenderdatei/Seite (Schutz vor Riesendateien) */
+const MAX_ICS_BYTES = 5 * 1024 * 1024;
+
+/** Antwort als Text lesen – mit Zeitlimit und Größengrenze */
+async function readLimited(u: string, accept: string, ua: string): Promise<string> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  try {
+    const r = await fetch(u, { headers: { accept, 'user-agent': ua }, signal: ctrl.signal, redirect: 'follow' });
+    if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
+    const len = Number(r.headers.get('content-length') ?? 0);
+    if (len > MAX_ICS_BYTES) throw new Error('Kalenderdatei ist zu groß (über 5 MB)');
+    const text = await r.text();
+    if (text.length > MAX_ICS_BYTES) throw new Error('Kalenderdatei ist zu groß (über 5 MB)');
+    return text;
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') throw new Error('Server antwortet nicht (Zeitüberschreitung)');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fetchIcs(url: string): Promise<string> {
   const u = url.trim().replace(/^webcal:\/\//i, 'https://');
+  if (!/^https?:\/\/[^\s/]+/i.test(u)) throw new Error('Ungültiger Link');
   if (isRisKalender(u)) {
-    return fetchRisIcs(u, async (x) => {
-      const r = await fetch(x, { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 (Familienkalender)' } });
-      if (!r.ok) throw new Error(`Gemeindeseite antwortet mit ${r.status}`);
-      return r.text();
-    });
+    return fetchRisIcs(u, (x) => readLimited(x, 'text/html', 'Mozilla/5.0 (Familienkalender)'));
   }
-  const r = await fetch(u, { headers: { accept: 'text/calendar, text/plain, */*', 'user-agent': 'Familienkalender/1.0' } });
-  if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
-  const text = await r.text();
+  const text = await readLimited(u, 'text/calendar, text/plain, */*', 'Familienkalender/1.0');
   if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('Unter dem Link liegt keine Kalenderdatei (.ics)');
   return text;
 }
