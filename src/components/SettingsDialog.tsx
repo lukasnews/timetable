@@ -645,7 +645,13 @@ function GeneralTab() {
       <h3>Feiertage und Ferien</h3>
       <Toggle checked={family.showHolidays} onChange={(v) => saveFamily({ showHolidays: v })} label="Feiertage Österreich anzeigen" />
       <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
-        hint="Schulautonome Tage bitte als eigenen Termin eintragen." />
+        hint="Laut Bildungsministerium; schulautonome Tage bitte als eigenen Termin eintragen." />
+      <details className="tips">
+        <summary>Anderes Bundesland oder Land?</summary>
+        <p className="hint">Die eingebauten Feiertage gelten für Österreich, die Ferien für Oberösterreich. Für andere Regionen beides hier ausschalten und
+          stattdessen den offiziellen Ferien- bzw. Feiertagskalender eures Landes als Link importieren (⚙️ → Daten → Kalender importieren) –
+          z. B. den „Feiertage“-Kalender aus Google Kalender oder einen Schulferien-Kalender als iCal-Link. Er aktualisiert sich dann jeden Tag von selbst.</p>
+      </details>
 
       <WeatherPlace />
 

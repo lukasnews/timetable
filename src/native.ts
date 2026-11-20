@@ -254,7 +254,7 @@ interface FamilyWidgetPlugin { update(o: { items: string }): Promise<void> }
 let widgetPlugin: FamilyWidgetPlugin | null = null;
 
 /** Nächste Termine für das Widget (rein, testbar) */
-export function widgetItems(events: CalEvent[], persons: Person[], now: string, days = 7, max = 12) {
+export function widgetItems(events: CalEvent[], persons: Person[], now: string, days = 21, max = 40) {
   const today = now.slice(0, 10);
   const bdays: CalEvent[] = persons.filter((p) => p.birthday).map((p) => ({
     id: 'bday-' + p.id, title: p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [p.id], kind: 'birthday',
