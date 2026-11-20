@@ -214,7 +214,11 @@ export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: C
   const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer);
   const prefix = cfg.topicPrefix;
   if (!prefix) {
-    return ownOk ? { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined }, allowed: () => true } : { cfg, allowed: () => true };
+    // Eigene Familie: Server/Schlüssel aus den Einstellungen; ohne Eintrag wie bisher die des Dienstes
+    const valid = !!own && /^https:\/\/[^\s/]+/i.test(own);
+    if (!valid) return { cfg, allowed: () => true };
+    const same = normServer(own!) === normServer(cfg.ntfyServer);
+    return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || (same ? cfg.ntfyToken : undefined) }, allowed: () => true };
   }
   if (!ownOk) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
   return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined }, allowed: (t) => t === prefix || t.startsWith(prefix + '-') };
