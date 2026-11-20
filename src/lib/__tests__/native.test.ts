@@ -60,3 +60,14 @@ describe('Tages- und Wochenübersicht am Gerät', () => {
     expect(plannedDigests(evs, persons, { reminderPersons: [] }, '2026-11-15T12:00')).toEqual([]);
   });
 });
+
+import { parsePendingDate } from '../../native';
+describe('Zeitpunkt aus Android lesen', () => {
+  it('Javas Date.toString mit „CET“ als Ortszeit (nicht UTC)', () => {
+    const d = parsePendingDate('Fri Nov 20 17:25:00 CET 2026')!;
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2026, 10, 20, 17, 25]);
+    expect(parsePendingDate('Sun Jul 05 08:00:00 GMT+02:00 2026')!.getHours()).toBe(8);
+    expect(parsePendingDate('2026-11-20T16:25:00.000Z')!.toISOString()).toBe('2026-11-20T16:25:00.000Z');
+    expect(parsePendingDate(undefined)).toBeNull();
+  });
+});

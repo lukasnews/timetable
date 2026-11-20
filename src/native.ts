@@ -152,6 +152,22 @@ export async function openExactAlarmSetting(): Promise<void> {
   await LocalNotifications.changeExactNotificationSetting();
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/**
+ * Zeitpunkt aus getPending lesen. Android liefert Javas Date.toString(), z. B. „Fri Nov 20 17:25:00 CET 2026“ –
+ * das Kürzel „CET“ kennt JavaScript nicht und würde die Zeit als UTC lesen (1 Stunde verschoben).
+ * Die Uhrzeit ist bereits Ortszeit des Geräts, also ohne Zeitzone übernehmen.
+ */
+export function parsePendingDate(v: unknown): Date | null {
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') return new Date(v);
+  if (typeof v !== 'string') return null;
+  const m = v.match(/^\w{3} (\w{3}) (\d{1,2}) (\d{2}):(\d{2}):(\d{2}) \S+ (\d{4})$/);
+  if (m && MONTHS.includes(m[1])) return new Date(Number(m[6]), MONTHS.indexOf(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5]));
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 /** Was ist am Gerät eingeplant? (für die Anzeige in den Einstellungen) */
 export async function nativeReminderStatus(): Promise<{ count: number; next?: { at: Date; title: string }; list: { at: Date; title: string; body: string }[]; permission: string; exact: string } | null> {
   if (!isNative()) return null;
@@ -162,7 +178,7 @@ export async function nativeReminderStatus(): Promise<{ count: number; next?: { 
     exactAlarmStatus(),
   ]);
   const items = pending.notifications
-    .map((n) => ({ at: n.schedule?.at ? new Date(n.schedule.at) : null, title: n.title ?? '', body: n.body ?? '' }))
+    .map((n) => ({ at: parsePendingDate(n.schedule?.at), title: n.title ?? '', body: n.body ?? '' }))
     .filter((x): x is { at: Date; title: string; body: string } => !!x.at && !isNaN(x.at.getTime()))
     .sort((a, b) => a.at.getTime() - b.at.getTime());
   return { count: pending.notifications.length, next: items[0], list: items, permission, exact };
