@@ -16,7 +16,7 @@ import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
-import { canNativeShare, exactAlarmStatus, isNative, nativeNotifyPermission, nativeShareText, nativeTestNotification, openExactAlarmSetting } from '../native';
+import { canNativeShare, exactAlarmStatus, isNative, nativeNotifyPermission, nativeReminderStatus, nativeShareText, nativeTestNotification, openExactAlarmSetting } from '../native';
 import { QuickLinksEditor } from './QuickLinks';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -261,6 +261,14 @@ function NotifyTab() {
     return () => window.removeEventListener('fk-resume', check);
   }, [native]);
   const [testMsg, setTestMsg] = useState('');
+  const [plan, setPlan] = useState<Awaited<ReturnType<typeof nativeReminderStatus>>>(null);
+  useEffect(() => {
+    if (!native) return;
+    const load = () => nativeReminderStatus().then(setPlan).catch(() => {});
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [native, device.reminders, device.dailyDigest, device.weeklyDigest]);
   const [ntfyTest, setNtfyTest] = useState<{ busy?: boolean; error?: string; results?: { topic: string; ok: boolean; error?: string }[] } | null>(null);
   const runNtfyTest = async () => {
     const fid = loadCloudConfig()?.familyId;
@@ -308,6 +316,12 @@ function NotifyTab() {
             ? '✓ Test geplant – in etwa 1 Minute sollte eine Benachrichtigung kommen (App darf dafür geschlossen sein).'
             : 'Benachrichtigungen sind blockiert – in den Android-Einstellungen bei „Familienkalender“ erlauben.')}>Test-Benachrichtigung in 1 Minute</button>
         </div>
+      )}
+      {native && plan && (device.reminders || device.dailyDigest || device.weeklyDigest) && (
+        <small className="hint">📋 Am Gerät eingeplant: <b>{plan.count}</b>
+          {plan.next && <> · nächste: {plan.next.at.toLocaleString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })} „{plan.next.title}“</>}
+          {' '}· Benachrichtigungen: {plan.permission === 'granted' ? 'erlaubt ✓' : <b>nicht erlaubt</b>} · genaue Uhrzeit: {plan.exact === 'granted' ? 'erlaubt ✓' : plan.exact === 'denied' ? <b>nicht erlaubt</b> : '–'}
+        </small>
       )}
       {testMsg && <small className="hint">{testMsg} Kommt nichts: Android-Einstellungen → Apps → Familienkalender → Akku → „Nicht eingeschränkt“.</small>}
       {native && (
