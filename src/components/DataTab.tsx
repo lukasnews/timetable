@@ -18,6 +18,7 @@ import { EVENING_TIMES, SOURCE_REMINDERS, planSync, reminderFor, setSourceRemind
 import { loadCloudConfig } from '../data/store';
 import { Advanced, Avatar, Icon, Toggle } from './ui';
 import { nativeShareFile } from '../native';
+import { deviceTimezone } from '../lib/dates';
 import { ConfirmDialog } from './Dialogs';
 
 /** Erinnerung einer Quelle: Auswahl + ggf. Uhrzeit am Vorabend */
@@ -92,7 +93,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
 
   const load = (text: string, fallbackName: string, link?: string) => {
     try {
-      const r = parseICS(text, { source: fallbackName });
+      const r = parseICS(text, { source: fallbackName, timezone: family.timezone || deviceTimezone() });
       const source = r.calendarName || fallbackName;
       r.events.forEach((e) => (e.importSource = source));
       setPreview({ ...r, source, url: link });
@@ -183,7 +184,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   };
 
-  const exportIcs = () => saveFile(new File([toICS(events.filter((e) => !e.importSource), persons)], `familienkalender-${today}.ics`, { type: 'text/calendar' }));
+  const exportIcs = () => saveFile(new File([toICS(events.filter((e) => !e.importSource), persons, family.timezone || deviceTimezone())], `familienkalender-${today}.ics`, { type: 'text/calendar' }));
 
   const exportBackup = () => {
     const backup: Backup = { format: 'familienkalender-backup', version: 1, exportedAt: new Date().toISOString(), persons, events, timetables, settings: family };

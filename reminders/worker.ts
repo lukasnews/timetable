@@ -265,7 +265,7 @@ export default {
         const pid = url.searchParams.get('p');
         const mine = pid ? events.filter((e) => (!e.personIds?.length && !e.driverIds?.length) || e.personIds?.includes(pid) || e.driverIds?.includes(pid)) : events;
         const fixed = mine.map((e) => ({ ...e, personIds: e.personIds ?? [] }));
-        return new Response(toICS(fixed, persons), {
+        return new Response(toICS(fixed, persons, settings.timezone), {
           headers: { 'content-type': 'text/calendar; charset=utf-8', 'cache-control': 'public, max-age=900' },
         });
       } catch (e) {

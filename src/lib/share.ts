@@ -32,8 +32,8 @@ export function shareText(ev: CalEvent, start: string, end: string, persons: Per
 }
 
 /** Ein einzelnes Vorkommen als .ics-Datei (Serien werden als einzelner Termin geteilt) */
-export function shareIcsFile(ev: CalEvent, start: string, end: string, persons: Person[]): File {
+export function shareIcsFile(ev: CalEvent, start: string, end: string, persons: Person[], timezone?: string): File {
   const single: CalEvent = { ...ev, id: `${ev.id}-${start.replace(/[^0-9]/g, '')}`, start, end, recurrence: undefined, exdates: undefined, seriesId: undefined, originalStart: undefined };
   const name = (ev.title || 'Termin').replace(/[^\p{L}\p{N} _-]/gu, '').trim().slice(0, 40) || 'Termin';
-  return new File([toICS([single], persons)], `${name}.ics`, { type: 'text/calendar' });
+  return new File([toICS([single], persons, timezone)], `${name}.ics`, { type: 'text/calendar' });
 }

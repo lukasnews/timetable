@@ -10,6 +10,7 @@ import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
 import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, normalizeDomain, parseFamilyInput, saveCloudConfig, type CloudConfig } from '../data/store';
 import { suggestTopic, topicAllowed } from '../lib/familyKey';
+import { deviceTimezone } from '../lib/dates';
 import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
@@ -605,6 +606,14 @@ function SyncTab() {
   );
 }
 
+/** Liste der Zeitzonen (falls der Browser sie kennt), die aktuelle immer dabei */
+function timezoneList(current: string): string[] {
+  let all: string[] = [];
+  try { all = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? []; } catch { /* alt */ }
+  if (!all.length) all = ['Europe/Vienna', 'Europe/Berlin', 'Europe/Zurich', 'Europe/London', 'Europe/Paris', 'Europe/Rome', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney', 'UTC'];
+  return all.includes(current) ? all : [current, ...all];
+}
+
 function GeneralTab() {
   const { family, saveFamily } = useData();
   const [updateMsg, setUpdateMsg] = useState('');
@@ -624,6 +633,16 @@ function GeneralTab() {
   };
   return (
     <div className="settings-section">
+      <Advanced title="🌍 Zeitzone" status={family.timezone || deviceTimezone()}
+        hint="Für Erinnerungen per ntfy, importierte und exportierte Kalender. Wird automatisch vom Gerät übernommen.">
+        <label className="field"><span className="label">Zeitzone der Familie</span>
+          <select value={family.timezone || deviceTimezone()} onChange={(e) => saveFamily({ timezone: e.target.value })}>
+            {timezoneList(family.timezone || deviceTimezone()).map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}
+          </select>
+          <small className="hint">Dieses Gerät: {deviceTimezone().replace(/_/g, ' ')}. Die Uhrzeiten der Termine selbst bleiben, wie sie eingetragen sind.</small>
+        </label>
+      </Advanced>
+
       <h3>Feiertage und Ferien</h3>
       <Toggle checked={family.showHolidays} onChange={(v) => saveFamily({ showHolidays: v })} label="Feiertage Österreich anzeigen" />
       <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
