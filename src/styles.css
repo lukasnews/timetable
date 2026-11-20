@@ -75,12 +75,12 @@ a { color: var(--accent); }
    Dann kann die Seite um die Leistenhöhe scrollen und der Browser blendet Adress- und
    Werkzeugleiste beim Wischen aus. Installiert/App: kein Unterschied (dort gibt es diese Leisten nicht). */
 @media (display-mode: browser) {
-  :root:not(.native-app) .app { height: calc(100vh / var(--z, 1)); height: calc(100lvh / var(--z, 1)); }
+  :root:not(.native-app) .app { height: calc(100vh / var(--z, 1)); }
 }
 .app {
-  /* 100vh als Rückfall für ältere Android-WebViews (Chrome < 108 kennt dvh nicht) */
+  /* 100vh für ältere Android-WebViews (Chrome < 108 kennt dvh nicht); dvh/lvh nur per @supports –
+     ein doppelter Eintrag hilft nicht, weil Werte mit var() erst zur Laufzeit verworfen werden */
   height: calc(100vh / var(--z, 1));
-  height: calc(100dvh / var(--z, 1));
   display: grid;
   grid-template-rows: auto auto auto 1fr;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -220,7 +220,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .modal {
   background: var(--surface); border-radius: 20px; width: min(560px, 100%);
   max-height: calc((100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))) / var(--z, 1));
-  max-height: calc((100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))) / var(--z, 1));
   display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 .modal.wide { width: min(820px, 100%); }
@@ -521,8 +520,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .cal-wrap { padding: 2px; border-radius: 10px; }
   .modal-backdrop { padding: env(safe-area-inset-top) 0 0; align-items: end; }
   /* Blatt von unten: unten Platz für die Navigationsleiste lassen */
-  .modal { border-radius: 20px 20px 0 0; max-height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); max-height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); width: 100%; padding-bottom: env(safe-area-inset-bottom); }
-  .modal.wide { height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); }
+  .modal { border-radius: 20px 20px 0 0; max-height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); width: 100%; padding-bottom: env(safe-area-inset-bottom); }
+  .modal.wide { height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); }
   .modal-body { padding: 8px 16px 16px; }
   .modal-head { padding: 12px 8px 4px 16px; }
   .modal-foot { flex-wrap: nowrap; padding: 10px 12px; }
@@ -1038,4 +1037,15 @@ details.tips ul { margin: 6px 0 0; padding-left: 18px; }
   .rt-kw, .chip .badge { background: var(--surface-2); }
   .btn.danger, .install-btn { border-color: currentColor; }
   :root { --fc-highlight-color: rgba(127, 127, 127, 0.15); }
+}
+
+/* Neuere Browser: dynamische Höhe (Adressleiste ein/aus) */
+@supports (height: 100dvh) {
+  .app { height: calc(100dvh / var(--z, 1)); }
+  .modal { max-height: calc((100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))) / var(--z, 1)); }
+  @media (display-mode: browser) { :root:not(.native-app) .app { height: calc(100lvh / var(--z, 1)); } }
+  @media (max-width: 640px) {
+    .modal { max-height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); }
+    .modal.wide { height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); }
+  }
 }
