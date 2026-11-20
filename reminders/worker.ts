@@ -24,9 +24,11 @@ interface Env {
   APP_URL?: string;
   /** Öffentliche Adresse des Dienstes (eigene Domain) – die workers.dev-Adresse leitet dorthin weiter */
   PUBLIC_URL?: string;
+  /** Adresse der App für andere Familien (Link in deren Push-Nachrichten, wenn ihre App keine meldet) */
+  PUBLIC_APP_URL?: string;
 }
 
-interface Entry { id: string; familyId: string; feedToken?: string; at?: number; seen?: number }
+interface Entry { id: string; familyId: string; feedToken?: string; at?: number; seen?: number; appUrl?: string }
 
 /** Familien, deren App sich so lange nicht gemeldet hat, nimmt der Dienst aus dem Verzeichnis (sie melden sich beim nächsten Öffnen neu an) */
 const STALE_MS = 60 * 86400_000;
@@ -64,8 +66,11 @@ function config(env: Env, familyId = env.FAMILY_ID, prefix?: string): Config {
 }
 
 /** Konfiguration für eine Familie: fremde Familien nur mit Topic-Präfix */
-async function familyConfig(env: Env, familyId: string): Promise<Config> {
-  return config(env, familyId, familyId === env.FAMILY_ID ? undefined : await topicPrefix(familyId));
+async function familyConfig(env: Env, familyId: string, entry?: Entry): Promise<Config> {
+  const cfg = config(env, familyId, familyId === env.FAMILY_ID ? undefined : await topicPrefix(familyId));
+  // Andere Familien: Links in Nachrichten führen zu IHRER App-Adresse, nie zur Adresse der eigenen Familie
+  if (familyId !== env.FAMILY_ID) cfg.appUrl = entry?.appUrl || env.PUBLIC_APP_URL || undefined;
+  return cfg;
 }
 
 let regCache: { at: number; entries: Entry[] } | null = null;
@@ -112,7 +117,7 @@ async function check(env: Env, log: (s: string) => void = console.log) {
   for (let i = 0; i < active.length; i++) {
     if (calls + 8 > budget) { console.log(`Budget erreicht – ${active.length - i} Familie(n) beim nächsten Lauf`); break; }
     const e = active[(startAt + i) % active.length];
-    try { await run(await familyConfig(env, e.familyId), token, new Date(), () => {}, { by: 'cloudflare', dropIfEmpty: true }); }
+    try { await run(await familyConfig(env, e.familyId, e), token, new Date(), () => {}, { by: 'cloudflare', dropIfEmpty: true }); }
     catch (err) {
       if (String(err).includes('FAMILY_GONE')) {
         await commit(config(env, env.REGISTRY_ID), token, 'meta', [], [e.id]).catch(() => {});
@@ -132,7 +137,7 @@ async function setStateField(cfg: Config, token: string, field: string, value: s
 }
 
 /** Familie beim Dienst anmelden (nur wer die geheime Familien-ID kennt; die Familie muss Daten haben) */
-async function register(env: Env, familyId: string, serviceUrl: string, clientIp = ''): Promise<Response> {
+async function register(env: Env, familyId: string, serviceUrl: string, clientIp = '', appOrigin = ''): Promise<Response> {
   const cors = { 'access-control-allow-origin': '*', 'content-type': 'text/plain; charset=utf-8' };
   if (!validId(env.REGISTRY_ID ?? null)) return new Response('Der Dienst nimmt keine weiteren Familien auf', { status: 503, headers: cors });
   const cfg = config(env, familyId);
@@ -154,8 +159,9 @@ async function register(env: Env, familyId: string, serviceUrl: string, clientIp
     await commit(regCfg, token, 'backups', [{ id, count: (doc?.count ?? 0) + 1 } as { id: string }]);
   }
   const feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
-  if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken || Date.now() - (known.seen ?? 0) > 86400_000)) {
-    await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now() } as Entry]);
+  const appUrl = /^https:\/\/[a-z0-9.-]+$/i.test(appOrigin) ? appOrigin + '/' : known?.appUrl;
+  if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken || (known.appUrl ?? '') !== (appUrl ?? '') || Date.now() - (known.seen ?? 0) > 86400_000)) {
+    await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now(), ...(appUrl ? { appUrl } : {}) } as Entry]);
     regCache = null;
   }
   // Präfix sofort in der App anzeigen (nicht erst nach dem ersten Lauf)
@@ -181,7 +187,7 @@ export default {
     if (url.pathname === '/register') {
       if (req.method === 'OPTIONS') return new Response(null, { headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST' } });
       if (req.method !== 'POST' || !validId(fam)) return new Response('Ungültig', { status: 400, headers: { 'access-control-allow-origin': '*' } });
-      try { return await register(env, fam, url.origin, req.headers.get('cf-connecting-ip') ?? ''); }
+      try { return await register(env, fam, url.origin, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('origin') ?? ''); }
       catch (e) { return new Response(String(e instanceof Error ? e.message : e).slice(0, 200), { status: 500, headers: { 'access-control-allow-origin': '*' } }); }
     }
     // Manuell prüfen (nur mit Familien-ID): /run?family=…
@@ -190,9 +196,10 @@ export default {
       try {
         if (fam === env.FAMILY_ID) await check(env, (s) => lines.push(s));
         else {
-          const cfg = await familyConfig(env, fam);
-          const token = await idToken(cfg, env);
-          if (!(await isKnown(env, token, fam))) return new Response('Nicht angemeldet', { status: 403 });
+          const token = await idToken(config(env), env);
+          const entry = (await registry(env, token)).find((e) => e.familyId === fam);
+          if (!entry) return new Response('Nicht angemeldet', { status: 403 });
+          const cfg = await familyConfig(env, fam, entry);
           await run(cfg, token, new Date(), (s) => lines.push(s), { by: 'cloudflare', dropIfEmpty: true });
         }
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });

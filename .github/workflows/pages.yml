@@ -41,3 +41,32 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Dieselbe App unter einer neutralen Adresse für andere Familien (Cloudflare Pages, z. B. familienkalender.pages.dev).
+  # Die eigene Domain bleibt der eigenen Familie vorbehalten.
+  public:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Secrets prüfen
+        id: check
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "ready=false" >> "$GITHUB_OUTPUT"; else echo "ready=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
+        if: steps.check.outputs.ready == 'true'
+      - name: Auf Cloudflare Pages veröffentlichen
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          rm -f dist/CNAME
+          npx --yes wrangler@4 pages project create familienkalender --production-branch=main 2>&1 | tail -3 || true
+          npx --yes wrangler@4 pages deploy dist --project-name=familienkalender --branch=main --commit-dirty=true 2>&1 | tee /tmp/pages.log
+          echo "Öffentliche Adresse: https://$(npx --yes wrangler@4 pages project list 2>/dev/null | grep -oE 'familienkalender[a-z0-9-]*\.pages\.dev' | head -1)"

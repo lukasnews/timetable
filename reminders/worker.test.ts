@@ -68,6 +68,9 @@ describe('Worker: mehrere Familien', () => {
     expect(entry.seen).toBeGreaterThan(0);
     expect(db.famaaaaaaaaaaaaaaaa.meta.service.url).toBe(W);
     expect(String(db.famaaaaaaaaaaaaaaaa.meta.reminders.topicPrefix)).toMatch(/^fk-/);
+    // App-Adresse der Familie wird gemerkt (für Links in ihren Nachrichten)
+    await worker.fetch(new Request(`${W}/register?family=famaaaaaaaaaaaaaaaa`, { method: 'POST', headers: { origin: 'https://familienkalender.example' } }), env);
+    expect((Object.values(db[REG].meta)[0] as any).appUrl).toBe('https://familienkalender.example/');
   });
 
   it('höchstens 3 neue Familien pro Absender und Tag', async () => {
