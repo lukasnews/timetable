@@ -58,6 +58,7 @@ setTimeout(() => {
   // Beim allerersten Start lädt sich die App nach dem Einrichten des Offline-Speichers ggf. einmal neu –
   // dabei geht die Verbindung zur WebView verloren, also neu verbinden, bis der Kalender sichtbar ist.
   const errors = [];
+  const startErrors = [];
   let page;
   const deadline = Date.now() + 180000;
   for (;;) {
@@ -65,15 +66,24 @@ setTimeout(() => {
       const wv = await dev.webView({ pkg: PKG }, { timeout: 60000 });
       page = await wv.page();
       page.setDefaultTimeout(15000);
+      page.on('pageerror', (e) => startErrors.push(String(e).slice(0, 200)));
+      page.on('console', (m) => { if (m.type() === 'error') startErrors.push('console: ' + m.text().slice(0, 200)); });
       await page.waitForSelector('.fc', { state: 'visible', timeout: 30000 });
       await sleep(4000);
       if (!page.isClosed() && (await page.locator('.fc').isVisible())) break;
     } catch (e) {
       if (Date.now() > deadline) {
         let diag = '';
-        try { diag = await page.evaluate(() => `${navigator.userAgent} | ${innerWidth}x${innerHeight} | ${document.body.innerText.slice(0, 300).replace(/\n/g, ' / ')}`); } catch { /* egal */ }
+        try {
+          diag = await page.evaluate(() => {
+            const info = (sel) => { const e = document.querySelector(sel); if (!e) return `${sel}:–`; const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+              return `${sel}:${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.top)} d=${cs.display} h=${cs.height} rows=${cs.gridTemplateRows || ''}`; };
+            return [navigator.userAgent, `${innerWidth}x${innerHeight}`, ...['.app', '.hints', '.toolbar', '.main', '.cal-inner', '.fc', '.fc-view-harness'].map(info),
+              'errs=' + (window.__errs || []).join(' ; ')].join(' | ');
+          });
+        } catch (e2) { diag = 'diag-fehler ' + e2; }
         await snap('start-fehler');
-        throw new Error('Kalender erscheint nicht: ' + String(e).split('\n')[0] + ' | ' + diag);
+        throw new Error('Kalender erscheint nicht: ' + String(e).split('\n')[0] + ' | ' + diag + ' | Fehler: ' + startErrors.join(' ; '));
       }
       await sleep(3000);
     }
