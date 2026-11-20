@@ -5,15 +5,15 @@ service cloud.firestore {
     // Die Liste aller Familien kann niemand abfragen; Abfragen über alle Familien hinweg
     // (Collection-Group) sind ohne rekursive Regel ebenfalls verboten.
     match /families/{familyId}/{col}/{docId} {
-      function allowedPath() {
+      // Nur Familie und Sammlung prüfen – beim Lesen ganzer Listen gibt es keine einzelne Dokument-ID
+      function familyPath() {
         return request.auth != null
           && familyId.matches('^[a-z0-9]{16,40}$')
-          && col in ['persons', 'events', 'timetables', 'meta', 'backups']
-          && docId.size() <= 200;
+          && col in ['persons', 'events', 'timetables', 'meta', 'backups'];
       }
-      allow read, delete: if allowedPath();
+      allow get, list, delete: if familyPath();
       // Schreiben: Dokumente in vernünftiger Größe (Schutz vor Missbrauch des Speichers)
-      allow create, update: if allowedPath() && request.resource.data.size() <= 200;
+      allow create, update: if familyPath() && docId.size() <= 200 && request.resource.data.size() <= 200;
     }
   }
 }
