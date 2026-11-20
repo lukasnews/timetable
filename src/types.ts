@@ -78,6 +78,8 @@ export interface CalEvent {
   createdAt?: number;
   /** Person, die zuletzt geändert hat (Geräte-Einstellung „Ich bin“) */
   changedBy?: string;
+  /** Gerät, auf dem zuletzt geändert wurde (zufällige Kennung, für „Änderungen beim Öffnen“) */
+  changedOn?: string;
   updatedAt?: number;
 }
 
@@ -189,6 +191,12 @@ export interface DeviceSettings {
   reminders: boolean;
   /** Erinnerungen nur für diese Personen (leer = alle) */
   reminderPersons: string[];
+  /** Android-App: Tagesübersicht als Benachrichtigung am Gerät ("HH:mm", leer = aus) */
+  dailyDigest?: string;
+  /** Android-App: Wochenübersicht Sonntag 18:00 am Gerät */
+  weeklyDigest?: boolean;
+  /** Beim Öffnen zeigen, was andere seit dem letzten Mal neu eingetragen oder geändert haben (Standard: an) */
+  changeHint?: boolean;
   /** Stundenplan-Blöcke auch in der Monatsansicht */
   schoolInMonth: boolean;
   /** Wetter im Kalender anzeigen */

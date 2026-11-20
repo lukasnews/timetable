@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type FullCalendar from '@fullcalendar/react';
 import { flushSync } from 'react-dom';
-import { useData } from './data/DataContext';
+import { deviceTag, useData } from './data/DataContext';
+import { displayTitle } from './lib/categories';
 import { CalendarView, type ChangeInfo, type ViewName } from './components/CalendarView';
 import { EventDialog, type EditDraft } from './components/EventDialog';
 import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
@@ -173,6 +174,16 @@ export default function App() {
     }));
   }, [family.pinHash]);
 
+  // Änderungen anderer seit dem letzten „Gesehen“ (pro Gerät)
+  const [seenAt, setSeenAt] = useState<number | null>(() => { try { const v = localStorage.getItem('fk.seenAt'); return v ? Number(v) : null; } catch { return null; } });
+  const markSeen = () => { const t = Date.now(); setSeenAt(t); try { localStorage.setItem('fk.seenAt', String(t)); } catch { /* egal */ } };
+  useEffect(() => { if (seenAt === null && data.store.mode === 'cloud' && events.length) markSeen(); }, [seenAt, events.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changedByOthers = useMemo(() => {
+    if (seenAt === null || data.store.mode !== 'cloud' || device.changeHint === false || device.kiosk) return [];
+    const me = deviceTag();
+    return events.filter((e) => !e.importSource && (e.updatedAt ?? 0) > seenAt && e.changedOn !== me && (!device.me || e.changedBy !== device.me))
+      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
+  }, [events, seenAt, device.changeHint, device.kiosk, device.me, data.store.mode]);
   const [localHintOff, setLocalHintOff] = useState(() => { try { return localStorage.getItem('fk.localHint') === 'off'; } catch { return false; } });
   const openSettings = async (tab: SettingsTab) => { if (await requirePin()) setSettings(tab); };
 
@@ -314,7 +325,7 @@ export default function App() {
       syncWidget(events, persons).catch((e) => console.error('Widget', e));
     }, 2000);
     return () => clearTimeout(t);
-  }, [events, persons, device.reminders, device.reminderPersons, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [events, persons, device.reminders, device.reminderPersons, device.dailyDigest, device.weeklyDigest, nativeTick]); // eslint-disable-line react-hooks/exhaustive-deps
   // Kiosk: nachts um 3 Uhr einmal neu laden (frische Version, kein Speicherstau)
   useEffect(() => {
     if (!device.kiosk) return;
@@ -478,6 +489,19 @@ export default function App() {
             <button className="btn small primary" onClick={() => openSettings('sync')}>Eigenen Familienkalender anlegen</button>
             <button className="btn small" onClick={() => openSettings('sync')}>Mit Einladungslink verbinden</button>
             <button className="icon-btn" aria-label="Hinweis ausblenden" onClick={() => { setLocalHintOff(true); try { localStorage.setItem('fk.localHint', 'off'); } catch { /* egal */ } }}>✕</button>
+          </span>
+        </div>
+      )}
+
+      {changedByOthers.length > 0 && (
+        <div className="local-hint change-hint" role="status">
+          <span>🔔 <b>{changedByOthers.length} {changedByOthers.length === 1 ? 'Termin' : 'Termine'} neu oder geändert:</b>{' '}
+            {changedByOthers.slice(0, 3).map((e, i) => (
+              <span key={e.id}>{i > 0 && ', '}<button className="linklike" onClick={() => open(e.id, e.start)}>{displayTitle(e)}
+                {' '}({new Date(e.start.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' })}){e.changedBy && persons.find((p) => p.id === e.changedBy) ? ` – ${persons.find((p) => p.id === e.changedBy)!.name}` : ''}</button></span>
+            ))}{changedByOthers.length > 3 && ' …'}</span>
+          <span className="local-hint-actions">
+            <button className="btn small primary" onClick={markSeen}>Gesehen</button>
           </span>
         </div>
       )}

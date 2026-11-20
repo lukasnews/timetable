@@ -277,6 +277,20 @@ function NotifyTab() {
           <small className="hint">{device.reminderPersons.length ? 'Plus Termine für die ganze Familie.' : 'Keine Auswahl = alle Termine.'}</small>
         </div>
       )}
+      {native && (
+        <>
+          <Toggle checked={!!device.dailyDigest} onChange={async (v) => { if (v && (await nativeNotifyPermission(true)) !== 'granted') return; setDevice({ dailyDigest: v ? '06:30' : undefined }); }}
+            label="Tagesübersicht" hint="Jeden Morgen eine Benachrichtigung mit den Terminen des Tages (nur an Tagen mit Terminen)" />
+          {!!device.dailyDigest && (
+            <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
+              <input type="time" value={device.dailyDigest} onChange={(e) => e.target.value && setDevice({ dailyDigest: e.target.value })} /></label>
+          )}
+          <Toggle checked={!!device.weeklyDigest} onChange={async (v) => { if (v && (await nativeNotifyPermission(true)) !== 'granted') return; setDevice({ weeklyDigest: v || undefined }); }}
+            label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+        </>
+      )}
+      <Toggle checked={device.changeHint !== false} onChange={(v) => setDevice({ changeHint: v })} label="Änderungen beim Öffnen zeigen"
+        hint="„3 Termine neu oder geändert“ – was andere seit dem letzten Öffnen eingetragen haben" />
       <label className="field"><span className="label">Ich bin</span>
         <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
           <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>

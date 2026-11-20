@@ -97,6 +97,15 @@ export interface ServiceState {
 
 const Ctx = createContext<Data | null>(null);
 
+/** Zufällige Kennung dieses Geräts (nur lokal) – damit eigene Änderungen nicht als „neu“ gemeldet werden */
+export function deviceTag(): string {
+  try {
+    let t = localStorage.getItem('fk.deviceTag');
+    if (!t) { t = Math.random().toString(36).slice(2, 10); localStorage.setItem('fk.deviceTag', t); }
+    return t;
+  } catch { return ''; }
+}
+
 function createStore(): Store {
   const join = readJoinLink();
   if (join) {
@@ -232,7 +241,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           put: touched.map((id) => byId.get(id)).filter(Boolean) as CalEvent[],
           del: m.put.map((e) => e.id).filter((id) => !byId.has(id)),
         };
-        m.put.forEach((e) => store.put('events', { ...e, createdAt: e.createdAt ?? (byId.has(e.id) ? byId.get(e.id)!.createdAt ?? 1 : Date.now()), changedBy: device.me || undefined }));
+        m.put.forEach((e) => store.put('events', { ...e, createdAt: e.createdAt ?? (byId.has(e.id) ? byId.get(e.id)!.createdAt ?? 1 : Date.now()), changedBy: device.me || undefined, changedOn: deviceTag() }));
         m.del.forEach((id) => store.remove('events', id));
         return undo;
       },

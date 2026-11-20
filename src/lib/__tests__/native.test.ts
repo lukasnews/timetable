@@ -37,3 +37,26 @@ describe('Widget', () => {
     expect(items[0]).toMatchObject({ time: '', end: '2026-11-16T00:00', color: '#94a3b8' });
   });
 });
+
+import { plannedDigests } from '../../native';
+describe('Tages- und Wochenübersicht am Gerät', () => {
+  const persons = [{ id: 'l', name: 'Lena', color: '#f00', avatar: { style: 'adventurer', seed: 'x' }, order: 0 }] as never[];
+  const e = (id: string, start: string, end: string, extra = {}) => ({ id, title: id, start, end, allDay: !start.includes('T'), personIds: ['l'], ...extra }) as never;
+  const evs = [e('Zahnarzt', '2026-11-16T08:30', '2026-11-16T09:00'), e('Ausflug', '2026-11-21', '2026-11-23'), e('Turnen', '2026-11-18T15:00', '2026-11-18T16:00')];
+  it('Tagesübersicht nur an Tagen mit Terminen, zur eingestellten Uhrzeit', () => {
+    const d = plannedDigests(evs, persons, { reminderPersons: [], dailyDigest: '06:30' }, '2026-11-15T20:00');
+    expect(d.map((x) => x.at)).toEqual(['2026-11-16T06:30', '2026-11-18T06:30', '2026-11-21T06:30', '2026-11-22T06:30']);
+    expect(d[0].title).toBe('Heute: 1 Termin');
+    expect(d[0].body).toBe('08:30 Zahnarzt (Lena)');
+    expect(d[2].body).toBe('ganztägig Ausflug (Lena)');
+  });
+  it('Wochenübersicht Sonntag 18:00 mit den Terminen der nächsten Woche', () => {
+    const d = plannedDigests(evs, persons, { reminderPersons: [], weeklyDigest: true }, '2026-11-15T12:00');
+    expect(d[0].at).toBe('2026-11-15T18:00');
+    expect(d[0].title).toBe('Nächste Woche: 4 Termine');
+    expect(d[0].largeBody).toBe('Mo 08:30 Zahnarzt (Lena)\nMi 15:00 Turnen (Lena)\nSa ganztägig Ausflug (Lena)\nSo ganztägig Ausflug (Lena)');
+  });
+  it('aus = nichts geplant', () => {
+    expect(plannedDigests(evs, persons, { reminderPersons: [] }, '2026-11-15T12:00')).toEqual([]);
+  });
+});
