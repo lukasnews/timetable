@@ -99,3 +99,30 @@ d('Serie teilen im Dialog', () => {
     expect(o.filter((x) => x.event.title === 'Neu')).toHaveLength(4);
   });
 });
+
+d('Schulferien OÖ laut Bildungsministerium (bmb.gv.at)', () => {
+  // Erster und letzter freier Tag (Montag–Samstag laut Ministerium); die App zeigt die angrenzenden Wochenenden mit
+  const inside = (y: number, title: string, first: string, last: string) => {
+    const r = schoolHolidaysOOE(y).find((x) => x.title === title && x.start <= first && first < x.end)!;
+    expect(r, `${title} ${y}`).toBeDefined();
+    expect(r.start <= first && last < r.end).toBe(true);
+  };
+  it('2025/26', () => {
+    inside(2026, 'Semesterferien', '2026-02-16', '2026-02-21');
+    inside(2026, 'Osterferien', '2026-03-28', '2026-04-06');
+    inside(2026, 'Pfingstferien', '2026-05-23', '2026-05-25');
+    inside(2026, 'Sommerferien', '2026-07-11', '2026-09-13');
+    inside(2025, 'Herbstferien', '2025-10-27', '2025-10-31');
+    inside(2025, 'Weihnachtsferien', '2025-12-24', '2026-01-06');
+  });
+  it('2026/27', () => {
+    inside(2027, 'Semesterferien', '2027-02-15', '2027-02-20');
+    inside(2027, 'Osterferien', '2027-03-20', '2027-03-29');
+    inside(2027, 'Pfingstferien', '2027-05-15', '2027-05-17');
+    inside(2027, 'Sommerferien', '2027-07-10', '2027-09-12');
+    inside(2026, 'Herbstferien', '2026-10-27', '2026-10-31');
+    inside(2026, 'Weihnachtsferien', '2026-12-24', '2027-01-06');
+    // erster Schultag nach den Sommerferien 2027 ist kein Ferientag mehr
+    expect(schoolHolidaysOOE(2027).find((x) => x.title === 'Sommerferien')!.end).toBe('2027-09-13');
+  });
+});

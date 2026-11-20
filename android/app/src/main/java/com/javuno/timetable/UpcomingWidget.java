@@ -77,6 +77,7 @@ public class UpcomingWidget extends AppWidgetProvider {
                 JSONObject it = items.getJSONObject(i);
                 if (it.optString("end", "").compareTo(now) <= 0) continue; // schon vorbei
                 String date = it.optString("date");
+                if (date.compareTo(today) < 0) date = today; // mehrtägig, schon begonnen → läuft heute noch
                 String time = it.optString("time", "");
                 String day = date.equals(today) ? "Heute" : date.equals(tomorrow) ? "Morgen" : weekday(date);
                 v.setViewVisibility(ROWS[shown], View.VISIBLE);

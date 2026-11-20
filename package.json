@@ -53,6 +53,9 @@
     "vitest": "^5.1.1"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.7"
+    "@grpc/grpc-js": "^1.14.7",
+    "workbox-build": {
+      "glob": "^14.0.6"
+    }
   }
 }
