@@ -122,6 +122,7 @@ describe('Worker: mehrere Familien', () => {
     };
     const { worker } = await loadWorker(db);
     await worker.fetch(new Request(`${W}/register?family=famaaaaaaaaaaaaaaaa`, { method: 'POST' }), env);
+    await worker.fetch(new Request(`${W}/register?family=${PRIMARY}`, { method: 'POST' }), env);
     const a = await (await worker.fetch(new Request(`${W}/cal/feedaaaaaaaaaaaaaaaa.ics`), env)).text();
     expect(a).toContain('Termin-A');
     expect(a).not.toContain('Termin-Eigene');
@@ -144,9 +145,17 @@ describe('Worker: mehrere Familien', () => {
       famaktivaktivaktiva: { persons: { p: { name: 'Aktiv', ntfyTopic: 'geheimes-thema' } } },
     };
     const { worker } = await loadWorker(db);
-    const out = await (await worker.fetch(new Request(`${W}/run?family=${PRIMARY}`), env)).text();
-    expect(Object.keys(db[REG].meta).sort()).toEqual(['aktiv']);
+    let job: Promise<unknown> = Promise.resolve();
+    await worker.scheduled({}, env, { waitUntil: (p) => { job = p; } });
+    await job;
+    const keys = Object.keys(db[REG].meta);
+    expect(keys).toContain('aktiv');
+    expect(keys).not.toContain('alt');
+    expect(keys).not.toContain('weg');
+    expect(Object.values(db[REG].meta).some((e: any) => e.familyId === PRIMARY)).toBe(true); // einmalig übernommen
     expect(db.famaktivaktivaktiva.meta.reminders).toBeDefined(); // wurde verarbeitet
-    expect(out).not.toMatch(/famalt|famweg|famaktiv|Familie /);
+    expect(db[PRIMARY].meta.reminders).toBeDefined(); // eigene Familie genauso
+    const out = await (await worker.fetch(new Request(`${W}/run?family=${PRIMARY}`), env)).text();
+    expect(out).not.toMatch(/famalt|famweg|famaktiv|Familie /); // nur die eigene Familie
   });
 });

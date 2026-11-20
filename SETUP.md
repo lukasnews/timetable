@@ -27,8 +27,7 @@ Benötigt die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID`. Eigene
 `timetable.chaoten.online`) hängt der Workflow „Domain einer Familie verwalten“ an; DNS: CNAME auf
 `familienkalender-baf.pages.dev`, über Cloudflare geleitet. GitHub Pages wird nicht mehr verwendet.
 
-GitHub Actions bei privatem Repository: Gratis-Kontingent 2.000 Minuten/Monat. Die Ersatz-Prüfung
-„Erinnerungen“ läuft deshalb nur stündlich (der Cloudflare-Dienst prüft alle 5 Minuten).
+Regelmäßig laufende GitHub-Workflows gibt es keine mehr (Erinnerungen prüft nur der Cloudflare-Dienst).
 
 ### Variante B: am Computer (Firebase Hosting)
 
@@ -61,27 +60,31 @@ Optional kann die Konfiguration fest eingebaut werden: `.env.example` nach `.env
 - Android: App über Chrome zum Startbildschirm hinzufügen. Für echten Kiosk-Betrieb eignet sich
   z. B. „Fully Kiosk Browser“ oder die Bildschirmfixierung von Android.
 
-## 5. Erinnerungen per ntfy (eigener Server)
+## 5. Erinnerungen per ntfy
 
-Ein **Cloudflare Worker** prüft alle 5 Minuten, was fällig ist, und schickt es an
-`https://ntfy.chaoten.online`. GitHub Actions (Workflow „Erinnerungen“) ist nur der Ersatz und
-springt ein, wenn Cloudflare länger als 15 Minuten nicht geprüft hat. Doppelt verschickt wird
-nichts: Der Stand liegt in Firestore unter `meta/reminders`.
+Ein **Cloudflare Worker** prüft alle 5 Minuten für alle angemeldeten Familien, was fällig ist, und
+schickt es an den **ntfy-Server der jeweiligen Familie**. Doppelt verschickt wird nichts: Der Stand
+liegt pro Familie in Firestore unter `meta/reminders`.
 
-1. **Topics festlegen**, z. B. `timetable-papa`. Am Handy in der ntfy-App
-   (Server `https://ntfy.chaoten.online`) abonnieren.
-2. **In der Kalender-App**: im Profil jeder Person das **ntfy-Topic** eintragen, optional unter
-   ⚙️ → Allgemein ein **Familien-Topic**. Beim Termin eine **Erinnerung** wählen.
-3. **GitHub-Secrets** (Settings → Secrets and variables → Actions):
-   - `NTFY_TOKEN`: Token des ntfy-Servers (muss auf die Topics schreiben dürfen)
-   - `FAMILY_ID`: aus ⚙️ → Synchronisation
-   - `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token →
-     Vorlage **„Edit Cloudflare Workers“** → Account auswählen → Create
-   - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare-Dashboard → Workers & Pages → rechts „Account ID“
-4. **Einrichten**: Actions → **„Erinnerungsdienst einrichten (Cloudflare)“** → Run workflow.
-   Der Workflow lädt den Worker hoch, übergibt die Secrets und wartet, bis Cloudflare das erste Mal
-   geprüft hat. Danach läuft er von selbst, und Änderungen an `reminders/` spielt er automatisch ein.
-5. **Testen**: Actions → **Erinnerungen** → Run workflow schickt eine Test-Nachricht an alle Topics.
+Für jede Familie gleich (in der App):
+1. ⚙️ → Erinnerungen: **ntfy-Server** (z. B. `https://ntfy.sh` oder ein eigener) und
+   **Zugangsschlüssel** (Token, das auf die Topics schreiben darf) eintragen. Ohne Server gehen
+   keine Push-Nachrichten raus.
+2. Im Profil jeder Person das **ntfy-Topic** eintragen (andere Familien: mit ihrem Präfix `fk-…`),
+   optional ein **Familien-Topic**. In der ntfy-App unter diesem Server abonnieren.
+3. Beim Termin eine **Erinnerung** wählen. Testen: einen Termin in ~15 Minuten mit Erinnerung
+   „10 Minuten vorher“ anlegen.
+
+Einrichtung des Dienstes (einmalig, Betreiber):
+- **GitHub-Secrets** (Settings → Secrets and variables → Actions):
+  - `FAMILY_ID`: Familie, deren bestehende Topics ohne Präfix erlaubt bleiben (und Schlüssel für die
+    Android-Signatur) – sonst wird sie wie jede andere Familie behandelt
+  - `NTFY_TOKEN`: wird nicht mehr verwendet (Server und Schlüssel stehen in den Einstellungen jeder Familie)
+  - `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token →
+    Vorlage **„Edit Cloudflare Workers“** → Account auswählen → Create
+  - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare-Dashboard → Workers & Pages → rechts „Account ID“
+- **Einrichten**: Actions → **„Erinnerungsdienst einrichten (Cloudflare)“** → Run workflow. Danach
+  läuft er von selbst, und Änderungen an `reminders/` spielt er automatisch ein.
 
 Zusätzlich, jeweils einzeln schaltbar unter ⚙️ → Allgemein: **Tagesübersicht** (Uhrzeit wählbar),
 **Wochenübersicht** (Sonntag 18:00) und **Nachricht bei neuen/geänderten Terminen**. Geburtstage aus den

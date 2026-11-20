@@ -259,11 +259,9 @@ function NotifyTab() {
       <label className="field"><span className="label">ntfy-Server eurer Familie</span>
         <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
-        <small className={family.ntfyServer || !service.topicPrefix ? 'hint' : 'error'}>{family.ntfyServer
+        <small className={family.ntfyServer ? 'hint' : 'error'}>{family.ntfyServer
           ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
-          : service.topicPrefix
-            ? 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'
-            : 'Noch leer – es gilt die bisherige Einstellung. Am besten euren Server hier eintragen (z. B. https://ntfy.sh oder ein eigener).'}</small>
+          : 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
       </label>
       <label className="field"><span className="label">Zugangsschlüssel</span>
         <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
@@ -274,7 +272,7 @@ function NotifyTab() {
         <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
           für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
       )}
-      {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {!service.topicPrefix ? '' : family.ntfyServer ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : 'kein ntfy-Server eingetragen.'}</p>}
+      {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {!family.ntfyServer ? 'kein ntfy-Server eingetragen.' : service.topicPrefix ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : ''}</p>}
       {service.ntfyError && <p className="error break">Letzter Versandfehler: {
         /429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.'
         : /ntfy 40[13]/.test(service.ntfyError) ? 'Der ntfy-Server lehnt ab (401/403) – Zugangsschlüssel fehlt, ist falsch oder darf nicht auf dieses Topic schreiben.'
