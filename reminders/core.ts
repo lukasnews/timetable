@@ -530,8 +530,9 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   }
 
   // Hinweis in der App bleibt, bis Topic bzw. Server korrigiert sind (nicht nur bis zum nächsten Lauf)
-  next.blockedTopics = [...new Set([...blocked, ...(state.blockedTopics ?? []).filter((t) => !nt.allowed(t) && knownTopics.has(t))])].slice(0, 20);
-  next.ntfyError = errors.length ? errors[0].slice(0, 200) : due.length ? '' : state.ntfyError ?? '';
+  next.blockedTopics = nt.missingServer ? [] : [...new Set([...blocked, ...(state.blockedTopics ?? []).filter((t) => !nt.allowed(t) && knownTopics.has(t))])].slice(0, 20);
+  // Ohne ntfy-Server gibt es keinen Versand – alte Fehlermeldungen nicht stehen lassen
+  next.ntfyError = nt.missingServer ? '' : errors.length ? errors[0].slice(0, 200) : due.length ? '' : state.ntfyError ?? '';
   // Versandfehler: Zeitfenster offen lassen, damit der nächste Lauf es erneut versucht
   // (bereits Gesendetes steht in „sent“ und wird nicht doppelt geschickt; nach MAX_CATCHUP_MIN gibt er auf)
   if (errors.length) next.lastRun = from;
