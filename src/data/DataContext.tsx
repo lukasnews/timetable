@@ -1,23 +1,35 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { CalEvent, DeviceSettings, EventTemplate, FamilySettings, Person, Timetable } from '../types';
 import type { Store, SyncStatus } from './store';
-import { loadCloudConfig, readJoinLink, saveCloudConfig } from './store';
+import { loadCloudConfig, makeJoinLink, readJoinLink, saveCloudConfig } from './store';
 import { LocalStore } from './localStore';
 import { FirebaseStore } from './firebaseStore';
 import type { Mutation } from '../lib/recurrence';
 import { seedDemo } from './seed';
 
 /** Erinnerungsdienst (Cloudflare) – für alle Familien; jede meldet sich mit ihrer geheimen ID an */
-// Unter der eigenen Adresse (VITE_PRIVATE_HOST) direkt, sonst (öffentliche Adresse, Domains anderer Familien)
-// über …/svc der jeweiligen App-Adresse – so sieht keine andere Familie die Adresse des Betreibers.
-const DEFAULT_SERVICE_URL = (() => {
-  const direct = (import.meta.env.VITE_SERVICE_URL as string | undefined) || undefined;
-  const own = import.meta.env.VITE_PRIVATE_HOST as string | undefined;
-  if (!direct || typeof location === 'undefined') return direct;
-  const h = location.hostname;
-  if (!own || h === own || h === 'localhost' || h === '127.0.0.1') return direct;
-  return `${location.origin}/svc`;
-})();
+// Erinnerungsdienst: über …/svc der Adresse, unter der die App läuft (Cloudflare Pages) – für alle Familien gleich.
+// Läuft die App woanders (z. B. lokal), über die neutrale öffentliche Adresse.
+const FALLBACK_SERVICE_URL = (import.meta.env.VITE_SERVICE_URL as string | undefined) || undefined;
+
+/** Antwortet unter dieser Adresse der Familienkalender-Dienst? */
+export async function probeService(base: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${base}/`, { cache: 'no-store' });
+    return r.ok && (await r.text()).includes('Familienkalender');
+  } catch {
+    return false;
+  }
+}
+
+let localSvc: Promise<string | undefined> | null = null;
+function localServiceUrl(): Promise<string | undefined> {
+  if (!localSvc) {
+    const own = typeof location !== 'undefined' && location.protocol === 'https:' ? `${location.origin}/svc` : '';
+    localSvc = own ? probeService(own).then((ok) => (ok ? own : FALLBACK_SERVICE_URL)) : Promise.resolve(FALLBACK_SERVICE_URL);
+  }
+  return localSvc;
+}
 const DEFAULT_FAMILY: FamilySettings = { id: 'settings', showHolidays: true, showSchoolHolidays: true };
 
 export const DEFAULT_DEVICE: DeviceSettings = {
@@ -151,8 +163,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       store.subscribe<any>('meta', (m) => {
         setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
         setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
-        // Fest eingebaute Adresse hat Vorrang (z. B. eigene Domain statt der alten workers.dev-Adresse)
-        setServiceUrl(store.mode === 'cloud' ? DEFAULT_SERVICE_URL || m.find((x) => x.id === 'service')?.url || undefined : m.find((x) => x.id === 'service')?.url || undefined);
+        const settings = m.find((x) => x.id === 'settings') as FamilySettings | undefined;
+        if (store.mode !== 'cloud') setServiceUrl(undefined);
+        // Eigene Adresse der Familie: Dienst darüber (auch für Links, die weitergegeben werden)
+        else if (settings?.appDomain) setServiceUrl(`https://${settings.appDomain}/svc`);
+        else localServiceUrl().then(setServiceUrl);
         const r = m.find((x) => x.id === 'reminders');
         setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at,
           topicPrefix: r.topicPrefix || undefined, ntfyServer: r.ntfyServer || undefined, blockedTopics: r.blockedTopics?.length ? r.blockedTopics : undefined, ntfyError: r.ntfyError || undefined } : {});
@@ -160,6 +175,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ];
     return () => offs.forEach((o) => o());
   }, [store]);
+
+  // Eigene Adresse der Familie: im Browser dorthin wechseln (Verbindung per Einladungslink mitnehmen).
+  // In der Android-App nicht nötig – dort ist die Adresse unsichtbar, Links nutzen trotzdem die eigene Adresse.
+  useEffect(() => {
+    const d = family.appDomain;
+    const native = !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    const cfg = loadCloudConfig();
+    if (!d || native || store.mode !== 'cloud' || !cfg || location.hostname === d || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
+    let cancelled = false;
+    probeService(`https://${d}/svc`).then((ok) => { if (ok && !cancelled) location.replace(makeJoinLink(cfg, d)); });
+    return () => { cancelled = true; };
+  }, [family.appDomain, store]);
 
   // Beim Erinnerungsdienst anmelden (einmal am Tag bzw. wenn sich der Abo-Schlüssel ändert) – nur mit der eigenen geheimen ID
   const hasData = persons.length > 0;

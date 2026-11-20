@@ -475,6 +475,8 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
     return;
   }
   const family = meta.find((m) => m.id === 'settings') as Partial<FamilySettings> | undefined;
+  // Eigene Adresse der Familie: Links in Nachrichten führen dorthin
+  if (family?.appDomain && /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(family.appDomain)) cfg = { ...cfg, appUrl: `https://${family.appDomain}/` };
   const floor = localNow(cfg.timezone, new Date(now.getTime() - MAX_CATCHUP_MIN * 60000));
   const fallback = localNow(cfg.timezone, new Date(now.getTime() - 10 * 60000));
   const from = state.lastRun && state.lastRun > floor ? state.lastRun : state.lastRun ? floor : fallback;

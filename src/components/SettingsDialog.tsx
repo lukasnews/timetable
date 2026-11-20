@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { useData } from '../data/DataContext';
+import { probeService, useData } from '../data/DataContext';
 import type { Person } from '../types';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { PersonEditor } from './PersonEditor';
@@ -8,7 +8,7 @@ import { ConfirmDialog } from './Dialogs';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed } from '../lib/avatars';
 import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
-import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, parseFamilyInput, saveCloudConfig, type CloudConfig } from '../data/store';
+import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, normalizeDomain, parseFamilyInput, saveCloudConfig, type CloudConfig } from '../data/store';
 import { suggestTopic } from '../lib/familyKey';
 import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
@@ -328,7 +328,23 @@ function NotifyTab() {
 }
 
 function SyncTab() {
-  const { store, status, switchStore, persons, events } = useData();
+  const { store, status, switchStore, persons, events, family, saveFamily } = useData();
+  const [domainIn, setDomainIn] = useState(family.appDomain ?? '');
+  const [domainMsg, setDomainMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const saveDomain = async () => {
+    const raw = domainIn.trim();
+    if (!raw) { saveFamily({ appDomain: undefined }); setDomainMsg({ ok: true, text: 'Eigene Adresse entfernt.' }); return; }
+    const d = normalizeDomain(raw);
+    if (!d) { setDomainMsg({ ok: false, text: 'Das ist keine gültige Domain (Beispiel: kalender.mueller.at).' }); return; }
+    setDomainMsg({ ok: true, text: 'Wird geprüft …' });
+    if (!(await probeService(`https://${d}/svc`))) {
+      setDomainMsg({ ok: false, text: `Unter ${d} läuft die App noch nicht. Die Domain muss einmal angeschlossen werden (DNS-Eintrag + Freischaltung durch den Betreiber), danach erneut prüfen.` });
+      return;
+    }
+    setDomainIn(d);
+    saveFamily({ appDomain: d });
+    setDomainMsg({ ok: true, text: `✓ Gespeichert. Einladungslinks, QR-Code und Abo-Link verwenden jetzt https://${d}.` });
+  };
   const cloud = loadCloudConfig();
   const [qr, setQr] = useState('');
   const [cfgText, setCfgText] = useState('');
@@ -356,7 +372,7 @@ function SyncTab() {
   const [busy, setBusy] = useState(false);
   const [takeLocal, setTakeLocal] = useState(true);
   const buildCfg = buildTimeFirebase();
-  const link = cloud ? makeJoinLink(cloud) : '';
+  const link = cloud ? makeJoinLink(cloud, family.appDomain) : '';
 
   useEffect(() => {
     if (link) QRCode.toDataURL(link, { width: 260, margin: 1 }).then(setQr);
@@ -427,6 +443,14 @@ function SyncTab() {
             </div>
           </div>
           <p className="hint mono">Familien-ID: {cloud.familyId}</p>
+          <h3>Eigene Adresse (optional)</h3>
+          <p className="hint">Eure Familie unter einer eigenen Domain, z. B. <code>kalender.mueller.at</code>. Im Browser wechselt die App dann automatisch dorthin;
+            Einladungslinks, QR-Code und Kalender-Abo verwenden diese Adresse.</p>
+          <div className="row">
+            <input value={domainIn} onChange={(e) => setDomainIn(e.target.value)} placeholder="kalender.mueller.at" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+            <button className="btn" onClick={saveDomain}>{family.appDomain && domainIn.trim() === family.appDomain ? 'Erneut prüfen' : 'Prüfen & speichern'}</button>
+          </div>
+          {domainMsg && <p className={domainMsg.ok ? 'hint' : 'error'}>{domainMsg.text}</p>}
           <p className="hint">In diesem Kalender: {persons.length} Person(en), {events.length} Termin(e).</p>
           {persons.length === 0 && (
             <p className="error">Dieser Familienkalender ist leer. Falls auf einem anderen Gerät schon Daten sind: hier „Dieses Gerät trennen“ und danach den QR-Code bzw. Familien-Link des anderen Geräts öffnen.</p>

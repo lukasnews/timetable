@@ -10,7 +10,9 @@ const config: CapacitorConfig = {
   appName: 'Familienkalender',
   webDir: 'dist',
   server: {
-    url: 'https://timetable.chaoten.online/',
+    // Eine App für alle Familien: öffnet die neutrale Adresse. Eigene Domains der Familien nutzen die Links,
+    // in der App selbst ist die Adresse unsichtbar.
+    url: 'https://familienkalender-baf.pages.dev/',
     androidScheme: 'https',
     // Ohne Netz beim allerersten Start: eigene Hinweis-Seite aus der App
     errorPath: 'offline.html',

@@ -173,7 +173,15 @@ Firebase-Konsole (Firestore → Regeln) einfügen und veröffentlichen – oder 
 Cloudflare-Konto, richtet der Deploy-Workflow automatisch `erinnerungen.<domain>` ein; sonst bleibt
 der Dienst unter `*.workers.dev` erreichbar.
 
-### Eigene Domain für eine andere Familie
+### Eine App für alle Familien, eigene Adresse in den Einstellungen
+
+Alle Familien – auch die eigene – nutzen dieselbe App unter `familienkalender-baf.pages.dev`
+(Android-App: öffnet diese Adresse). Unter ⚙️ → Sync → „Eigene Adresse“ kann jede Familie ihre
+Domain eintragen; die App prüft, ob die Domain angeschlossen ist. Danach wechselt der Browser
+automatisch dorthin, und Einladungslinks, QR-Code, Kalender-Abo und Links in Push-Nachrichten
+verwenden diese Adresse. Der Erinnerungsdienst ist unter jeder Adresse als `…/svc` erreichbar.
+
+### Domain einer Familie anschließen
 
 Die eigene Domain (`timetable.chaoten.online`) bleibt der eigenen Familie vorbehalten. Andere
 Familien nutzen die gemeinsame App unter `familienkalender-baf.pages.dev` – oder ihre eigene Domain:

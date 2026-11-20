@@ -31,9 +31,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       FAMILY_ID: ${{ secrets.FAMILY_ID }}
       VERSION: 1.0.${{ github.run_number }}
-      # Version für andere Familien: öffnet die neutrale Adresse statt der eigenen Domain
-      PUBLIC_APP_URL: https://familienkalender-baf.pages.dev/
-      PUBLIC_APP_ID: com.javuno.familienkalender
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -92,17 +89,6 @@ jobs:
           cp app/build/outputs/bundle/release/app-release.aab ../out/Familienkalender-$VERSION.aab
           ls -la ../out
 
-      - name: Version für andere Familien bauen (neutrale Adresse, eigene App-Kennung)
-        working-directory: android
-        run: |
-          node -e "const fs=require('fs');const f='app/src/main/assets/capacitor.config.json';const c=JSON.parse(fs.readFileSync(f));c.server.url=process.env.PUBLIC_APP_URL;c.appId=process.env.PUBLIC_APP_ID;fs.writeFileSync(f,JSON.stringify(c,null,'\t'))"
-          grep -q "$PUBLIC_APP_URL" app/src/main/assets/capacitor.config.json
-          ./gradlew --no-daemon assembleRelease bundleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION -PappId=$PUBLIC_APP_ID
-          cp app/build/outputs/apk/release/app-release.apk ../out/Familienkalender-fuer-andere-$VERSION.apk
-          cp app/build/outputs/bundle/release/app-release.aab ../out/Familienkalender-fuer-andere-$VERSION.aab
-          git checkout -- app/src/main/assets/capacitor.config.json 2>/dev/null || true
-          ls -la ../out
-
       - name: Als Release bereitstellen
         run: |
           set -euo pipefail
@@ -110,9 +96,7 @@ jobs:
             --title "Android-App $VERSION" \
             --notes "**Installieren am Handy/Tablet:** unten bei „Assets“ die Datei \`Familienkalender-$VERSION.apk\` antippen → herunterladen → öffnen → installieren (beim ersten Mal „Installation aus dieser Quelle erlauben“).
 
-          Die \`.aab\`-Datei ist für den Google Play Store (Play Console → Release hochladen).
-
-          **Für andere Familien:** \`Familienkalender-fuer-andere-$VERSION.apk\` / \`.aab\` – öffnet die neutrale Adresse (nicht die eigene Domain) und hat eine eigene App-Kennung (\`$PUBLIC_APP_ID\`). Für den Play Store als eigene App anlegen."
+          Die \`.aab\`-Datei ist für den Google Play Store (Play Console → Release hochladen)."
           # Nur die letzten 3 App-Versionen behalten
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.tag_name | startswith("android-1."))] | sort_by(.created_at) | reverse | .[3:] | .[].tag_name' |
             while read -r t; do gh release delete "$t" --yes --cleanup-tag || true; done
