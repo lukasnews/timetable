@@ -12,6 +12,13 @@ fs.mkdirSync(OUT, { recursive: true });
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Notbremse: nie länger als 25 Minuten hängen
+setTimeout(() => {
+  const md = '# Android-Gerätetest ❌\n\n- ❌ Abbruch: Zeitüberschreitung (25 min)\n';
+  try { fs.writeFileSync(`${OUT}/bericht.md`, md); if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md); } catch { /* egal */ }
+  console.error('Zeitüberschreitung'); process.exit(1);
+}, 25 * 60 * 1000).unref();
+
 (async () => {
   const [dev] = await android.devices();
   if (!dev) throw new Error('kein Emulator gefunden');
@@ -44,6 +51,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // Rechte wie nach „Erlauben“ durch den Nutzer
   await sh(`pm grant ${PKG} android.permission.POST_NOTIFICATIONS`).catch(() => {});
   await sh(`appops set ${PKG} SCHEDULE_EXACT_ALARM allow`).catch(() => {});
+  console.log('System-WebView:', (await sh('dumpsys package com.google.android.webview | grep versionName | head -1')).trim());
   console.log('Zeitzone Gerät:', (await sh('getprop persist.sys.timezone')).trim(), '·', (await sh('date')).trim());
 
   await sh(`am start -W -n ${PKG}/.MainActivity`);

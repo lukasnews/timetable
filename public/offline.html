@@ -18,7 +18,19 @@
     <img src="icon-192.png" alt="" />
     <h1>Keine Verbindung</h1>
     <p>Beim ersten Start braucht der Familienkalender Internet.<br />Danach funktioniert er auch offline.</p>
-    <button onclick="location.href='https://familienkalender-baf.pages.dev/'">Nochmal versuchen</button>
+    <button onclick="retry()">Nochmal versuchen</button>
+    <p id="auto" style="margin-top:16px;font-size:.9rem"></p>
   </div>
+  <script>
+    // Sobald wieder Internet da ist, von selbst weiter (alle 10 s prüfen und wenn das Gerät „online“ meldet)
+    var APP = 'https://familienkalender-baf.pages.dev/';
+    function retry() { location.href = APP; }
+    function check() {
+      fetch(APP + 'icon-192.png?t=' + Date.now(), { cache: 'no-store', mode: 'no-cors' }).then(retry, function () {});
+    }
+    window.addEventListener('online', check);
+    setInterval(check, 10000);
+    document.getElementById('auto').textContent = 'Versucht es automatisch wieder, sobald Internet da ist …';
+  </script>
 </body>
 </html>

@@ -75,12 +75,14 @@ a { color: var(--accent); }
    Dann kann die Seite um die Leistenhöhe scrollen und der Browser blendet Adress- und
    Werkzeugleiste beim Wischen aus. Installiert/App: kein Unterschied (dort gibt es diese Leisten nicht). */
 @media (display-mode: browser) {
-  :root:not(.native-app) .app { height: calc(100lvh / var(--z, 1)); }
+  :root:not(.native-app) .app { height: calc(100vh / var(--z, 1)); height: calc(100lvh / var(--z, 1)); }
 }
 .app {
+  /* 100vh als Rückfall für ältere Android-WebViews (Chrome < 108 kennt dvh nicht) */
+  height: calc(100vh / var(--z, 1));
   height: calc(100dvh / var(--z, 1));
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 .topbar {
@@ -217,6 +219,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 @keyframes fade { from { opacity: 0; } }
 .modal {
   background: var(--surface); border-radius: 20px; width: min(560px, 100%);
+  max-height: calc((100vh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))) / var(--z, 1));
   max-height: calc((100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))) / var(--z, 1));
   display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
@@ -518,8 +521,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .cal-wrap { padding: 2px; border-radius: 10px; }
   .modal-backdrop { padding: env(safe-area-inset-top) 0 0; align-items: end; }
   /* Blatt von unten: unten Platz für die Navigationsleiste lassen */
-  .modal { border-radius: 20px 20px 0 0; max-height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); width: 100%; padding-bottom: env(safe-area-inset-bottom); }
-  .modal.wide { height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); }
+  .modal { border-radius: 20px 20px 0 0; max-height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); max-height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); width: 100%; padding-bottom: env(safe-area-inset-bottom); }
+  .modal.wide { height: calc((94vh - env(safe-area-inset-top)) / var(--z, 1)); height: calc((94dvh - env(safe-area-inset-top)) / var(--z, 1)); }
   .modal-body { padding: 8px 16px 16px; }
   .modal-head { padding: 12px 8px 4px 16px; }
   .modal-foot { flex-wrap: nowrap; padding: 10px 12px; }
@@ -997,7 +1000,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 }
 
 /* Hinweis für neue Besucher: Daten nur lokal (eigene Zeile im Raster, Kalender bleibt unten flexibel) */
-.app:has(> .local-hint) { grid-template-rows: auto auto auto 1fr; }
+.hints { min-width: 0; }
 .local-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 12px 6px; padding: 8px 12px; border-radius: 12px;
   background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); font-size: 0.95rem; }
 .local-hint > span:first-child { flex: 1 1 260px; }
@@ -1025,3 +1028,14 @@ details.tips ul { margin: 6px 0 0; padding-left: 18px; }
 /* Einstellungen: Reiterleiste bleibt beim Scrollen oben */
 .modal-body > .tabs { position: sticky; top: 0; z-index: 3; background: var(--surface); box-shadow: 0 -12px 0 var(--surface); }
 .linklike { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }
+
+/* Ältere Android-WebViews (Chrome < 111) kennen color-mix nicht: einfache Ersatzfarben, damit Auswahl & Ferien sichtbar bleiben */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .chip.on, .pick.on, .builder-opt.on, .school-toggle.on, .cat-chip.on { background: var(--surface-2); }
+  .tt-lesson, .local-hint, .import-preview, .conflicts, .form-group { background: var(--surface-2); }
+  .fc .fc-event.ev-ferien { background: #d1fae5 !important; }
+  .fc .fc-bg-event.bg-school { background: var(--pc); opacity: 0.22; }
+  .rt-kw, .chip .badge { background: var(--surface-2); }
+  .btn.danger, .install-btn { border-color: currentColor; }
+  :root { --fc-highlight-color: rgba(127, 127, 127, 0.15); }
+}
