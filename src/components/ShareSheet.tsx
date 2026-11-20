@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { CalEvent, Person } from '../types';
 import { Modal } from './ui';
 import { shareIcsFile, shareText } from '../lib/share';
+import { useData } from '../data/DataContext';
 import { canNativeShare, isNative, nativeShareFile, nativeShareText } from '../native';
 
 /** Termin teilen: Teilen-Menü des Geräts, WhatsApp, SMS, E-Mail, Kopieren, Kalender-Datei */
@@ -10,7 +11,8 @@ export function ShareSheet({ event, start, end, persons, onClose }: { event: Cal
   const [copied, setCopied] = useState(false);
   const nativeShare = canNativeShare();
   const canShare = nativeShare || typeof navigator.share === 'function';
-  const file = () => shareIcsFile(event, start, end, persons);
+  const { family } = useData();
+  const file = () => shareIcsFile(event, start, end, persons, family.timezone);
   const canShareFile = canShare && (() => { try { return navigator.canShare?.({ files: [file()] }) ?? false; } catch { return false; } })();
   const open = (url: string) => { window.location.href = url; };
 

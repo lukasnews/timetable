@@ -214,6 +214,8 @@ export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: C
 
 /* ---------------- Logik ---------------- */
 
+export const validTimezone = (tz: string) => { try { new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; } };
+
 /** Wanduhrzeit in der Zeitzone der Familie: "YYYY-MM-DDTHH:mm" */
 export function localNow(tz: string, date = new Date()): string {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
@@ -402,7 +404,7 @@ export async function syncIcs(cfg: Config, token: string, sources: IcsSource[], 
   const out: IcsStatus[] = [];
   for (const src of sources) {
     try {
-      const parsed = parseICS(await fetchIcs(src.url!), { source: src.name }).events;
+      const parsed = parseICS(await fetchIcs(src.url!), { source: src.name, timezone: cfg.timezone }).events;
       const existing = await query<CalEvent>(cfg, token, 'events', 'importSource', 'EQUAL', src.name);
       const plan = planSync(parsed, existing, src, today);
       if (plan.put.length || plan.del.length) await commit(cfg, token, 'events', plan.put, plan.del);
@@ -451,8 +453,6 @@ export interface RunOptions {
 }
 
 export async function run(cfg: Config, token: string, now = new Date(), log = console.log, opts: RunOptions = {}) {
-  const to = localNow(cfg.timezone, now);
-  const today = to.slice(0, 10);
   // Nur Termine mit Erinnerung lesen (reminderMinutes ist sonst null)
   const [events, persons, meta] = await Promise.all([
     query<CalEvent>(cfg, token, 'events', 'reminderMinutes', 'GREATER_THAN_OR_EQUAL', 0),
@@ -461,6 +461,11 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   ]);
   // Familie gelöscht (keine Personen, keine Einstellungen) → der Dienst nimmt sie aus dem Verzeichnis
   if (opts.dropIfEmpty && !persons.length && !meta.some((m) => m.id === 'settings')) throw new Error('FAMILY_GONE');
+  // Zeitzone der Familie (aus den Einstellungen; sonst die des Dienstes)
+  const famTz = (meta.find((m) => m.id === 'settings') as Partial<FamilySettings> | undefined)?.timezone;
+  if (famTz && validTimezone(famTz)) cfg = { ...cfg, timezone: famTz };
+  const to = localNow(cfg.timezone, now);
+  const today = to.slice(0, 10);
   const state = (meta.find((m) => m.id === 'reminders') ?? { id: 'reminders' }) as ReminderState;
   if (opts.skipIfActive && state.by === opts.skipIfActive.other && state.at && now.getTime() - state.at < opts.skipIfActive.withinMin * 60000) {
     log(`${opts.skipIfActive.other} ist aktiv (letzter Lauf ${Math.round((now.getTime() - state.at) / 60000)} min her) – nichts zu tun.`);

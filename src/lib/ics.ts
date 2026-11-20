@@ -46,12 +46,29 @@ function parseLine(line: string): Prop | null {
   return { name: name.toUpperCase(), params, value: line.slice(i + 1) };
 }
 
-/** Wanduhrzeit in Wien für einen UTC-Zeitpunkt */
-function viennaWallClock(d: Date): string {
+/** Zeitzone der Familie für den laufenden Import (Wanduhrzeiten im Kalender gelten in dieser Zone) */
+let wallTz = TZ;
+
+const validTz = (tz?: string) => { if (!tz) return false; try { new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; } };
+
+/** Wanduhrzeit in einer Zeitzone für einen UTC-Zeitpunkt */
+function wallClock(d: Date, tz = wallTz): string {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  return `${p.year}-${p.month}-${p.day}T${p.hour === '24' ? '00' : p.hour}:${p.minute}`;
+}
+
+/** Wanduhrzeit in Zone tz → UTC-Zeitpunkt */
+function zonedToUtc(y: number, mo: number, d: number, h: number, mi: number, tz: string): Date {
+  const want = Date.UTC(y, mo - 1, d, h, mi);
+  let t = want;
+  for (let i = 0; i < 2; i++) {
+    const [dd, tt] = wallClock(new Date(t), tz).split('T');
+    const [yy, mm, da] = dd.split('-').map(Number); const [hh, mn] = tt.split(':').map(Number);
+    t += want - Date.UTC(yy, mm - 1, da, hh, mn);
+  }
+  return new Date(t);
 }
 
 /** ICS-Datum → Wanduhr-String ("YYYY-MM-DD" bzw. "YYYY-MM-DDTHH:mm") */
@@ -61,8 +78,11 @@ export function parseIcsDate(value: string, params: Record<string, string> = {})
   if (!m) throw new Error('Ungültiges Datum: ' + v);
   const [, y, mo, d, hh, mm, , z] = m;
   if (!hh || params.VALUE === 'DATE') return { value: `${y}-${mo}-${d}`, allDay: true };
-  if (z) return { value: viennaWallClock(new Date(Date.UTC(+y, +mo - 1, +d, +hh, +mm))), allDay: false };
-  // TZID oder "floating": als Wanduhrzeit übernehmen (Familienkalender liegt in einer Zeitzone)
+  if (z) return { value: wallClock(new Date(Date.UTC(+y, +mo - 1, +d, +hh, +mm))), allDay: false };
+  // Andere Zeitzone (TZID) → in die Zeitzone der Familie umrechnen
+  const tzid = params.TZID?.replace(/^\/+/, '');
+  if (tzid && tzid !== wallTz && validTz(tzid)) return { value: wallClock(zonedToUtc(+y, +mo, +d, +hh, +mm, tzid)), allDay: false };
+  // Gleiche Zone oder "floating": als Wanduhrzeit übernehmen
   return { value: `${y}-${mo}-${d}T${hh}:${mm}`, allDay: false };
 }
 
@@ -125,7 +145,13 @@ export interface ImportResult {
   skipped: number;
 }
 
-export function parseICS(text: string, opts: { source: string; expandUntil?: string } = { source: 'Import' }): ImportResult {
+export function parseICS(text: string, opts: { source: string; expandUntil?: string; timezone?: string } = { source: 'Import' }): ImportResult {
+  const prev = wallTz;
+  wallTz = validTz(opts.timezone) ? opts.timezone! : TZ;
+  try { return parseICSInner(text, opts); } finally { wallTz = prev; }
+}
+
+function parseICSInner(text: string, opts: { source: string; expandUntil?: string }): ImportResult {
   const lines = unfold(text);
   if (!lines.some((l) => l.toUpperCase().startsWith('BEGIN:VCALENDAR'))) throw new Error('Das ist keine Kalenderdatei (.ics).');
   const expandUntil = opts.expandUntil ?? addDays(nowLocal().slice(0, 10), 730);
@@ -236,11 +262,11 @@ function buildEvent(props: Prop[], source: string, expandUntil: string):
 
 const icsDate = (v: string) => v.replace(/[-:]/g, '') + (v.includes('T') ? '00' : '');
 
-function dateProp(name: string, v: string): string {
-  return v.includes('T') ? `${name};TZID=${TZ}:${icsDate(v)}` : `${name};VALUE=DATE:${icsDate(v)}`;
+function dateProp(name: string, v: string, tz = TZ): string {
+  return v.includes('T') ? `${name};TZID=${tz}:${icsDate(v)}` : `${name};VALUE=DATE:${icsDate(v)}`;
 }
 
-function rruleOf(start: string, r: Recurrence): string {
+function rruleOf(start: string, r: Recurrence, tz = TZ): string {
   const parts = [`FREQ=${r.freq.toUpperCase()}`];
   if (r.interval > 1) parts.push(`INTERVAL=${r.interval}`);
   if (r.freq === 'weekly') parts.push(`BYDAY=${(r.byWeekday?.length ? r.byWeekday : [weekdayMo0(start)]).map((d) => DAYS[d]).join(',')}`);
@@ -251,8 +277,9 @@ function rruleOf(start: string, r: Recurrence): string {
   }
   if (r.end.type === 'count') parts.push(`COUNT=${r.end.count}`);
   if (r.end.type === 'until') {
-    // UNTIL in UTC; Ende des Tages in Wien ≈ 22:59 UTC
-    parts.push(`UNTIL=${r.end.until.replace(/-/g, '')}T225959Z`);
+    // UNTIL in UTC: Ende des letzten Tages (23:59) in der Zeitzone der Familie
+    const [y, m, d] = r.end.until.split('-').map(Number);
+    parts.push(`UNTIL=${new Date(zonedToUtc(y, m, d, 23, 59, tz).getTime() + 59_000).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')}`);
   }
   return parts.join(';');
 }
@@ -276,17 +303,20 @@ const VTIMEZONE = [
   'END:VTIMEZONE',
 ];
 
-export function toICS(events: CalEvent[], persons: Person[]): string {
+/** Kalenderdatei; Uhrzeiten gelten in der Zeitzone der Familie (Standard: Europe/Vienna) */
+export function toICS(events: CalEvent[], persons: Person[], timezone?: string): string {
+  const tz = validTz(timezone) ? timezone! : TZ;
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
   const names = (ids: string[]) => ids.map((id) => persons.find((p) => p.id === id)?.name).filter(Boolean).join(', ');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Familienkalender//DE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Familienkalender', `X-WR-TIMEZONE:${TZ}`, ...VTIMEZONE];
+  // VTIMEZONE nur für Wien mitgeliefert – andere IANA-Zonen kennen Google/Apple/Outlook selbst
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Familienkalender//DE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Familienkalender', `X-WR-TIMEZONE:${tz}`, ...(tz === TZ ? VTIMEZONE : [])];
 
   const push = (ev: CalEvent, uid: string, extra: string[] = []) => {
     const who = names(ev.personIds);
     const title = displayTitle(ev);
     const drv = names(ev.driverIds ?? []);
     const desc = [who ? `Für: ${who}` : '', drv ? `Fahrdienst: ${drv}` : '', ev.bring ? `Mitbringen: ${ev.bring}` : '', ev.kind === 'birthday' && ev.birthYear ? `Geburtsjahr: ${ev.birthYear}` : '', ev.notes ?? ''].filter(Boolean).join('\n');
-    lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`, dateProp('DTSTART', ev.start), dateProp('DTEND', ev.end), `SUMMARY:${escape(title)}`);
+    lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`, dateProp('DTSTART', ev.start, tz), dateProp('DTEND', ev.end, tz), `SUMMARY:${escape(title)}`);
     if (ev.location) lines.push(`LOCATION:${escape(ev.location)}`);
     if (desc) lines.push(`DESCRIPTION:${escape(desc)}`);
     lines.push(...extra);
@@ -299,10 +329,10 @@ export function toICS(events: CalEvent[], persons: Person[]): string {
   for (const ev of events) {
     const uid = `${ev.seriesId ?? ev.id}@familienkalender`;
     if (ev.seriesId && ev.originalStart) {
-      push(ev, uid, [dateProp('RECURRENCE-ID', ev.originalStart)]);
+      push(ev, uid, [dateProp('RECURRENCE-ID', ev.originalStart, tz)]);
     } else if (ev.recurrence) {
-      const extra = [`RRULE:${rruleOf(ev.start, ev.recurrence)}`];
-      for (const x of ev.exdates ?? []) extra.push(dateProp('EXDATE', x));
+      const extra = [`RRULE:${rruleOf(ev.start, ev.recurrence, tz)}`];
+      for (const x of ev.exdates ?? []) extra.push(dateProp('EXDATE', x, tz));
       push(ev, uid, extra);
     } else {
       push(ev, uid);

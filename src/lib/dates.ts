@@ -70,3 +70,8 @@ export function uid(): string {
 export const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 export const WEEKDAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const ORDINALS = ['1.', '2.', '3.', '4.', 'letzten'];
+
+/** Zeitzone des Geräts (IANA), z. B. „Europe/Vienna“ */
+export function deviceTimezone(): string {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Vienna'; } catch { return 'Europe/Vienna'; }
+}

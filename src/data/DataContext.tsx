@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { CalEvent, DeviceSettings, EventTemplate, FamilySettings, Person, Timetable } from '../types';
 import type { Store, SyncStatus } from './store';
 import { loadCloudConfig, makeJoinLink, readJoinLink, saveCloudConfig } from './store';
+import { deviceTimezone } from '../lib/dates';
 import { LocalStore } from './localStore';
 import { FirebaseStore } from './firebaseStore';
 import type { Mutation } from '../lib/recurrence';
@@ -196,6 +197,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     probeService(`https://${d}/svc`).then((ok) => { if (ok && !cancelled) location.replace(makeJoinLink(cfg, d)); });
     return () => { cancelled = true; };
   }, [family.appDomain, store]);
+
+  // Zeitzone der Familie einmalig vom Gerät übernehmen (für Erinnerungsdienst, Import und Export)
+  // nur wenn das Einstellungs-Dokument wirklich geladen ist – sonst würden Standardwerte gespeichert
+  const settingsLoaded = !!family.updatedAt;
+  useEffect(() => {
+    if (store.mode !== 'cloud' || !settingsLoaded || family.timezone) return;
+    const t = setTimeout(() => store.put('meta', { ...family, id: 'settings', timezone: deviceTimezone() }), 4000);
+    return () => clearTimeout(t);
+  }, [store, settingsLoaded, family.timezone]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Beim Erinnerungsdienst anmelden (einmal am Tag bzw. wenn sich der Abo-Schlüssel ändert) – nur mit der eigenen geheimen ID
   const hasData = persons.length > 0;

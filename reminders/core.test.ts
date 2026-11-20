@@ -164,6 +164,29 @@ describe('Fremde Familie auf dem gemeinsamen Server', () => {
   });
 });
 
+describe('Zeitzone der Familie', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it('erinnert nach der Uhr der Familie (London statt Wien)', async () => {
+    const sv = (s: string) => ({ stringValue: s });
+    const sent: any[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      if (url === 'https://ntfy.example') { sent.push(JSON.parse(init!.body as string)); return new Response('{}'); }
+      if (url.endsWith(':runQuery')) return new Response(JSON.stringify([{ document: { name: 'x/e1', fields: {
+        title: sv('Zahnarzt'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
+        personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }]));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.example'), timezone: sv('Europe/London') } }] }));
+      return new Response('{}');
+    });
+    const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: '', timezone: 'Europe/Vienna' };
+    await run(cfg, 'id', new Date('2026-11-13T08:31:00Z'), () => {}); // 08:31 in London → noch nicht fällig
+    expect(sent).toEqual([]);
+    await run(cfg, 'id', new Date('2026-11-13T09:31:00Z'), () => {}); // 09:31 in London → fällig (10:00 − 30 min)
+    expect(sent.map((n) => n.title)).toEqual(['Zahnarzt']);
+  });
+});
+
 describe('Versandfehler', () => {
   afterEach(() => vi.unstubAllGlobals());
   it('lässt das Zeitfenster offen und meldet den Fehler, damit der nächste Lauf nachholt', async () => {

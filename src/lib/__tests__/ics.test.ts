@@ -84,7 +84,7 @@ describe('ICS-Export', () => {
   it('schreibt gültige Einträge', () => {
     const ics = toICS(evs, persons);
     expect(ics).toContain('DTSTART;TZID=Europe/Vienna:20270104T190000');
-    expect(ics).toContain('RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20270630T225959Z');
+    expect(ics).toContain('RRULE:FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20270630T215959Z');
     expect(ics).toContain('EXDATE;TZID=Europe/Vienna:20270111T190000');
     expect(ics).toContain('RECURRENCE-ID;TZID=Europe/Vienna:20270118T190000');
     expect(ics).toContain(String.raw`SUMMARY:Yoga\; Kurs`);
@@ -98,5 +98,22 @@ describe('ICS-Export', () => {
     const a = expand(evs, '2027-01-01', '2027-02-01').map((o) => o.start).sort();
     const b = expand(back, '2027-01-01', '2027-02-01').map((o) => o.start).sort();
     expect(b).toEqual(a);
+  });
+});
+
+describe('Zeitzonen', () => {
+  it('Import: fremde TZID und UTC werden in die Zeitzone der Familie umgerechnet', () => {
+    const ics = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nSUMMARY:NY\r\nDTSTART;TZID=America/New_York:20261120T100000\r\nDTEND;TZID=America/New_York:20261120T110000\r\nEND:VEVENT\r\n'
+      + 'BEGIN:VEVENT\r\nUID:b\r\nSUMMARY:UTC\r\nDTSTART:20260710T080000Z\r\nDTEND:20260710T090000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n';
+    const wien = parseICS(ics, { source: 'x' }).events;
+    expect(wien.map((e) => e.start)).toEqual(['2026-11-20T16:00', '2026-07-10T10:00']);
+    const london = parseICS(ics, { source: 'x', timezone: 'Europe/London' }).events;
+    expect(london.map((e) => e.start)).toEqual(['2026-11-20T15:00', '2026-07-10T09:00']);
+  });
+  it('Export: Uhrzeiten mit der Zeitzone der Familie', () => {
+    const ev = { id: 'e', title: 'T', start: '2026-11-20T10:00', end: '2026-11-20T11:00', allDay: false, personIds: [] };
+    expect(toICS([ev], [], 'America/New_York')).toContain('DTSTART;TZID=America/New_York:20261120T100000');
+    expect(toICS([ev], [])).toContain('DTSTART;TZID=Europe/Vienna:20261120T100000');
+    expect(toICS([ev], [], 'America/New_York')).not.toContain('BEGIN:VTIMEZONE');
   });
 });
