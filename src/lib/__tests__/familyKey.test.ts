@@ -34,9 +34,5 @@ describe('Trennung zwischen Familien', () => {
     expect(eigen.allowed('mama')).toBe(false);
     expect(eigen.allowed('fk-abcx-mama')).toBe(false);
     expect(ntfyFor(p, { ntfyServer: 'https://ntfy.sh' }).cfg.ntfyToken).toBeUndefined(); // nie der Token des Dienstes
-    // Übergang: alte Topics ohne Präfix noch erlaubt
-    const ueb = ntfyFor({ ...p, allowUnprefixed: true }, { ntfyServer: 'https://ntfy.example' });
-    expect(ueb.allowed('mama')).toBe(true);
-    expect(ueb.allowed('fk-abc-mama')).toBe(true);
   });
 });

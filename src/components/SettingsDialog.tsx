@@ -9,7 +9,7 @@ import { AVATAR_STYLES, PERSON_COLORS, randomSeed } from '../lib/avatars';
 import { uid } from '../lib/dates';
 import { hashPin } from '../lib/pin';
 import { buildTimeFirebase, loadCloudConfig, makeJoinLink, newFamilyId, normalizeDomain, parseFamilyInput, saveCloudConfig, type CloudConfig } from '../data/store';
-import { suggestTopic } from '../lib/familyKey';
+import { suggestTopic, topicAllowed } from '../lib/familyKey';
 import { LocalStore } from '../data/localStore';
 import { isIOS, useInstall } from '../install';
 import { FirebaseStore } from '../data/firebaseStore';
@@ -329,6 +329,16 @@ function NotifyTab() {
         <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
           <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
             onChange={(e) => setFamTopic(e.target.value)} /></label>
+        {service.topicPrefix && famTopic.trim() && !topicAllowed(famTopic.trim(), service.topicPrefix) && (
+          <small className="error">Sollte mit „{service.topicPrefix}-“ beginnen – sonst kommen keine Nachrichten an.</small>
+        )}
+        {service.topicPrefix && (
+          <div className="row">
+            {(!famTopic.trim() || !topicAllowed(famTopic.trim(), service.topicPrefix))
+              ? <button type="button" className="btn small" onClick={() => setFamTopic(suggestTopic(service.topicPrefix!, 'familie'))}>Sicheres Topic erzeugen</button>
+              : <button type="button" className="btn small" onClick={() => navigator.clipboard?.writeText(famTopic.trim())}>Topic kopieren</button>}
+          </div>
+        )}
         {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
         <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
           hint="Jeden Morgen die Termine des Tages und was mitzubringen ist" />

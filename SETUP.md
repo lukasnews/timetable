@@ -77,8 +77,8 @@ Für jede Familie gleich (in der App):
 
 Einrichtung des Dienstes (einmalig, Betreiber):
 - **GitHub-Secrets** (Settings → Secrets and variables → Actions):
-  - `FAMILY_ID`: Familie, deren bestehende Topics ohne Präfix erlaubt bleiben (und Schlüssel für die
-    Android-Signatur) – sonst wird sie wie jede andere Familie behandelt
+  - `FAMILY_ID`: Familie des Betreibers (wird beim ersten Lauf ins Verzeichnis übernommen) und
+    Schlüssel für die Android-Signatur – sonst wie jede andere Familie
   - `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token →
     Vorlage **„Edit Cloudflare Workers“** → Account auswählen → Create
   - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare-Dashboard → Workers & Pages → rechts „Account ID“
