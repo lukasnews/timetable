@@ -1004,3 +1004,5 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .local-hint-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .kiosk .local-hint, .printing .local-hint { display: none; }
 @media print { .local-hint { display: none; } }
+
+.error.break, .hint.break { overflow-wrap: anywhere; }

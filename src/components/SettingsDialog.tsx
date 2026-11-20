@@ -256,26 +256,29 @@ function NotifyTab() {
       <h3><Icon name="bell" size={18} /> Push per ntfy (für alle)</h3>
       <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
         {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
-      {service.topicPrefix ? (
-        <>
-          <label className="field"><span className="label">ntfy-Server eurer Familie</span>
-            <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-              onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
-            <small className={family.ntfyServer ? 'hint' : 'error'}>{family.ntfyServer
-              ? 'Hier hin schickt der Dienst eure Push-Nachrichten.'
-              : 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
-          </label>
-          <label className="field"><span className="label">Zugangsschlüssel (optional)</span>
-            <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-              onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyToken ?? '')) saveFamily({ ntfyToken: v || undefined }); }} />
-            <small className="hint">Für ntfy.sh empfohlen: ohne Konto gilt dort ein gemeinsames Tageslimit, das schnell erreicht ist. Konto auf ntfy.sh anlegen → Zugangstoken erstellen → hier eintragen. Nur eure Familie sieht ihn.</small>
-          </label>
-          <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
-            für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
-          {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {family.ntfyServer ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : 'kein ntfy-Server eingetragen.'}</p>}
-        </>
-      ) : service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')}</p>}
-      {service.ntfyError && <p className="error">Letzter Versandfehler: {/429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.' : service.ntfyError}</p>}
+      <label className="field"><span className="label">ntfy-Server eurer Familie</span>
+        <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
+        <small className={family.ntfyServer || !service.topicPrefix ? 'hint' : 'error'}>{family.ntfyServer
+          ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
+          : service.topicPrefix
+            ? 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'
+            : 'Noch leer – es gilt die bisherige Einstellung. Am besten euren Server hier eintragen (z. B. https://ntfy.sh oder ein eigener).'}</small>
+      </label>
+      <label className="field"><span className="label">Zugangsschlüssel</span>
+        <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+          onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyToken ?? '')) saveFamily({ ntfyToken: v || undefined }); }} />
+        <small className="hint">Token eines Benutzers auf eurem ntfy-Server, der auf eure Topics schreiben darf (ntfy: Konto → Zugangstoken; bei ntfy.sh dringend empfohlen wegen des Tageslimits). Nur eure Familie sieht ihn.</small>
+      </label>
+      {service.topicPrefix && (
+        <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
+          für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
+      )}
+      {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {!service.topicPrefix ? '' : family.ntfyServer ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : 'kein ntfy-Server eingetragen.'}</p>}
+      {service.ntfyError && <p className="error break">Letzter Versandfehler: {
+        /429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.'
+        : /ntfy 40[13]/.test(service.ntfyError) ? 'Der ntfy-Server lehnt ab (401/403) – Zugangsschlüssel fehlt, ist falsch oder darf nicht auf dieses Topic schreiben.'
+        : service.ntfyError}</p>}
       <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
         <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onChange={(e) => setFamTopic(e.target.value)} /></label>
