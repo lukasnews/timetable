@@ -47,6 +47,8 @@ export function EventDialog(props: {
   const [sharing, setSharing] = useState(false);
   // Neue Termine: Kategorie aus dem Titel erraten, bis jemand selbst eine wählt
   const [catAuto, setCatAuto] = useState(props.draft.isNew && !e0.category);
+  // Datum/Uhrzeit von Hand geändert? Dann beim Speichern die Schnelleingabe nicht mehr automatisch übernehmen
+  const [whenTouched, setWhenTouched] = useState(false);
   const catRow = useRef<HTMLDivElement>(null);
   // automatisch gewählte Kategorie sichtbar machen (die Leiste scrollt am Handy seitlich)
   useEffect(() => {
@@ -64,6 +66,7 @@ export function EventDialog(props: {
 
   const setStartDate = (d: string) => {
     if (!d) return;
+    setWhenTouched(true);
     const dur = diffMinutes(ev.start, ev.end);
     const start = ev.allDay ? d : `${d}T${startTime}`;
     // Wöchentliche Serie: Wochentag wandert mit dem Datum mit (sonst erscheint der Termin nicht am gewählten Tag)
@@ -79,17 +82,20 @@ export function EventDialog(props: {
   };
   const setEndDate = (d: string) => {
     if (!d) return;
+    setWhenTouched(true);
     if (ev.allDay) set({ end: addDays(d < date ? date : d, 1) });
     else set({ end: `${d}T${endTime}` });
   };
   const setStartTime = (t: string) => {
     if (!t) return;
+    setWhenTouched(true);
     const dur = diffMinutes(ev.start, ev.end);
     const start = `${date}T${t}`;
     set({ start, end: addMinutes(start, dur) });
   };
-  const setEndTime = (t: string) => t && set({ end: `${endDate}T${t}` });
+  const setEndTime = (t: string) => { if (!t) return; setWhenTouched(true); set({ end: `${endDate}T${t}` }); };
   const setAllDay = (allDay: boolean) => {
+    setWhenTouched(true);
     if (allDay) set({ allDay, start: date, end: addDays(endDate, 1) });
     else set({ allDay, start: `${date}T09:00`, end: `${endDate === date ? date : endDate}T10:00` });
   };
@@ -119,8 +125,8 @@ export function EventDialog(props: {
   // Schnelleingabe („Morgen 15 Uhr Zahnarzt Lena“) – nur bei neuen Terminen
   const quick = props.draft.isNew && ev.kind !== 'birthday' && ev.title.trim().length > 3 ? parseQuick(ev.title, props.persons, todayLocal()) : null;
   const quickUseful = !!quick && quick.matched && !!quick.title;
-  const applyQuick = () => {
-    if (!quick) return;
+  const quickPatch = (): Partial<CalEvent> | null => {
+    if (!quick) return null;
     const d = quick.date ?? date;
     const p: Partial<CalEvent> = { title: quick.title, ...(catAuto ? { category: guessCategory(quick.title) } : {}) };
     if (quick.personIds.length) p.personIds = [...new Set([...ev.personIds, ...quick.personIds])];
@@ -136,8 +142,14 @@ export function EventDialog(props: {
     } else if (quick.durationMin && !ev.allDay) {
       p.end = addMinutes(ev.start, quick.durationMin);
     }
-    set(p);
+    // Wöchentliche Serie: Wochentag wandert mit dem neuen Datum mit
+    const rec = ev.recurrence;
+    if (p.start && rec?.freq === 'weekly' && rec.byWeekday?.length === 1 && weekdayMo0(p.start) !== weekdayMo0(ev.start)) {
+      p.recurrence = { ...rec, byWeekday: [weekdayMo0(p.start)] };
+    }
+    return p;
   };
+  const applyQuick = () => { const p = quickPatch(); if (p) set(p); };
   const quickText = quick ? [
     quick.date && new Date(quick.date + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' }),
     quick.allDay ? 'ganztägig' : quick.start && (quick.end ? `${quick.start}–${quick.end}` : quick.start),
@@ -158,7 +170,9 @@ export function EventDialog(props: {
 
   const save = () => {
     if (!valid) return;
-    props.onSave({ ...ev, title: ev.title.trim() });
+    // „Morgen 10 Uhr Zahnarzt“ getippt und gleich gespeichert: Vorschlag übernehmen (außer Datum/Uhrzeit wurden von Hand gesetzt)
+    const out = quickUseful && !whenTouched ? { ...ev, ...quickPatch() } : ev;
+    props.onSave({ ...out, title: out.title.trim() });
   };
 
   if (sharing) return <ShareSheet event={ev} start={ev.start} end={ev.end} persons={props.persons} onClose={() => setSharing(false)} />;
