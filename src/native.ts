@@ -284,29 +284,29 @@ export function widgetItems(events: CalEvent[], persons: Person[], now: string, 
     });
 }
 
-async function getWidgetPlugin() {
+// Achtung: Capacitor-Plugins nie aus einer async-Funktion zurückgeben (das Promise ruft sonst plugin.then() auf → Fehler)
+async function loadWidgetPlugin(): Promise<void> {
   if (!widgetPlugin) {
     const { registerPlugin } = await import('@capacitor/core');
     widgetPlugin = registerPlugin<FamilyWidgetPlugin>('FamilyWidget');
   }
-  return widgetPlugin;
 }
 
 /** Widgets am Startbildschirm (null = ältere App-Version ohne diese Funktion) */
 export async function widgetCount(): Promise<number | null> {
   if (!isNative()) return null;
-  try { return (await (await getWidgetPlugin()).count()).placed; } catch { return null; }
+  try { await loadWidgetPlugin(); return (await widgetPlugin!.count()).placed; } catch { return null; }
 }
 
 /** Startbildschirm fragen, ob er das Widget hinzufügen soll */
 export async function pinWidget(): Promise<boolean> {
-  try { return (await (await getWidgetPlugin()).pin()).requested; } catch { return false; }
+  try { await loadWidgetPlugin(); return (await widgetPlugin!.pin()).requested; } catch { return false; }
 }
 
 let lastWidget = '';
 export async function syncWidget(events: CalEvent[], persons: Person[]) {
   if (!isNative()) return;
-  await getWidgetPlugin();
+  await loadWidgetPlugin();
   const items = JSON.stringify(widgetItems(events, persons, fromNative(new Date(), false)));
   if (items === lastWidget) return;
   lastWidget = items;
