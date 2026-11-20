@@ -399,7 +399,7 @@ export async function fetchIcs(url: string): Promise<string> {
       return r.text();
     });
   }
-  const r = await fetch(u, { headers: { accept: 'text/calendar, text/plain, */*', 'user-agent': 'Familienkalender/1.0 (+https://timetable.chaoten.online)' } });
+  const r = await fetch(u, { headers: { accept: 'text/calendar, text/plain, */*', 'user-agent': 'Familienkalender/1.0' } });
   if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
   const text = await r.text();
   if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error('Unter dem Link liegt keine Kalenderdatei (.ics)');
