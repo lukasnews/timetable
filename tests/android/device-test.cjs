@@ -22,7 +22,8 @@ setTimeout(() => {
 (async () => {
   const [dev] = await android.devices();
   if (!dev) throw new Error('kein Emulator gefunden');
-  const sh = async (c) => String(await dev.shell(c));
+  // adb-Verbindung zum Emulator reißt gelegentlich kurz ab → bis zu 3 Versuche
+  const sh = async (c) => { for (let i = 0; ; i++) { try { return String(await dev.shell(c)); } catch (e) { if (i >= 2) throw e; await sleep(2000); } } };
   let shot = 0;
   const snap = async (name) => { try { fs.writeFileSync(`${OUT}/${String(++shot).padStart(2, '0')}-${name}.png`, await dev.screenshot()); } catch { /* egal */ } };
   const step = async (name, fn) => {
