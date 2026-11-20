@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['android/**', 'capacitor.config.ts', '.github/workflows/android.yml']
+    paths: ['android/**', 'capacitor.config.ts', 'public/offline.html', '.github/workflows/android.yml']
 
 permissions:
   contents: write

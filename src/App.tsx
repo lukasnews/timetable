@@ -480,31 +480,34 @@ export default function App() {
         </div>
       </header>
 
-      {data.store.mode === 'local' && !localHintOff && (
-        <div className="local-hint" role="note">
-          <span>{persons.some((p) => ['papa', 'mama', 'lena', 'max'].includes(p.id))
-            ? <>👋 <b>Beispiel-Daten</b> – nur auf diesem Gerät, niemand sonst sieht sie.</>
-            : <>💾 Nur <b>auf diesem Gerät</b> gespeichert – für Handy, Tablet &amp; Co. einen Familienkalender anlegen.</>}</span>
-          <span className="local-hint-actions">
-            <button className="btn small primary" onClick={() => openSettings('sync')}>Eigenen Familienkalender anlegen</button>
-            <button className="btn small" onClick={() => openSettings('sync')}>Mit Einladungslink verbinden</button>
-            <button className="icon-btn" aria-label="Hinweis ausblenden" onClick={() => { setLocalHintOff(true); try { localStorage.setItem('fk.localHint', 'off'); } catch { /* egal */ } }}>✕</button>
-          </span>
-        </div>
-      )}
+      {/* Hinweise in einer eigenen Rasterzeile (immer vorhanden, leer = 0 hoch) */}
+      <div className="hints">
+        {data.store.mode === 'local' && !localHintOff && (
+          <div className="local-hint" role="note">
+            <span>{persons.some((p) => ['papa', 'mama', 'lena', 'max'].includes(p.id))
+              ? <>👋 <b>Beispiel-Daten</b> – nur auf diesem Gerät, niemand sonst sieht sie.</>
+              : <>💾 Nur <b>auf diesem Gerät</b> gespeichert – für Handy, Tablet &amp; Co. einen Familienkalender anlegen.</>}</span>
+            <span className="local-hint-actions">
+              <button className="btn small primary" onClick={() => openSettings('sync')}>Eigenen Familienkalender anlegen</button>
+              <button className="btn small" onClick={() => openSettings('sync')}>Mit Einladungslink verbinden</button>
+              <button className="icon-btn" aria-label="Hinweis ausblenden" onClick={() => { setLocalHintOff(true); try { localStorage.setItem('fk.localHint', 'off'); } catch { /* egal */ } }}>✕</button>
+            </span>
+          </div>
+        )}
 
-      {changedByOthers.length > 0 && (
-        <div className="local-hint change-hint" role="status">
-          <span>🔔 <b>{changedByOthers.length} {changedByOthers.length === 1 ? 'Termin' : 'Termine'} neu oder geändert:</b>{' '}
-            {changedByOthers.slice(0, 3).map((e, i) => (
-              <span key={e.id}>{i > 0 && ', '}<button className="linklike" onClick={() => open(e.id, e.start)}>{displayTitle(e)}
-                {' '}({new Date(e.start.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' })}){e.changedBy && persons.find((p) => p.id === e.changedBy) ? ` – ${persons.find((p) => p.id === e.changedBy)!.name}` : ''}</button></span>
-            ))}{changedByOthers.length > 3 && ' …'}</span>
-          <span className="local-hint-actions">
-            <button className="btn small primary" onClick={markSeen}>Gesehen</button>
-          </span>
-        </div>
-      )}
+        {changedByOthers.length > 0 && (
+          <div className="local-hint change-hint" role="status">
+            <span>🔔 <b>{changedByOthers.length} {changedByOthers.length === 1 ? 'Termin' : 'Termine'} neu oder geändert:</b>{' '}
+              {changedByOthers.slice(0, 3).map((e, i) => (
+                <span key={e.id}>{i > 0 && ', '}<button className="linklike" onClick={() => open(e.id, e.start)}>{displayTitle(e)}
+                  {' '}({new Date(e.start.slice(0, 10) + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' })}){e.changedBy && persons.find((p) => p.id === e.changedBy) ? ` – ${persons.find((p) => p.id === e.changedBy)!.name}` : ''}</button></span>
+              ))}{changedByOthers.length > 3 && ' …'}</span>
+            <span className="local-hint-actions">
+              <button className="btn small primary" onClick={markSeen}>Gesehen</button>
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="toolbar">
         {mode !== 'timetable' && (

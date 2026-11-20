@@ -1,6 +1,6 @@
 name: Android-Gerätetest
 
-# Startet die Android-App in einem echten Android-Emulator (Pixel, Android 10/12/14/15, Zeitzone Wien) und prüft:
+# Startet die Android-App in einem echten Android-Emulator (Pixel, Android 12/14/15, Zeitzone Wien) und prüft:
 # Benachrichtigungen bei geschlossener App zur richtigen Uhrzeit, Tages-/Wochenübersicht, Teilen-Menü
 # („Sicherung speichern“) und das Startbildschirm-Widget. Bericht + Bildschirmfotos unter „Artifacts“.
 # Läuft nach jedem neuen Android-Build und per „Run workflow“. Nutzt eine Test-Variante (debug) derselben App
@@ -26,8 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Android 10, 12, 14, 15 – ältere und neue Handys (Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version)
-        api: [29, 31, 34, 35]
+        # Android 12, 14, 15 – Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version.
+        # (Android-10-Abbilder haben eine WebView von 2019, die das Test-Werkzeug nicht mehr steuern kann.)
+        api: [31, 34, 35]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
