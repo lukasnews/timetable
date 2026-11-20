@@ -37,7 +37,7 @@ export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: Settin
     <Modal title="Einstellungen" onClose={onClose} wide>
       <nav className="tabs">
         {tabs.map(([k, l, short, i]) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+          <button key={k} className={tab === k ? 'on' : ''} onClick={(e) => { setTab(k); e.currentTarget.closest('.modal-body')?.scrollTo({ top: 0 }); }}>
             <Icon name={i} size={18} /> <span className="long">{l}</span><span className="short">{short}</span>
           </button>
         ))}
