@@ -187,7 +187,10 @@ export default {
     if (url.pathname === '/register') {
       if (req.method === 'OPTIONS') return new Response(null, { headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST' } });
       if (req.method !== 'POST' || !validId(fam)) return new Response('Ungültig', { status: 400, headers: { 'access-control-allow-origin': '*' } });
-      try { return await register(env, fam, url.origin, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('origin') ?? ''); }
+      // Über die App-Adresse (…/svc, Cloudflare Pages) aufgerufen: diese Adresse als Dienst-Adresse merken
+      const base = req.headers.get('x-fk-base') ?? '';
+      const serviceUrl = /^https:\/\/[a-z0-9.-]+\/svc$/i.test(base) ? base : url.origin;
+      try { return await register(env, fam, serviceUrl, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('origin') ?? ''); }
       catch (e) { return new Response(String(e instanceof Error ? e.message : e).slice(0, 200), { status: 500, headers: { 'access-control-allow-origin': '*' } }); }
     }
     // Manuell prüfen (nur mit Familien-ID): /run?family=…

@@ -4,7 +4,8 @@ android {
     namespace = "com.javuno.timetable"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.javuno.timetable"
+        // Eigene Familie: com.javuno.timetable – Version für andere Familien: -PappId=com.javuno.familienkalender
+        applicationId((project.findProperty('appId') ?: 'com.javuno.timetable') as String)
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Version kommt vom GitHub-Workflow (Laufnummer)

@@ -73,6 +73,15 @@ describe('Worker: mehrere Familien', () => {
     expect((Object.values(db[REG].meta)[0] as any).appUrl).toBe('https://familienkalender.example/');
   });
 
+  it('über die App-Adresse (…/svc) wird diese als Dienst-Adresse gemerkt', async () => {
+    const db: Db = { famaaaaaaaaaaaaaaaa: { persons: { p1: { name: 'A' } } } };
+    const { worker } = await loadWorker(db);
+    await worker.fetch(new Request(`https://dienst.intern/register?family=famaaaaaaaaaaaaaaaa`, { method: 'POST', headers: { 'x-fk-base': 'https://familienkalender.example/svc' } }), env);
+    expect(db.famaaaaaaaaaaaaaaaa.meta.service.url).toBe('https://familienkalender.example/svc');
+    await worker.fetch(new Request(`${W}/register?family=famaaaaaaaaaaaaaaaa`, { method: 'POST', headers: { 'x-fk-base': 'javascript:alert(1)' } }), env);
+    expect(db.famaaaaaaaaaaaaaaaa.meta.service.url).toBe(W); // Ungültiges wird ignoriert
+  });
+
   it('höchstens 3 neue Familien pro Absender und Tag', async () => {
     const db: Db = {};
     const ids = ['famaaaaaaaaaaaaaaaa', 'fambbbbbbbbbbbbbbbb', 'famcccccccccccccccc', 'famdddddddddddddddd'];
