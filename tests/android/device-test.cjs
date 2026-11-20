@@ -138,7 +138,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await sleep(800);
     await page.getByRole('button', { name: /Sicherung speichern/ }).click();
     for (let i = 0; i < 15; i++) {
-      const top = await sh('dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" | head -2');
+      const top = await sh('dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity|ResumedActivity" | head -3');
       if (/Chooser|Resolver|intentresolver/i.test(top)) { await snap('teilen'); await sh('input keyevent KEYCODE_BACK'); await sleep(1500); return top.trim().split('\n')[0].trim(); }
       await sleep(1000);
     }
