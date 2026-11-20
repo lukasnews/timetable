@@ -995,3 +995,12 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   .ev-tg-body { flex-direction: column; align-items: flex-start; height: auto; }
   .ev-inner.tg .ev-title { -webkit-line-clamp: 1; line-clamp: 1; }
 }
+
+/* Hinweis für neue Besucher: Daten nur lokal (eigene Zeile im Raster, Kalender bleibt unten flexibel) */
+.app:has(> .local-hint) { grid-template-rows: auto auto auto 1fr; }
+.local-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 12px 6px; padding: 8px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); font-size: 0.95rem; }
+.local-hint > span:first-child { flex: 1 1 260px; }
+.local-hint-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.kiosk .local-hint, .printing .local-hint { display: none; }
+@media print { .local-hint { display: none; } }

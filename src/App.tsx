@@ -173,6 +173,7 @@ export default function App() {
     }));
   }, [family.pinHash]);
 
+  const [localHintOff, setLocalHintOff] = useState(() => { try { return localStorage.getItem('fk.localHint') === 'off'; } catch { return false; } });
   const openSettings = async (tab: SettingsTab) => { if (await requirePin()) setSettings(tab); };
 
   // Ansicht wechseln
@@ -467,6 +468,19 @@ export default function App() {
           <button className="icon-btn" onClick={() => openSettings('general')} aria-label="Einstellungen"><Icon name="gear" /></button>
         </div>
       </header>
+
+      {data.store.mode === 'local' && !localHintOff && (
+        <div className="local-hint" role="note">
+          <span>{persons.some((p) => ['papa', 'mama', 'lena', 'max'].includes(p.id))
+            ? <>👋 <b>Beispiel-Daten</b> – nur auf diesem Gerät, niemand sonst sieht sie.</>
+            : <>💾 Nur <b>auf diesem Gerät</b> gespeichert – für Handy, Tablet &amp; Co. einen Familienkalender anlegen.</>}</span>
+          <span className="local-hint-actions">
+            <button className="btn small primary" onClick={() => openSettings('sync')}>Eigenen Familienkalender anlegen</button>
+            <button className="btn small" onClick={() => openSettings('sync')}>Mit Einladungslink verbinden</button>
+            <button className="icon-btn" aria-label="Hinweis ausblenden" onClick={() => { setLocalHintOff(true); try { localStorage.setItem('fk.localHint', 'off'); } catch { /* egal */ } }}>✕</button>
+          </span>
+        </div>
+      )}
 
       <div className="toolbar">
         {mode !== 'timetable' && (
