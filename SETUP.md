@@ -172,3 +172,18 @@ Firebase-Konsole (Firestore → Regeln) einfügen und veröffentlichen – oder 
 **Eigene Adresse für den Dienst**: Liegt die Domain der App (aus `public/CNAME`) im selben
 Cloudflare-Konto, richtet der Deploy-Workflow automatisch `erinnerungen.<domain>` ein; sonst bleibt
 der Dienst unter `*.workers.dev` erreichbar.
+
+### Eigene Domain für eine andere Familie
+
+Die eigene Domain (`timetable.chaoten.online`) bleibt der eigenen Familie vorbehalten. Andere
+Familien nutzen die gemeinsame App unter `familienkalender-baf.pages.dev` – oder ihre eigene Domain:
+
+1. Actions → **„Domain einer Familie verwalten“** → Run workflow → Aktion „hinzufügen“, Domain
+   eintragen (z. B. `kalender.mueller.at`).
+2. Die Zusammenfassung des Laufs zeigt den DNS-Eintrag, den die Familie bei ihrem Anbieter anlegt
+   (CNAME auf `familienkalender-baf.pages.dev`).
+3. Mit „anzeigen“ den Stand prüfen (aktiv, sobald DNS und Zertifikat fertig sind); mit „entfernen“
+   wieder abhängen.
+
+Nur wer Schreibrechte am Repository hat, kann den Workflow starten. Die Familien-Daten bleiben
+getrennt wie bei allen anderen; Push-Links des Dienstes führen automatisch zu ihrer Domain.
