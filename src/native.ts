@@ -136,6 +136,34 @@ export function plannedDigests(events: CalEvent[], persons: Person[], device: Pi
   return out;
 }
 
+/** Darf die App Erinnerungen auf die Minute genau stellen? (Android 12+: „Alarme & Erinnerungen“) */
+export async function exactAlarmStatus(): Promise<'granted' | 'denied' | 'unknown'> {
+  if (!isNative()) return 'unknown';
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const r = await LocalNotifications.checkExactNotificationSetting();
+    return r.exact_alarm === 'granted' ? 'granted' : r.exact_alarm === 'denied' ? 'denied' : 'unknown';
+  } catch { return 'unknown'; }
+}
+
+/** Systemeinstellung „Alarme & Erinnerungen“ für die App öffnen */
+export async function openExactAlarmSetting(): Promise<void> {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  await LocalNotifications.changeExactNotificationSetting();
+}
+
+const TEST_ID = 1_999_999_001;
+/** Test: in einer Minute eine Benachrichtigung am Gerät */
+export async function nativeTestNotification(): Promise<'ok' | 'denied'> {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  if ((await nativeNotifyPermission(true)) !== 'granted') return 'denied';
+  await LocalNotifications.schedule({ notifications: [{
+    id: TEST_ID, title: 'Test vom Familienkalender', body: 'Wenn du das liest, kommen Erinnerungen am Gerät an. 🎉',
+    schedule: { at: new Date(Date.now() + 60_000), allowWhileIdle: true }, smallIcon: 'ic_stat_notify', iconColor: '#b8611c',
+  }] });
+  return 'ok';
+}
+
 let lastPlan = '';
 /** Geplante Erinnerungen am Gerät auf den aktuellen Stand bringen */
 export async function syncNativeReminders(events: CalEvent[], persons: Person[], device: DeviceSettings) {
@@ -150,7 +178,8 @@ export async function syncNativeReminders(events: CalEvent[], persons: Person[],
   if (key === lastPlan) return;
   lastPlan = key;
   const pending = await LocalNotifications.getPending();
-  if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+  const old = pending.notifications.filter((n) => n.id !== TEST_ID); // Test-Benachrichtigung nicht wegräumen
+  if (old.length) await LocalNotifications.cancel({ notifications: old.map((n) => ({ id: n.id })) });
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((n) => ({
