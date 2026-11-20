@@ -5,7 +5,7 @@
 import { Capacitor } from '@capacitor/core';
 import type { CalEvent, DeviceSettings, Person } from './types';
 import { expand } from './lib/recurrence';
-import { addDays, addMinutes, fromNative, parseLocal } from './lib/dates';
+import { addDays, addMinutes, fromNative } from './lib/dates';
 import { displayTitle } from './lib/categories';
 
 export const isNative = () => Capacitor.isNativePlatform();
@@ -152,6 +152,17 @@ export async function openExactAlarmSetting(): Promise<void> {
   await LocalNotifications.changeExactNotificationSetting();
 }
 
+/**
+ * „YYYY-MM-DDTHH:mm“ als echte Uhrzeit am Gerät (Ortszeit). Achtung: parseLocal() rechnet absichtlich in UTC
+ * (interne Darstellung im Kalender) – für Android-Alarme wäre das 1–2 Stunden zu spät.
+ */
+export function deviceTime(s: string): Date {
+  const [d, t] = s.split('T');
+  const [y, m, day] = d.split('-').map(Number);
+  const [hh, mm] = t ? t.split(':').map(Number) : [0, 0];
+  return new Date(y, m - 1, day, hh, mm);
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /**
  * Zeitpunkt aus getPending lesen. Android liefert Javas Date.toString(), z. B. „Fri Nov 20 17:25:00 CET 2026“ –
@@ -215,7 +226,7 @@ export async function syncNativeReminders(events: CalEvent[], persons: Person[],
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((n) => ({
-      id: n.id, title: n.title, body: n.body, ...((n as { largeBody?: string }).largeBody ? { largeBody: (n as { largeBody?: string }).largeBody } : {}), schedule: { at: parseLocal(n.at), allowWhileIdle: true },
+      id: n.id, title: n.title, body: n.body, ...((n as { largeBody?: string }).largeBody ? { largeBody: (n as { largeBody?: string }).largeBody } : {}), schedule: { at: deviceTime(n.at), allowWhileIdle: true },
       smallIcon: 'ic_stat_notify', iconColor: '#b8611c',
     })),
   });

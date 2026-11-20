@@ -71,3 +71,13 @@ describe('Zeitpunkt aus Android lesen', () => {
     expect(parsePendingDate(undefined)).toBeNull();
   });
 });
+
+import { deviceTime } from '../../native';
+describe('Uhrzeit für Android-Alarme', () => {
+  it('ist Ortszeit des Geräts (nicht UTC)', () => {
+    const d = deviceTime('2026-11-20T17:30');
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes()]).toEqual([2026, 10, 20, 17, 30]);
+    const s = deviceTime('2026-07-05T08:15');
+    expect([s.getHours(), s.getMinutes()]).toEqual([8, 15]);
+  });
+});
