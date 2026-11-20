@@ -47,13 +47,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log('Zeitzone Gerät:', (await sh('getprop persist.sys.timezone')).trim(), '·', (await sh('date')).trim());
 
   await sh(`am start -W -n ${PKG}/.MainActivity`);
-  const wv = await dev.webView({ pkg: PKG }, { timeout: 120000 });
-  const page = await wv.page();
-  page.setDefaultTimeout(15000);
+  // Beim allerersten Start lädt sich die App nach dem Einrichten des Offline-Speichers ggf. einmal neu –
+  // dabei geht die Verbindung zur WebView verloren, also neu verbinden, bis der Kalender sichtbar ist.
   const errors = [];
+  let page;
+  const deadline = Date.now() + 180000;
+  for (;;) {
+    try {
+      const wv = await dev.webView({ pkg: PKG }, { timeout: 60000 });
+      page = await wv.page();
+      page.setDefaultTimeout(15000);
+      await page.waitForSelector('.fc', { state: 'visible', timeout: 30000 });
+      await sleep(4000);
+      if (!page.isClosed() && (await page.locator('.fc').isVisible())) break;
+    } catch (e) {
+      if (Date.now() > deadline) {
+        let diag = '';
+        try { diag = await page.evaluate(() => `${navigator.userAgent} | ${innerWidth}x${innerHeight} | ${document.body.innerText.slice(0, 300).replace(/\n/g, ' / ')}`); } catch { /* egal */ }
+        await snap('start-fehler');
+        throw new Error('Kalender erscheint nicht: ' + String(e).split('\n')[0] + ' | ' + diag);
+      }
+      await sleep(3000);
+    }
+  }
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 200)));
-  await page.waitForSelector('.fc', { timeout: 90000 });
-  await sleep(3000);
+  console.log('WebView:', await page.evaluate(() => navigator.userAgent));
 
   const native = await page.evaluate(() => !!window.Capacitor?.isNativePlatform?.());
   await step('App startet als native Android-App', async () => { if (!native) throw new Error('Capacitor nicht nativ'); return await page.title(); });
@@ -205,4 +223,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log(md);
   await dev.close();
   process.exit(ok ? 0 : 1);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  const md = `# Android-Gerätetest ❌\n\n- ❌ Abbruch: ${String(e && e.message || e).split('\n')[0]}\n`;
+  try { fs.writeFileSync(`${OUT}/bericht.md`, md); if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md); } catch { /* egal */ }
+  process.exit(1);
+});
