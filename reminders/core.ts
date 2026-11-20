@@ -485,7 +485,9 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   next.topicPrefix = cfg.topicPrefix ?? '';
   next.ntfyServer = nt.cfg.ntfyServer;
   const send = async (n: Notification) => {
-    if (!nt.allowed(n.topic)) { blocked.add(n.topic); log(`✗ ${n.topic}: ${nt.missingServer ? 'kein eigener ntfy-Server eingetragen' : `Topic ohne Präfix ${cfg.topicPrefix}`} – nicht gesendet`); return true; }
+    // Kein ntfy-Server eingetragen = bewusst ohne ntfy (z. B. nur Android-App): still überspringen
+    if (nt.missingServer) return true;
+    if (!nt.allowed(n.topic)) { blocked.add(n.topic); log(`✗ ${n.topic}: Topic ohne Präfix ${cfg.topicPrefix} – nicht gesendet`); return true; }
     try { await sendNtfy(nt.cfg, n); log(`✓ ${n.topic}: ${n.title}`); return true; }
     catch (e) { errors.push(String(e instanceof Error ? e.message : e)); return false; }
   };
