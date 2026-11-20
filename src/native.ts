@@ -12,7 +12,7 @@ export const isNative = () => Capacitor.isNativePlatform();
 
 /** Wie weit im Voraus geplant wird (Android erlaubt nur eine begrenzte Zahl geplanter Alarme) */
 const DAYS_AHEAD = 14;
-const MAX_SCHEDULED = 60;
+const MAX_SCHEDULED = 80;
 
 const hashId = (s: string) => {
   let h = 0;
@@ -57,13 +57,66 @@ export function plannedReminders(events: CalEvent[], persons: Person[], device: 
   return out.sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_SCHEDULED);
 }
 
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+const wdOf = (d: string) => WD[new Date(d + 'T12:00:00').getDay()];
+
+/** Tages-/Wochenübersicht als geplante Benachrichtigungen am Gerät (rein, testbar) */
+export function plannedDigests(events: CalEvent[], persons: Person[], device: Pick<DeviceSettings, 'reminderPersons' | 'dailyDigest' | 'weeklyDigest'>, now: string) {
+  const out: { id: number; at: string; title: string; body: string; largeBody?: string }[] = [];
+  const daily = device.dailyDigest && /^\d\d:\d\d$/.test(device.dailyDigest) ? device.dailyDigest : '';
+  if (!daily && !device.weeklyDigest) return out;
+  const today = now.slice(0, 10);
+  const sel = device.reminderPersons;
+  const bdays: CalEvent[] = persons.filter((p) => p.birthday).map((p) => ({
+    id: 'bday-' + p.id, title: '🎂 ' + p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [], kind: 'birthday',
+    recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
+  }));
+  const occ = expand([...events, ...bdays], today, addDays(today, DAYS_AHEAD + 8))
+    .filter((o) => { const ev = o.event; return !sel.length || !(ev.personIds.length || ev.driverIds?.length) || [...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id)); })
+    .sort((a, b) => Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start));
+  const names = (ev: CalEvent) => persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
+  const line = (o: (typeof occ)[number], withDay: boolean) => {
+    const ev = o.event;
+    const day = o.start.slice(0, 10);
+    const who = names(ev);
+    return `${withDay ? wdOf(day) + ' ' : ''}${ev.allDay ? 'ganztägig' : o.start.slice(11, 16)} ${ev.kind === 'birthday' ? ev.title : displayTitle(ev)}${who ? ` (${who})` : ''}`;
+  };
+  const onDay = (d: string) => occ.filter((o) => (o.event.allDay ? o.start.slice(0, 10) <= d && o.end.slice(0, 10) > d : o.start.slice(0, 10) === d));
+  for (let i = 0; i <= DAYS_AHEAD; i++) {
+    const d = addDays(today, i);
+    if (daily) {
+      const at = `${d}T${daily}`;
+      const list = onDay(d);
+      if (at > now && list.length) {
+        const lines = list.map((o) => line(o, false));
+        out.push({ id: hashId('digest-d|' + d), at, title: `Heute: ${list.length} ${list.length === 1 ? 'Termin' : 'Termine'}`,
+          body: lines.slice(0, 3).join(' · ') + (lines.length > 3 ? ' …' : ''), largeBody: lines.join('\n') });
+      }
+    }
+    if (device.weeklyDigest && new Date(d + 'T12:00:00').getDay() === 0) {
+      const at = `${d}T18:00`;
+      const week = Array.from({ length: 7 }, (_, k) => addDays(d, k + 1));
+      const list = week.flatMap((w) => onDay(w).map((o) => ({ o, w })));
+      if (at > now && list.length) {
+        const lines = list.map(({ o, w }) => line({ ...o, start: o.event.allDay ? w : o.start }, true));
+        out.push({ id: hashId('digest-w|' + d), at, title: `Nächste Woche: ${list.length} ${list.length === 1 ? 'Termin' : 'Termine'}`,
+          body: lines.slice(0, 3).join(' · ') + (lines.length > 3 ? ' …' : ''), largeBody: lines.join('\n') });
+      }
+    }
+  }
+  return out;
+}
+
 let lastPlan = '';
 /** Geplante Erinnerungen am Gerät auf den aktuellen Stand bringen */
 export async function syncNativeReminders(events: CalEvent[], persons: Person[], device: DeviceSettings) {
   if (!isNative()) return;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
-  const plan = device.reminders && (await nativeNotifyPermission(false)) === 'granted'
-    ? plannedReminders(events, persons, device, fromNative(new Date(), false)) : [];
+  const now = fromNative(new Date(), false);
+  const wantDigest = !!device.dailyDigest || !!device.weeklyDigest;
+  const plan = (device.reminders || wantDigest) && (await nativeNotifyPermission(false)) === 'granted'
+    ? [...(device.reminders ? plannedReminders(events, persons, device, now) : []), ...plannedDigests(events, persons, device, now)]
+      .sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_SCHEDULED) : [];
   const key = JSON.stringify(plan);
   if (key === lastPlan) return;
   lastPlan = key;
@@ -72,7 +125,7 @@ export async function syncNativeReminders(events: CalEvent[], persons: Person[],
   if (!plan.length) return;
   await LocalNotifications.schedule({
     notifications: plan.map((n) => ({
-      id: n.id, title: n.title, body: n.body, schedule: { at: parseLocal(n.at), allowWhileIdle: true },
+      id: n.id, title: n.title, body: n.body, ...((n as { largeBody?: string }).largeBody ? { largeBody: (n as { largeBody?: string }).largeBody } : {}), schedule: { at: parseLocal(n.at), allowWhileIdle: true },
       smallIcon: 'ic_stat_notify', iconColor: '#b8611c',
     })),
   });

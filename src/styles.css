@@ -1024,3 +1024,4 @@ details.tips > summary { cursor: pointer; color: var(--accent); font-size: 0.9re
 details.tips ul { margin: 6px 0 0; padding-left: 18px; }
 /* Einstellungen: Reiterleiste bleibt beim Scrollen oben */
 .modal-body > .tabs { position: sticky; top: 0; z-index: 3; background: var(--surface); box-shadow: 0 -12px 0 var(--surface); }
+.linklike { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; text-decoration-style: dotted; cursor: pointer; }

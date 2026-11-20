@@ -21,7 +21,7 @@ export function applySource(ev: CalEvent, src: IcsSource): CalEvent {
   return { ...ev, importSource: src.name, personIds: src.personIds ?? [], reminderMinutes: reminderFor(ev, src) };
 }
 
-const SKIP = new Set(['updatedAt', 'createdAt', 'changedBy']);
+const SKIP = new Set(['updatedAt', 'createdAt', 'changedBy', 'changedOn']);
 /** Stabile Darstellung (Schlüssel sortiert, null/undefined weggelassen) */
 function stable(v: unknown, top = false): string {
   if (Array.isArray(v)) return '[' + v.map((x) => stable(x)).join(',') + ']';
