@@ -7,7 +7,7 @@ const page = (rows: [string, string][], next: boolean) => `<html><table class="r
 }</table><p class="pager_container">${next ? '<a rel="Next" href="#">&gt;</a>' : ''}</p></html>`;
 
 describe('Müllkalender von der Gemeindeseite (RIS/Gem2Go)', () => {
-  const url = 'https://www.andorf.at/system/web/kalender.aspx?sprache=1&menuonr=1&typids=1,2,3';
+  const url = 'https://www.musterdorf.example/system/web/kalender.aspx?sprache=1&menuonr=1&typids=1,2,3';
   it('erkennt den Link', () => {
     expect(isRisKalender(url)).toBe(true);
     expect(isRisKalender('https://calendar.google.com/calendar/ical/x/basic.ics')).toBe(false);

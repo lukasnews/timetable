@@ -79,7 +79,6 @@ Einrichtung des Dienstes (einmalig, Betreiber):
 - **GitHub-Secrets** (Settings → Secrets and variables → Actions):
   - `FAMILY_ID`: Familie, deren bestehende Topics ohne Präfix erlaubt bleiben (und Schlüssel für die
     Android-Signatur) – sonst wird sie wie jede andere Familie behandelt
-  - `NTFY_TOKEN`: wird nicht mehr verwendet (Server und Schlüssel stehen in den Einstellungen jeder Familie)
   - `CLOUDFLARE_API_TOKEN`: Cloudflare → My Profile → API Tokens → Create Token →
     Vorlage **„Edit Cloudflare Workers“** → Account auswählen → Create
   - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare-Dashboard → Workers & Pages → rechts „Account ID“
@@ -150,16 +149,15 @@ einen **eigenen Familienkalender** an. Getrennt sind die Familien so:
   sind nicht erlaubt (live geprüft: beides wird mit 403 abgewiesen).
 - **Erinnerungsdienst**: Die App meldet ihre Familie beim Worker an (`POST /register?family=…`).
   Der Worker speichert das Verzeichnis unter `families/<REGISTRY_ID>/meta/…`; `REGISTRY_ID` wird beim
-  ersten Deploy zufällig erzeugt und liegt nur als Secret in Cloudflare. Alle 5 Minuten wird zuerst
-  die eigene Familie (`FAMILY_ID`) geprüft, danach reihum die angemeldeten – so viele, wie das
-  Cloudflare-Limit erlaubt (`SUBREQUEST_BUDGET`, Standard 45; höchstens `MAX_FAMILIES`, Standard 50).
-- **ntfy**: Der eigene Server (`NTFY_SERVER` mit `NTFY_TOKEN`) gilt nur für die eigene Familie.
-  Andere Familien tragen unter ⚙️ → Erinnerungen ihren **eigenen ntfy-Server** ein (z. B. ntfy.sh);
-  dorthin wird ohne Token gesendet, und nur an Topics mit ihrem geheimen Präfix (`fk-…`, aus der
-  Familien-ID abgeleitet). Ohne eigenen Server bekommt eine fremde Familie keine Push-Nachrichten –
-  den Server des Dienstes einzutragen hilft nicht, er ist für sie gesperrt.
-  Für ntfy.sh sollte die Familie einen **Zugangsschlüssel** (ntfy.sh-Konto) eintragen: anonym gilt
-  dort ein Tageslimit pro IP-Adresse, und Cloudflare-Worker teilen sich ihre IP-Adressen.
+  ersten Deploy zufällig erzeugt und liegt nur als Secret in Cloudflare. Alle 5 Minuten werden alle
+  angemeldeten Familien reihum geprüft – für alle gleich, so viele, wie das Cloudflare-Limit erlaubt
+  (`SUBREQUEST_BUDGET`, Standard 45; höchstens `MAX_FAMILIES`, Standard 50).
+- **ntfy** (optional – die Android-App erinnert auch ohne): Jede Familie trägt unter ⚙️ →
+  Erinnerungen → „Push per ntfy“ ihren **eigenen ntfy-Server** und **Zugangsschlüssel** ein; ohne
+  Server werden keine ntfy-Nachrichten verschickt. Topics brauchen das geheime Präfix der Familie
+  (`fk-…`, aus der Familien-ID abgeleitet). Für ntfy.sh unbedingt einen Zugangsschlüssel
+  (ntfy.sh-Konto) eintragen: anonym gilt dort ein Tageslimit pro IP-Adresse, und Cloudflare-Worker
+  teilen sich ihre IP-Adressen.
 - **Kalender-Abo**: Der Abo-Link enthält einen eigenen geheimen Schlüssel und liefert nur die
   Termine der zugehörigen Familie.
 
@@ -190,8 +188,8 @@ verwenden diese Adresse. Der Erinnerungsdienst ist unter jeder Adresse als `…/
 
 ### Domain einer Familie anschließen
 
-Die eigene Domain (`timetable.chaoten.online`) bleibt der eigenen Familie vorbehalten. Andere
-Familien nutzen die gemeinsame App unter `familienkalender-baf.pages.dev` – oder ihre eigene Domain:
+Jede Familie nutzt die gemeinsame App unter `familienkalender-baf.pages.dev` – oder ihre eigene
+Domain (so auch `timetable.chaoten.online`):
 
 1. Actions → **„Domain einer Familie verwalten“** → Run workflow → Aktion „hinzufügen“, Domain
    eintragen (z. B. `kalender.mueller.at`).
