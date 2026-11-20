@@ -1,5 +1,5 @@
 /**
- * Müllabfuhrtermine von Gemeinde-Webseiten im RIS-Kommunal-System (Gem2Go, z. B. andorf.at) als .ics.
+ * Müllabfuhrtermine von Gemeinde-Webseiten im RIS-Kommunal-System (Gem2Go, z. B. https://www.<gemeinde>.at) als .ics.
  * Link-Form: https://<gemeinde>/system/web/kalender.aspx?…&typids=<Kalendertypen der Straße>
  */
 export const isRisKalender = (url: string) => /\/system\/web\/kalender\.aspx\?/i.test(url) && /[?&]typids=/i.test(url);

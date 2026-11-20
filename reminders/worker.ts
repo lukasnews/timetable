@@ -19,8 +19,6 @@ interface Env {
   MAX_FAMILIES?: string;
   /** Unteranfragen pro Lauf (Cloudflare Free: 50) */
   SUBREQUEST_BUDGET?: string;
-  NTFY_TOKEN?: string;
-  NTFY_SERVER?: string;
   APP_URL?: string;
   /** Öffentliche Adresse des Dienstes (eigene Domain) – die workers.dev-Adresse leitet dorthin weiter */
   PUBLIC_URL?: string;
@@ -57,10 +55,9 @@ function config(env: Env, familyId = env.FAMILY_ID, prefix?: string): Config {
     apiKey: env.FIREBASE_API_KEY,
     projectId: env.FIREBASE_PROJECT_ID,
     familyId,
-    ntfyServer: env.NTFY_SERVER || 'https://ntfy.chaoten.online',
-    ntfyToken: env.NTFY_TOKEN,
+    ntfyServer: '', // Server und Schlüssel stehen in den Einstellungen jeder Familie
     timezone: 'Europe/Vienna',
-    appUrl: env.APP_URL || 'https://timetable.chaoten.online/',
+    appUrl: env.APP_URL || 'https://familienkalender-baf.pages.dev/',
     topicPrefix: prefix,
   };
 }
