@@ -16,7 +16,7 @@ import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
-import { canNativeShare, isNative, nativeNotifyPermission, nativeShareText } from '../native';
+import { canNativeShare, exactAlarmStatus, isNative, nativeNotifyPermission, nativeShareText, nativeTestNotification, openExactAlarmSetting } from '../native';
 import { QuickLinksEditor } from './QuickLinks';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -227,7 +227,7 @@ function DeviceTab({ onClose }: { onClose?: () => void }) {
 }
 
 function NotifyTab() {
-  const { device, setDevice, persons, family, saveFamily, service } = useData();
+  const { device, setDevice, persons, family, saveFamily, service, serviceUrl } = useData();
   const native = isNative();
   const [perm, setPerm] = useState<string>(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   useEffect(() => { if (native) nativeNotifyPermission(false).then(setPerm); }, [native]);
@@ -252,6 +252,25 @@ function NotifyTab() {
   }, [famTopic]); // eslint-disable-line react-hooks/exhaustive-deps
   const withTopic = persons.filter((p) => p.ntfyTopic);
   const ntfyProblem = !!(service.ntfyError || service.blockedTopics);
+  const [exact, setExact] = useState<'granted' | 'denied' | 'unknown'>('unknown');
+  useEffect(() => {
+    if (!native) return;
+    const check = () => exactAlarmStatus().then(setExact);
+    check();
+    window.addEventListener('fk-resume', check);
+    return () => window.removeEventListener('fk-resume', check);
+  }, [native]);
+  const [testMsg, setTestMsg] = useState('');
+  const [ntfyTest, setNtfyTest] = useState<{ busy?: boolean; error?: string; results?: { topic: string; ok: boolean; error?: string }[] } | null>(null);
+  const runNtfyTest = async () => {
+    const fid = loadCloudConfig()?.familyId;
+    if (!serviceUrl || !fid) { setNtfyTest({ error: 'Nur mit verbundenem Familienkalender möglich.' }); return; }
+    setNtfyTest({ busy: true });
+    try {
+      const r = await fetch(`${serviceUrl}/ntfy-test?family=${encodeURIComponent(fid)}`, { method: 'POST' });
+      setNtfyTest(await r.json());
+    } catch { setNtfyTest({ error: 'Dienst nicht erreichbar (offline?)' }); }
+  };
   return (
     <div className="settings-section">
       <h3>Dieses Gerät</h3>
@@ -277,6 +296,20 @@ function NotifyTab() {
           <small className="hint">{device.reminderPersons.length ? 'Plus Termine für die ganze Familie.' : 'Keine Auswahl = alle Termine.'}</small>
         </div>
       )}
+      {native && (device.reminders || device.dailyDigest || device.weeklyDigest) && exact === 'denied' && (
+        <div className="field">
+          <p className="error">⏰ „Alarme &amp; Erinnerungen“ ist für die App nicht erlaubt – Erinnerungen kommen dann verspätet oder gar nicht.</p>
+          <button className="btn small" onClick={() => openExactAlarmSetting().catch(() => {})}>Erlauben …</button>
+        </div>
+      )}
+      {native && (device.reminders || device.dailyDigest || device.weeklyDigest) && (
+        <div className="row">
+          <button className="btn small" onClick={async () => setTestMsg((await nativeTestNotification()) === 'ok'
+            ? '✓ Test geplant – in etwa 1 Minute sollte eine Benachrichtigung kommen (App darf dafür geschlossen sein).'
+            : 'Benachrichtigungen sind blockiert – in den Android-Einstellungen bei „Familienkalender“ erlauben.')}>Test-Benachrichtigung in 1 Minute</button>
+        </div>
+      )}
+      {testMsg && <small className="hint">{testMsg} Kommt nichts: Android-Einstellungen → Apps → Familienkalender → Akku → „Nicht eingeschränkt“.</small>}
       {native && (
         <>
           <Toggle checked={!!device.dailyDigest} onChange={async (v) => { if (v && (await nativeNotifyPermission(true)) !== 'granted') return; setDevice({ dailyDigest: v ? '06:30' : undefined }); }}
@@ -326,6 +359,16 @@ function NotifyTab() {
           /429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.'
           : /ntfy 40[13]/.test(service.ntfyError) ? 'Der ntfy-Server lehnt ab (401/403) – Zugangsschlüssel fehlt, ist falsch oder darf nicht auf dieses Topic schreiben.'
           : service.ntfyError}</p>}
+        <div className="row">
+          <button className="btn small" disabled={ntfyTest?.busy} onClick={runNtfyTest}>{ntfyTest?.busy ? 'Wird gesendet …' : 'Test-Nachricht senden'}</button>
+        </div>
+        {ntfyTest && !ntfyTest.busy && (
+          ntfyTest.error ? <p className="error">{ntfyTest.error}</p> : (
+            <ul className="hint break">
+              {(ntfyTest.results ?? []).map((r) => <li key={r.topic}>{r.ok ? '✓' : '✗'} {r.topic}{r.error ? ` – ${/40[13]/.test(r.error) ? 'Zugangsschlüssel abgelehnt (401/403): Schlüssel prüfen bzw. Schreibrecht auf dieses Topic' : r.error}` : ' – gesendet'}</li>)}
+            </ul>
+          )
+        )}
         <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
           <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
             onChange={(e) => setFamTopic(e.target.value)} /></label>

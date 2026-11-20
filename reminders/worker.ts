@@ -2,7 +2,7 @@
  * Cloudflare Worker: prüft alle 5 Minuten fällige Erinnerungen und schickt sie per ntfy.
  * Eingerichtet und aktualisiert über .github/workflows/deploy-worker.yml.
  */
-import { commit, fetchIcs, list, run, refresh, type Config } from './core';
+import { commit, fetchIcs, list, ntfyFor, run, refresh, sendNtfy, type Config } from './core';
 import { registryKey, topicPrefix } from '../src/lib/familyKey';
 import { toICS } from '../src/lib/ics';
 import type { CalEvent, FamilySettings, Person } from '../src/types';
@@ -206,6 +206,36 @@ export default {
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
       } catch (e) {
         return new Response('Fehler: ' + String(e), { status: 500 });
+      }
+    }
+    // ntfy testen: POST /ntfy-test?family=… – schickt sofort eine Test-Nachricht an alle Topics der Familie
+    if (url.pathname === '/ntfy-test') {
+      const cors = { 'access-control-allow-origin': '*', 'content-type': 'application/json; charset=utf-8' };
+      if (req.method === 'OPTIONS') return new Response(null, { headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST' } });
+      if (req.method !== 'POST' || !validId(fam)) return new Response('{"error":"Ungültig"}', { status: 400, headers: cors });
+      try {
+        const token = await idToken(config(env), env);
+        const entry = (await registry(env, token)).find((e) => e.familyId === fam);
+        if (!entry) return new Response(JSON.stringify({ error: 'Familie ist beim Dienst nicht angemeldet' }), { status: 403, headers: cors });
+        const cfg = await familyConfig(env, fam, entry);
+        const [persons, meta] = await Promise.all([list<Person>(cfg, token, 'persons'), list<FamilySettings & { id: string }>(cfg, token, 'meta')]);
+        const family = meta.find((m) => m.id === 'settings');
+        const nt = ntfyFor(cfg, family);
+        if (nt.missingServer) return new Response(JSON.stringify({ error: 'Kein ntfy-Server eingetragen (muss mit https:// beginnen)' }), { headers: cors });
+        const topics = [...new Set([family?.ntfyFamilyTopic, ...persons.map((p) => p.ntfyTopic)].filter(Boolean) as string[])];
+        if (!topics.length) return new Response(JSON.stringify({ error: 'Noch kein Topic eingetragen (Profil der Personen bzw. Familien-Topic)' }), { headers: cors });
+        const results: { topic: string; ok: boolean; error?: string }[] = [];
+        for (const topic of topics.slice(0, 10)) {
+          if (!nt.allowed(topic)) { results.push({ topic, ok: false, error: `beginnt nicht mit ${cfg.topicPrefix}-` }); continue; }
+          try {
+            await sendNtfy(nt.cfg, { topic, title: 'Test vom Familienkalender', message: 'Wenn du das liest, kommen Push-Nachrichten an. 🎉', priority: 3, tags: ['white_check_mark'] });
+            results.push({ topic, ok: true });
+          } catch (e) { results.push({ topic, ok: false, error: String(e instanceof Error ? e.message : e).slice(0, 200) }); }
+        }
+        if (results.every((r) => r.ok)) await setStateField(cfg, token, 'ntfyError', '');
+        return new Response(JSON.stringify({ server: nt.cfg.ntfyServer, results }), { headers: cors });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e instanceof Error ? e.message : e).slice(0, 200) }), { status: 500, headers: cors });
       }
     }
     // .ics-Link für die App laden (viele Server erlauben das nicht direkt aus dem Browser): /ics?family=…&url=…

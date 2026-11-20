@@ -105,6 +105,20 @@ describe('Worker: mehrere Familien', () => {
     expect((await worker.fetch(new Request('https://erinnerungen.example/'), e2)).status).toBe(200);
   });
 
+  it('ntfy-Test: sendet an die Topics der Familie mit ihrem Schlüssel und meldet je Topic das Ergebnis', async () => {
+    const { topicPrefix } = await import('../src/lib/familyKey');
+    const pre = await topicPrefix('famaaaaaaaaaaaaaaaa');
+    const db: Db = { famaaaaaaaaaaaaaaaa: {
+      persons: { p1: { name: 'A', ntfyTopic: `${pre}-a` }, p2: { name: 'B', ntfyTopic: 'alt' } },
+      meta: { settings: { ntfyServer: 'https://ntfy.familie.example', ntfyToken: 'tk_fam' } } } };
+    const { worker, sent } = await loadWorker(db);
+    expect((await worker.fetch(new Request(`${W}/ntfy-test?family=famaaaaaaaaaaaaaaaa`, { method: 'POST' }), env)).status).toBe(403);
+    await worker.fetch(new Request(`${W}/register?family=famaaaaaaaaaaaaaaaa`, { method: 'POST' }), env);
+    const r = await (await worker.fetch(new Request(`${W}/ntfy-test?family=famaaaaaaaaaaaaaaaa`, { method: 'POST' }), env)).json() as any;
+    expect(r.results).toEqual([{ topic: `${pre}-a`, ok: true }, { topic: 'alt', ok: false, error: `beginnt nicht mit ${pre}-` }]);
+    expect(sent.map((x) => [x.url, x.body.topic, x.headers.Authorization])).toEqual([['https://ntfy.familie.example', `${pre}-a`, 'Bearer tk_fam']]);
+  });
+
   it('Import-Proxy und Lauf nur für angemeldete Familien', async () => {
     const db: Db = { famaaaaaaaaaaaaaaaa: { persons: { p1: { name: 'A' } } } };
     const { worker } = await loadWorker(db);
