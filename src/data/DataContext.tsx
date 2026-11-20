@@ -142,7 +142,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       store.subscribe<any>('meta', (m) => {
         setFamily({ ...DEFAULT_FAMILY, ...(m.find((x) => x.id === 'settings') ?? {}) });
         setTemplates(m.find((x) => x.id === 'templates')?.items ?? []);
-        setServiceUrl(m.find((x) => x.id === 'service')?.url || (store.mode === 'cloud' ? DEFAULT_SERVICE_URL : undefined));
+        // Fest eingebaute Adresse hat Vorrang (z. B. eigene Domain statt der alten workers.dev-Adresse)
+        setServiceUrl(store.mode === 'cloud' ? DEFAULT_SERVICE_URL || m.find((x) => x.id === 'service')?.url || undefined : m.find((x) => x.id === 'service')?.url || undefined);
         const r = m.find((x) => x.id === 'reminders');
         setService(r ? { icsStatus: r.icsStatus, lastBackup: r.lastBackup || undefined, backupError: r.backupError || undefined, at: r.at,
           topicPrefix: r.topicPrefix || undefined, ntfyServer: r.ntfyServer || undefined, blockedTopics: r.blockedTopics?.length ? r.blockedTopics : undefined, ntfyError: r.ntfyError || undefined } : {});
