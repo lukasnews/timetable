@@ -1,0 +1,9 @@
+# Cloudflare Pages: öffentliche Adresse der App für andere Familien (Workflow „Veröffentlichen“, Job „public“).
+# Der Erinnerungsdienst ist unter …/svc erreichbar (functions/svc) – per Service-Binding an den Worker.
+name = "familienkalender"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-06-01"
+
+[[services]]
+binding = "SERVICE"
+service = "familienkalender-erinnerungen"

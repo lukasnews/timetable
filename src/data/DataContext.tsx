@@ -8,7 +8,16 @@ import type { Mutation } from '../lib/recurrence';
 import { seedDemo } from './seed';
 
 /** Erinnerungsdienst (Cloudflare) – für alle Familien; jede meldet sich mit ihrer geheimen ID an */
-const DEFAULT_SERVICE_URL = (import.meta.env.VITE_SERVICE_URL as string | undefined) || undefined;
+// Unter der eigenen Adresse (VITE_PRIVATE_HOST) direkt, sonst (öffentliche Adresse, Domains anderer Familien)
+// über …/svc der jeweiligen App-Adresse – so sieht keine andere Familie die Adresse des Betreibers.
+const DEFAULT_SERVICE_URL = (() => {
+  const direct = (import.meta.env.VITE_SERVICE_URL as string | undefined) || undefined;
+  const own = import.meta.env.VITE_PRIVATE_HOST as string | undefined;
+  if (!direct || typeof location === 'undefined') return direct;
+  const h = location.hostname;
+  if (!own || h === own || h === 'localhost' || h === '127.0.0.1') return direct;
+  return `${location.origin}/svc`;
+})();
 const DEFAULT_FAMILY: FamilySettings = { id: 'settings', showHolidays: true, showSchoolHolidays: true };
 
 export const DEFAULT_DEVICE: DeviceSettings = {
