@@ -1,11 +1,11 @@
 name: Erinnerungen
 
-# Prüft alle 5 Minuten, ob Erinnerungen fällig sind, und schickt sie per ntfy.
-# GitHub startet geplante Läufe oft mit einigen Minuten Verzögerung – verpasste
-# Zeitfenster werden beim nächsten Lauf nachgeholt (bis zu 2 Stunden).
+# Ersatz für den Cloudflare-Dienst (der prüft alle 5 Minuten): einmal pro Stunde nachsehen und nur
+# einspringen, wenn Cloudflare länger nicht geprüft hat. Verpasste Zeitfenster werden nachgeholt
+# (bis zu 2 Stunden). Stündlich, damit das Gratis-Kontingent für GitHub Actions (privates Repo) reicht.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
     inputs:
       test:

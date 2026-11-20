@@ -19,12 +19,16 @@ Dauer: etwa 15 Minuten.
 
 ## 2. App veröffentlichen
 
-### Variante A: nur am Handy (GitHub Pages, automatisch)
+### Variante A: automatisch (Cloudflare Pages)
 
-Bei jeder Änderung auf `main` testet und baut GitHub die App und veröffentlicht sie direkt
-(Workflow „Veröffentlichen"). Einmalig: **Settings → Pages → Source: „GitHub Actions"**.
-Adresse: `https://timetable.chaoten.online/` (eigene Domain unter Settings → Pages → Custom domain;
-DNS bei Cloudflare: CNAME `timetable` → `lukasnews.github.io`, „DNS only").
+Bei jeder Änderung auf `main` testet und baut GitHub die App und veröffentlicht sie auf Cloudflare
+Pages (Workflow „Veröffentlichen“, Projekt `familienkalender` → `familienkalender-baf.pages.dev`).
+Benötigt die Secrets `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID`. Eigene Domains (auch
+`timetable.chaoten.online`) hängt der Workflow „Domain einer Familie verwalten“ an; DNS: CNAME auf
+`familienkalender-baf.pages.dev`, über Cloudflare geleitet. GitHub Pages wird nicht mehr verwendet.
+
+GitHub Actions bei privatem Repository: Gratis-Kontingent 2.000 Minuten/Monat. Die Ersatz-Prüfung
+„Erinnerungen“ läuft deshalb nur stündlich (der Cloudflare-Dienst prüft alle 5 Minuten).
 
 ### Variante B: am Computer (Firebase Hosting)
 

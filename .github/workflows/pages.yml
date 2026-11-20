@@ -1,7 +1,7 @@
 name: Veröffentlichen
 
-# Bei jeder Änderung auf main: testen, bauen und direkt auf GitHub Pages veröffentlichen
-# (Settings → Pages → Source: „GitHub Actions“). Die eigene Domain ist dort hinterlegt.
+# Bei jeder Änderung auf main: testen, bauen und auf Cloudflare Pages veröffentlichen
+# (Projekt „familienkalender“ – alle Familien, eigene Domains werden dort angehängt).
 on:
   push:
     branches: [main]
@@ -9,41 +9,13 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-
-  # Dieselbe App unter einer neutralen Adresse für andere Familien (Cloudflare Pages, z. B. familienkalender.pages.dev).
-  # Die eigene Domain bleibt der eigenen Familie vorbehalten.
+  # Testen, bauen, auf Cloudflare Pages veröffentlichen (ein Job – spart Actions-Minuten)
   public:
     runs-on: ubuntu-latest
     env:
@@ -55,17 +27,15 @@ jobs:
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "ready=false" >> "$GITHUB_OUTPUT"; else echo "ready=true" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v4
-        if: steps.check.outputs.ready == 'true'
       - uses: actions/setup-node@v4
-        if: steps.check.outputs.ready == 'true'
         with:
           node-version: 22
           cache: npm
-      - run: npm ci && npm run build
-        if: steps.check.outputs.ready == 'true'
+      - run: npm ci && npm test && npm run build
       - name: Auf Cloudflare Pages veröffentlichen
         if: steps.check.outputs.ready == 'true'
         run: |
+          set -o pipefail
           rm -f dist/CNAME
           npx --yes wrangler@4 pages project create familienkalender --production-branch=main 2>&1 | tail -3 || true
           npx --yes wrangler@4 pages deploy dist --project-name=familienkalender --branch=main --commit-dirty=true 2>&1 | tee /tmp/pages.log
