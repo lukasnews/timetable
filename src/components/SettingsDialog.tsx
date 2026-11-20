@@ -323,6 +323,17 @@ function NotifyTab() {
           {' '}· Benachrichtigungen: {plan.permission === 'granted' ? 'erlaubt ✓' : <b>nicht erlaubt</b>} · genaue Uhrzeit: {plan.exact === 'granted' ? 'erlaubt ✓' : plan.exact === 'denied' ? <b>nicht erlaubt</b> : '–'}
         </small>
       )}
+      {native && plan && plan.list.length > 0 && (
+        <details className="tips">
+          <summary>Eingeplante anzeigen ({plan.list.length})</summary>
+          <ul className="hint">
+            {plan.list.slice(0, 40).map((n, i) => (
+              <li key={i}><b>{n.at.toLocaleString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}</b> – {n.title}{n.body ? ` · ${n.body.split('\n')[0]}` : ''}</li>
+            ))}
+          </ul>
+          <small className="hint">Erinnerungen, deren Zeitpunkt beim Speichern schon vorbei war, werden nicht eingeplant. Termine anderer kommen beim nächsten Öffnen der App dazu.</small>
+        </details>
+      )}
       {testMsg && <small className="hint">{testMsg} Kommt nichts: Android-Einstellungen → Apps → Familienkalender → Akku → „Nicht eingeschränkt“.</small>}
       {native && (
         <>
