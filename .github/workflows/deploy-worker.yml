@@ -101,7 +101,7 @@ jobs:
           node -e "const o={FAMILY_ID:process.env.FAMILY_ID.trim(),FIREBASE_REFRESH_TOKEN:process.env.RT};if(process.env.REGISTRY_ID)o.REGISTRY_ID=process.env.REGISTRY_ID;console.log(JSON.stringify(o))" > /tmp/secrets.json
           npx --yes wrangler@4 secret bulk /tmp/secrets.json
           # Alter ntfy-Schlüssel wird nicht mehr gebraucht (Server/Schlüssel stehen in den Einstellungen jeder Familie)
-          if echo "$LIST" | grep -q '"NTFY_TOKEN"'; then npx --yes wrangler@4 secret delete NTFY_TOKEN --force >/dev/null 2>&1 && echo "Alten NTFY_TOKEN entfernt." || true; fi
+          if echo "$LIST" | grep -q 'NTFY_TOKEN'; then echo y | npx --yes wrangler@4 secret delete NTFY_TOKEN 2>&1 | tail -2 || true; fi
           rm /tmp/secrets.json
           echo "SINCE=$(date +%s%3N)" >> "$GITHUB_ENV"
       - name: Prüfen, ob Cloudflare läuft (bis zu 8 Minuten)
