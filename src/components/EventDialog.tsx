@@ -4,7 +4,7 @@ import { findConflicts } from '../lib/conflicts';
 import { CATEGORIES, guessCategory } from '../lib/categories';
 import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
-import { addDays, addMinutes, diffMinutes, todayLocal, uid, weekdayMo0 } from '../lib/dates';
+import { addDays, addMinutes, diffMinutes, fromNative, todayLocal, uid, weekdayMo0 } from '../lib/dates';
 import { parseQuick } from '../lib/quickAdd';
 import { ShareSheet } from './ShareSheet';
 
@@ -283,6 +283,9 @@ export function EventDialog(props: {
             {REMINDERS.filter(([v]) => ev.allDay ? v === null || v === 0 || v === 840 || v === 1440 || v === 2880 || v === ev.reminderMinutes : v !== 840 || v === ev.reminderMinutes)
               .map(([v, l]) => <option key={l} value={v ?? ''}>{ev.allDay ? ({ 0: 'Am Tag, 08:00', 1440: '1 Tag vorher, 08:00', 2880: '2 Tage vorher, 08:00' } as Record<number, string>)[v as number] ?? l : l}</option>)}
           </select>
+          {ev.reminderMinutes != null && !ev.recurrence && addMinutes(ev.allDay ? `${ev.start.slice(0, 10)}T08:00` : ev.start, -ev.reminderMinutes) <= fromNative(new Date(), false) && (
+            <small className="error">Dieser Erinnerungszeitpunkt ist schon vorbei – es kommt keine Erinnerung.</small>
+          )}
         </label>
 
         <details className="form-more" open={moreOpen} onToggle={(e) => setMoreOpen((e.target as HTMLDetailsElement).open)}>

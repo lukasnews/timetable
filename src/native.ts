@@ -153,19 +153,19 @@ export async function openExactAlarmSetting(): Promise<void> {
 }
 
 /** Was ist am Gerät eingeplant? (für die Anzeige in den Einstellungen) */
-export async function nativeReminderStatus(): Promise<{ count: number; next?: { at: Date; title: string }; permission: string; exact: string } | null> {
+export async function nativeReminderStatus(): Promise<{ count: number; next?: { at: Date; title: string }; list: { at: Date; title: string; body: string }[]; permission: string; exact: string } | null> {
   if (!isNative()) return null;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
   const [pending, permission, exact] = await Promise.all([
-    LocalNotifications.getPending().catch(() => ({ notifications: [] as { id: number; title?: string; schedule?: { at?: Date | string } }[] })),
+    LocalNotifications.getPending().catch(() => ({ notifications: [] as { id: number; title?: string; body?: string; schedule?: { at?: Date | string } }[] })),
     nativeNotifyPermission(false).catch(() => 'unknown'),
     exactAlarmStatus(),
   ]);
   const items = pending.notifications
-    .map((n) => ({ at: n.schedule?.at ? new Date(n.schedule.at) : null, title: n.title ?? '' }))
-    .filter((x): x is { at: Date; title: string } => !!x.at && !isNaN(x.at.getTime()))
+    .map((n) => ({ at: n.schedule?.at ? new Date(n.schedule.at) : null, title: n.title ?? '', body: n.body ?? '' }))
+    .filter((x): x is { at: Date; title: string; body: string } => !!x.at && !isNaN(x.at.getTime()))
     .sort((a, b) => a.at.getTime() - b.at.getTime());
-  return { count: pending.notifications.length, next: items[0], permission, exact };
+  return { count: pending.notifications.length, next: items[0], list: items, permission, exact };
 }
 
 const TEST_ID = 1_999_999_001;
