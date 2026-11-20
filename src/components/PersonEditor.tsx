@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Person } from '../types';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed, type AvatarStyleKey } from '../lib/avatars';
-import { Avatar, Icon, Modal, Toggle } from './ui';
+import { Advanced, Avatar, Icon, Modal, Toggle } from './ui';
 import { AvatarBuilder } from './AvatarBuilder';
 import { useData } from '../data/DataContext';
 import { suggestTopic, topicAllowed } from '../lib/familyKey';
@@ -71,7 +71,10 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
         <div className="grid2">
           <label className="field"><span className="label">🎂 Geburtstag (optional)</span>
             <input type="date" value={p.birthday ?? ''} onChange={(e) => set({ birthday: e.target.value || undefined })} /></label>
-          <label className="field"><span className="label">🔔 ntfy-Topic für Erinnerungen</span>
+        </div>
+        <Advanced title="🔔 Push per ntfy" status={p.ntfyTopic ? `Topic: ${p.ntfyTopic}` : undefined}
+          hint="Für Fortgeschrittene – nur nötig, wenn die Familie ntfy nutzt (Einstellungen → Erinnerungen)">
+          <label className="field"><span className="label">ntfy-Topic</span>
             <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={prefix ? suggestTopic(prefix, p.name || 'name') : 'z. B. mama'} onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} />
             {prefix && p.ntfyTopic && !topicAllowed(p.ntfyTopic, prefix) && <small className="error">Sollte mit „{prefix}-“ beginnen (Schutz vor fremden Familien) – sonst kommen keine Nachrichten an.</small>}
             {prefix && (!p.ntfyTopic || !topicAllowed(p.ntfyTopic, prefix)) && (
@@ -81,7 +84,7 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
               <button type="button" className="btn small" onClick={() => navigator.clipboard?.writeText(p.ntfyTopic!)}>Topic kopieren</button>
             )}
           </label>
-        </div>
+        </Advanced>
         {p.birthday && (
           <label className="field"><span className="label">🔔 An den Geburtstag erinnern</span>
             <select value={p.birthdayReminder ?? ''} onChange={(e) => set({ birthdayReminder: e.target.value === '' ? null : Number(e.target.value) })}>

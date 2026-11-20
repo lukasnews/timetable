@@ -87,3 +87,17 @@ export function Icon({ name, size = 22 }: { name: keyof typeof PATHS | string; s
     </svg>
   );
 }
+
+/** Aufklappbarer Bereich für erfahrene Nutzer – standardmäßig zu, Status im Titel */
+export function Advanced(props: { title: ReactNode; hint?: ReactNode; status?: ReactNode; warn?: boolean; defaultOpen?: boolean; children: ReactNode }) {
+  return (
+    <details className={'advanced' + (props.warn ? ' warn' : '')} open={props.defaultOpen}>
+      <summary>
+        <span className="adv-title">{props.title}</span>
+        {props.status && <span className="adv-status">{props.status}</span>}
+        {props.hint && <span className="adv-hint">{props.hint}</span>}
+      </summary>
+      <div className="adv-body">{props.children}</div>
+    </details>
+  );
+}
