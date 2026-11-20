@@ -23,8 +23,6 @@ export interface Config {
   appUrl?: string;
   /** Topics dieser Familie brauchen dieses Präfix (Schutz zwischen Familien) */
   topicPrefix?: string;
-  /** Übergang: alte Topics ohne Präfix noch zulassen */
-  allowUnprefixed?: boolean;
 }
 
 export interface ReminderState {
@@ -204,15 +202,14 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
 
 /**
  * Versand-Einstellungen für eine Familie – für alle gleich: ntfy-Server und Zugangsschlüssel aus den
- * Einstellungen der Familie (ohne Server: nichts). Topics brauchen das Präfix der Familie
- * (Übergang: allowUnprefixed lässt alte Topics ohne Präfix noch zu).
+ * Einstellungen der Familie (ohne Server: nichts). Topics brauchen das Präfix der Familie.
  */
 export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean; missingServer?: boolean } {
   const own = family?.ntfyServer?.trim();
   const prefix = cfg.topicPrefix;
   if (!own || !/^https:\/\/[^\s/]+/i.test(own)) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
   return { cfg: { ...cfg, ntfyServer: own, ntfyToken: family?.ntfyToken?.trim() || undefined },
-    allowed: (t) => !prefix || !!cfg.allowUnprefixed || t === prefix || t.startsWith(prefix + '-') };
+    allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */
