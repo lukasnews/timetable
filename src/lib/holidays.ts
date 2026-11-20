@@ -1,13 +1,14 @@
 /**
- * Österreichische Feiertage und Schulferien für Oberösterreich.
- * Ferienregeln laut Schulzeitgesetz (OÖ):
- *  - Herbstferien: 27.–31. Oktober
- *  - Weihnachtsferien: 24. Dezember – 6. Jänner
- *  - Semesterferien OÖ: 3. Woche im Februar (Montag nach dem 2. Montag im Feber + 7 Tage)
- *  - Osterferien: Samstag vor Palmsonntag – Ostermontag
- *  - Pfingstferien: Pfingstsamstag – Pfingstmontag
- *  - Sommerferien OÖ: Samstag zwischen 10. und 16. Juli, 9 Wochen
- * Schulautonome Tage sind nicht enthalten – die kann man als normale Termine eintragen.
+ * Österreichische Feiertage und Schulferien je Bundesland.
+ * Ferienregeln laut Schulzeitgesetz (§ 2), geprüft gegen die Ferientermine des Bildungsministeriums 2024/25–2026/27:
+ *  - Herbstferien: 27.–31. Oktober (alle)
+ *  - Weihnachtsferien: 24. Dezember – 6. Jänner; ist der 23. Dezember ein Montag, ab 23. Dezember (alle)
+ *  - Semesterferien: Woche ab dem 1. (W, NÖ), 2. (B, K, S, T, V) bzw. 3. Montag im Februar (OÖ, St);
+ *    vom Ministerium per Verordnung verschobene Jahre stehen in SEMESTER_OVERRIDE
+ *  - Osterferien: Samstag vor Palmsonntag – Ostermontag (alle)
+ *  - Pfingstferien: Pfingstsamstag – Pfingstmontag (alle)
+ *  - Sommerferien: 9 Wochen ab dem Samstag zwischen 28. Juni und 4. Juli (W, NÖ, B) bzw. 5. und 11. Juli (übrige)
+ * Schulautonome Tage und Landespatron-Tage sind nicht enthalten – die kann man als normale Termine eintragen.
  */
 import { addDays, fmtDate } from './dates';
 
@@ -54,20 +55,42 @@ function firstWeekdayOnOrAfter(y: number, m: number, d: number, weekday: number 
   return fmtDate(date);
 }
 
-export function schoolHolidaysOOE(year: number): DayRange[] {
+export type FerienRegion = 'W' | 'N' | 'B' | 'K' | 'S' | 'St' | 'T' | 'V' | 'O';
+export const FERIEN_REGIONS: [FerienRegion, string][] = [
+  ['B', 'Burgenland'], ['K', 'Kärnten'], ['N', 'Niederösterreich'], ['O', 'Oberösterreich'], ['S', 'Salzburg'],
+  ['St', 'Steiermark'], ['T', 'Tirol'], ['V', 'Vorarlberg'], ['W', 'Wien'],
+];
+export const regionName = (r?: FerienRegion) => FERIEN_REGIONS.find(([k]) => k === (r ?? 'O'))?.[1] ?? 'Oberösterreich';
+const SEMESTER_WEEK: Record<FerienRegion, number> = { W: 1, N: 1, B: 2, K: 2, S: 2, T: 2, V: 2, O: 3, St: 3 };
+/** Vom Bildungsministerium verschobene Semesterferien (Jahr → Bundesland → Februar-Woche), z. B. BGBl. II Nr. 322/2025 */
+const SEMESTER_OVERRIDE: Record<number, Partial<Record<FerienRegion, number>>> = { 2027: { S: 3, T: 3, V: 3 } };
+const EAST = new Set<FerienRegion>(['W', 'N', 'B']);
+
+function christmas(y: number): DayRange {
+  const d23 = new Date(Date.UTC(y, 11, 23)).getUTCDay();
+  return { title: 'Weihnachtsferien', start: ymd(y, 12, d23 === 1 ? 23 : 24), end: ymd(y + 1, 1, 7) };
+}
+
+export function schoolHolidaysAT(year: number, region: FerienRegion = 'O'): DayRange[] {
   const e = fmtDate(easter(year));
-  const semesterMon = addDays(firstWeekdayOnOrAfter(year, 2, 1, 1), 14);
-  const summerStart = firstWeekdayOnOrAfter(year, 7, 10, 6);
+  const week = SEMESTER_OVERRIDE[year]?.[region] ?? SEMESTER_WEEK[region] ?? 3;
+  const semesterMon = addDays(firstWeekdayOnOrAfter(year, 2, 1, 1), (week - 1) * 7);
+  const summerStart = EAST.has(region) ? firstWeekdayOnOrAfter(year, 6, 28, 6) : firstWeekdayOnOrAfter(year, 7, 5, 6);
   return [
-    { title: 'Weihnachtsferien', start: ymd(year - 1, 12, 24), end: ymd(year, 1, 7) },
+    christmas(year - 1),
     { title: 'Semesterferien', start: addDays(semesterMon, -2), end: addDays(semesterMon, 7) },
     { title: 'Osterferien', start: addDays(e, -8), end: addDays(e, 2) },
     { title: 'Pfingstferien', start: addDays(e, 48), end: addDays(e, 51) },
     { title: 'Sommerferien', start: summerStart, end: addDays(summerStart, 9 * 7 + 2) },
     { title: 'Herbstferien', start: ymd(year, 10, 26), end: ymd(year, 11, 3) },
-    { title: 'Weihnachtsferien', start: ymd(year, 12, 24), end: ymd(year + 1, 1, 7) },
+    christmas(year),
   ];
 }
+
+/** Schulferien Oberösterreich (Kurzform) */
+export const schoolHolidaysOOE = (year: number) => schoolHolidaysAT(year, 'O');
+/** Ferien-Funktion für ein Bundesland (für rangesBetween) */
+export const schoolHolidaysFor = (region?: FerienRegion) => (year: number) => schoolHolidaysAT(year, region ?? 'O');
 
 export function rangesBetween(from: string, to: string, fn: (y: number) => DayRange[]): DayRange[] {
   const y1 = Number(from.slice(0, 4)), y2 = Number(to.slice(0, 4));
@@ -85,10 +108,10 @@ export function rangesBetween(from: string, to: string, fn: (y: number) => DayRa
 }
 
 /** Ist dieser Tag schulfrei (Wochenende, Feiertag oder Ferien)? */
-export function isSchoolFree(day: string): boolean {
+export function isSchoolFree(day: string, region: FerienRegion = 'O'): boolean {
   const y = Number(day.slice(0, 4));
   const wd = new Date(day + 'T00:00:00Z').getUTCDay();
   if (wd === 0 || wd === 6) return true;
   const inRange = (r: DayRange) => r.start <= day && day < r.end;
-  return holidaysAT(y).some(inRange) || schoolHolidaysOOE(y).some(inRange);
+  return holidaysAT(y).some(inRange) || schoolHolidaysAT(y, region).some(inRange);
 }

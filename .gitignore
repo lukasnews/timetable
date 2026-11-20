@@ -8,3 +8,4 @@ dev-dist
 *.tsbuildinfo
 .reminder-state
 .reminder-build
+android-test/

@@ -250,7 +250,7 @@ export async function setupBackButton() {
 
 /* ---------------- Startbildschirm-Widget ---------------- */
 
-interface FamilyWidgetPlugin { update(o: { items: string }): Promise<void> }
+interface FamilyWidgetPlugin { update(o: { items: string }): Promise<void>; pin(): Promise<{ requested: boolean; placed: number }>; count(): Promise<{ placed: number }> }
 let widgetPlugin: FamilyWidgetPlugin | null = null;
 
 /** Nächste Termine für das Widget (rein, testbar) */
@@ -284,17 +284,33 @@ export function widgetItems(events: CalEvent[], persons: Person[], now: string, 
     });
 }
 
-let lastWidget = '';
-export async function syncWidget(events: CalEvent[], persons: Person[]) {
-  if (!isNative()) return;
+async function getWidgetPlugin() {
   if (!widgetPlugin) {
     const { registerPlugin } = await import('@capacitor/core');
     widgetPlugin = registerPlugin<FamilyWidgetPlugin>('FamilyWidget');
   }
+  return widgetPlugin;
+}
+
+/** Widgets am Startbildschirm (null = ältere App-Version ohne diese Funktion) */
+export async function widgetCount(): Promise<number | null> {
+  if (!isNative()) return null;
+  try { return (await (await getWidgetPlugin()).count()).placed; } catch { return null; }
+}
+
+/** Startbildschirm fragen, ob er das Widget hinzufügen soll */
+export async function pinWidget(): Promise<boolean> {
+  try { return (await (await getWidgetPlugin()).pin()).requested; } catch { return false; }
+}
+
+let lastWidget = '';
+export async function syncWidget(events: CalEvent[], persons: Person[]) {
+  if (!isNative()) return;
+  await getWidgetPlugin();
   const items = JSON.stringify(widgetItems(events, persons, fromNative(new Date(), false)));
   if (items === lastWidget) return;
   lastWidget = items;
-  await widgetPlugin.update({ items });
+  await widgetPlugin!.update({ items });
 }
 
 /* ---------------- Kiosk: Status- und Navigationsleiste ausblenden ---------------- */

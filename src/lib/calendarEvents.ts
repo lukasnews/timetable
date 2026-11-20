@@ -3,7 +3,7 @@ import type { CalEvent, Person, Timetable, Lesson } from '../types';
 import { expand } from './recurrence';
 import { displayTitle } from './categories';
 import { addDays, isoWeek, weekdayMo0 } from './dates';
-import { holidaysAT, rangesBetween, schoolHolidaysOOE, isSchoolFree } from './holidays';
+import { holidaysAT, rangesBetween, schoolHolidaysFor, isSchoolFree, type FerienRegion } from './holidays';
 
 export interface OccProps {
   kind: 'event' | 'birthday' | 'personBirthday' | 'school' | 'holiday' | 'ferien';
@@ -56,6 +56,8 @@ export function buildEvents(opts: {
   to: string;
   showHolidays: boolean;
   showSchoolHolidays: boolean;
+  /** Bundesland der Schulferien (Standard Oberösterreich) */
+  ferienRegion?: FerienRegion;
   showSchool: boolean;
   /** Woche/Tag: Schulzeit als schmaler Streifen (Hintergrund) statt als Termin */
   schoolAsStrip: boolean;
@@ -121,7 +123,7 @@ export function buildEvents(opts: {
     }
   }
   if (opts.showSchoolHolidays) {
-    for (const f of rangesBetween(from, to, schoolHolidaysOOE)) {
+    for (const f of rangesBetween(from, to, schoolHolidaysFor(opts.ferienRegion))) {
       // Leichte Einfärbung der Tage + eigener Balken mit Namen (in allen Ansichten lesbar)
       out.push({ id: `ferbg-${f.start}`, start: f.start, end: f.end, allDay: true, display: 'background', classNames: ['bg-ferien'] });
       out.push({ id: `fer-${f.start}`, title: f.title, start: f.start, end: f.end, allDay: true, editable: false,
@@ -139,7 +141,7 @@ export function buildEvents(opts: {
       const tt = timetables.find((t) => t.id === p.id);
       if (!tt || !tt.showInCalendar) return;
       for (let d = from; d < to; d = addDays(d, 1)) {
-        if (isSchoolFree(d) || isFreeFor(p.id, d) || isKidDayOff(tt, d)) continue;
+        if (isSchoolFree(d, opts.ferienRegion) || isFreeFor(p.id, d) || isKidDayOff(tt, d)) continue;
         const ls = lessonsForDay(tt, d);
         if (!ls.length) continue;
         const start = ls.reduce((m, l) => (l.start < m ? l.start : m), ls[0].start);

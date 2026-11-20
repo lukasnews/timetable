@@ -226,9 +226,9 @@ export default function App() {
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => { m.removeAttribute('media'); m.setAttribute('content', dark ? '#0e0f15' : '#f4f5fa'); });
   }, [night, dark]);
   const hasKids = persons.some((p) => p.hasTimetable);
-  const countdowns = useMemo(() => nextCountdowns(events, fromNative(now, true), family.showSchoolHolidays && hasKids, isPhone ? 1 : 2),
+  const countdowns = useMemo(() => nextCountdowns(events, fromNative(now, true), family.showSchoolHolidays && hasKids, isPhone ? 1 : 2, family.ferienRegion),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [events, now.toDateString(), family.showSchoolHolidays, hasKids, isPhone]);
+    [events, now.toDateString(), family.showSchoolHolidays, family.ferienRegion, hasKids, isPhone]);
 
   // Countdown in der Leiste: „bis …“ nur, wenn der Platz reicht; sonst nur „39 Tage“ (Antippen zeigt den Text)
   const cdRef = useRef<HTMLSpanElement>(null);
@@ -590,7 +590,7 @@ export default function App() {
               const now = new Date();
               let d = fromNative(now, true);
               for (let i = 0; i < 14; i++) {
-                if (weekdayMo0(d) === l.weekday && !isSchoolFree(d) && !isKidDayOff(data.timetables.find((t) => t.id === kidId), d) && (i > 0 || fromNative(now, false).slice(11) < l.start)) break;
+                if (weekdayMo0(d) === l.weekday && !isSchoolFree(d, family.ferienRegion) && !isKidDayOff(data.timetables.find((t) => t.id === kidId), d) && (i > 0 || fromNative(now, false).slice(11) < l.start)) break;
                 d = addDays(d, 1);
               }
               const start = `${d}T${l.start}`;

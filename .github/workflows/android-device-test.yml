@@ -1,0 +1,66 @@
+name: Android-Gerätetest
+
+# Startet die Android-App in einem echten Android-Emulator (Pixel, Android 14, Zeitzone Wien) und prüft:
+# Benachrichtigungen bei geschlossener App zur richtigen Uhrzeit, Tages-/Wochenübersicht, Teilen-Menü
+# („Sicherung speichern“) und das Startbildschirm-Widget. Bericht + Bildschirmfotos unter „Artifacts“.
+# Läuft nach jedem neuen Android-Build und per „Run workflow“. Nutzt eine Test-Variante (debug) derselben App
+# mit lokalen Daten – es werden keine echten Familiendaten verwendet.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Android-App bauen']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-device-test
+  cancel-in-progress: true
+
+jobs:
+  device:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: KVM für den Emulator freischalten
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: npm ci
+      - name: Test-App bauen
+        run: |
+          npm run build
+          npx cap sync android
+          cd android && chmod +x gradlew && ./gradlew --no-daemon assembleDebug
+      - run: npm i --no-save playwright@1.63.0
+      - name: Im Emulator testen
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -timezone Europe/Vienna
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            OUT=android-test node tests/android/device-test.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-geraetetest
+          path: android-test/
+          if-no-files-found: ignore
