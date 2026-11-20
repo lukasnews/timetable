@@ -16,6 +16,23 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Selbstheilung: Bleibt die App leer (z. B. alte zwischengespeicherte Version nach einem Umzug),
+      // alten Zwischenspeicher löschen und einmal neu laden.
+      (function () {
+        var KEY = 'fk.recovered';
+        function recover() {
+          try { if (sessionStorage.getItem(KEY)) return; sessionStorage.setItem(KEY, '1'); } catch (e) { return; }
+          var sw = navigator.serviceWorker ? navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }) : Promise.resolve();
+          sw.then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : null; })
+            .catch(function () {}).then(function () { location.reload(); });
+        }
+        window.addEventListener('error', function (e) { var t = e.target; if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) recover(); }, true);
+        window.addEventListener('unhandledrejection', function (e) { if (/dynamically imported module|Importing a module script failed|MIME type/i.test(String(e.reason))) recover(); });
+        setTimeout(function () { var r = document.getElementById('root'); if (r && !r.children.length) recover(); }, 10000);
+        window.addEventListener('load', function () { setTimeout(function () { var r = document.getElementById('root'); if (r && r.children.length) try { sessionStorage.removeItem(KEY); } catch (e) {} }, 3000); });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
