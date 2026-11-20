@@ -16,7 +16,7 @@ import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
-import { isNative, nativeNotifyPermission } from '../native';
+import { canNativeShare, isNative, nativeNotifyPermission, nativeShareText } from '../native';
 import { QuickLinksEditor } from './QuickLinks';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
@@ -470,7 +470,7 @@ function SyncTab() {
             {qr && <img src={qr} alt="QR-Code zum Verbinden" width={220} height={220} />}
             <div className="qr-actions">
               <button className="btn" onClick={() => navigator.clipboard?.writeText(link)}>Link kopieren</button>
-              {'share' in navigator && <button className="btn" onClick={() => navigator.share({ title: 'Familienkalender', url: link }).catch(() => {})}>Teilen …</button>}
+              {(canNativeShare() || 'share' in navigator) && <button className="btn" onClick={async () => { if (!(await nativeShareText('Familienkalender', 'Unser Familienkalender – Link öffnen zum Verbinden:', link))) navigator.share({ title: 'Familienkalender', url: link }).catch(() => {}); }}>Teilen …</button>}
             </div>
           </div>
           <p className="hint">In diesem Kalender: {persons.length} Person(en), {events.length} Termin(e).</p>

@@ -17,6 +17,7 @@ import { todayLocal, uid } from '../lib/dates';
 import { EVENING_TIMES, SOURCE_REMINDERS, planSync, reminderFor, setSourceReminder, sourceReminderValue } from '../lib/icsSync';
 import { loadCloudConfig } from '../data/store';
 import { Advanced, Avatar, Icon, Toggle } from './ui';
+import { nativeShareFile } from '../native';
 import { ConfirmDialog } from './Dialogs';
 
 /** Erinnerung einer Quelle: Auswahl + ggf. Uhrzeit am Vorabend */
@@ -170,6 +171,8 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
   };
 
   const saveFile = async (file: File) => {
+    // Android-App: Teilen-Menü (Speichern in Dateien/Drive, senden …)
+    try { if (await nativeShareFile(file)) return; } catch (e) { console.error('Speichern', e); }
     if (navigator.canShare?.({ files: [file] })) {
       try { await navigator.share({ files: [file], title: 'Familienkalender' }); return; } catch { /* abgebrochen → Download */ }
     }
