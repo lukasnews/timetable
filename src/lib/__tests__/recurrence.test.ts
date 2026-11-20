@@ -1,6 +1,7 @@
 import { describe as d, expect, it } from 'vitest';
 import { applyChange, applyDelete, describe, expand } from '../recurrence';
-import { holidaysAT, schoolHolidaysOOE, isSchoolFree } from '../holidays';
+import { holidaysAT, schoolHolidaysOOE, schoolHolidaysAT, isSchoolFree } from '../holidays';
+import { addDays } from '../dates';
 import type { CalEvent } from '../../types';
 
 let n = 0;
@@ -124,5 +125,49 @@ d('Schulferien OÖ laut Bildungsministerium (bmb.gv.at)', () => {
     inside(2026, 'Weihnachtsferien', '2026-12-24', '2027-01-06');
     // erster Schultag nach den Sommerferien 2027 ist kein Ferientag mehr
     expect(schoolHolidaysOOE(2027).find((x) => x.title === 'Sommerferien')!.end).toBe('2027-09-13');
+  });
+});
+
+d('Schulferien aller Bundesländer laut Bildungsministerium (bmb.gv.at)', () => {
+  // [Schuljahr-Endjahr, Region, Ferien, erster freier Tag, letzter freier Tag] – Werte von bmb.gv.at/…/ferientermine_24_25, _25_26, _26_27
+  type R = import('../holidays').FerienRegion;
+  const ALL: R[] = ['W', 'N', 'B', 'K', 'S', 'St', 'T', 'V', 'O'];
+  const groups = (y: number, sem: [string, string, R[]][], east: [string, string], west: [string, string], common: [string, string, string, number][]) => {
+    const rows: [number, R, string, string, string][] = [];
+    for (const [a, b, rs] of sem) for (const r of rs) rows.push([y, r, 'Semesterferien', a, b]);
+    for (const r of ALL) {
+      rows.push([y, r, 'Sommerferien', ...(['W', 'N', 'B'].includes(r) ? east : west)]);
+      for (const [t, a, b, yy] of common) rows.push([yy, r, t, a, b]);
+    }
+    return rows;
+  };
+  const rows = [
+    ...groups(2025, [['2025-02-03', '2025-02-08', ['N', 'W']], ['2025-02-10', '2025-02-15', ['B', 'K', 'S', 'T', 'V']], ['2025-02-17', '2025-02-22', ['O', 'St']]],
+      ['2025-06-28', '2025-08-31'], ['2025-07-05', '2025-09-07'],
+      [['Herbstferien', '2024-10-28', '2024-10-31', 2024], ['Weihnachtsferien', '2024-12-23', '2025-01-06', 2024], ['Osterferien', '2025-04-12', '2025-04-21', 2025], ['Pfingstferien', '2025-06-07', '2025-06-09', 2025]]),
+    ...groups(2026, [['2026-02-02', '2026-02-07', ['N', 'W']], ['2026-02-09', '2026-02-14', ['B', 'K', 'S', 'T', 'V']], ['2026-02-16', '2026-02-21', ['O', 'St']]],
+      ['2026-07-04', '2026-09-06'], ['2026-07-11', '2026-09-13'],
+      [['Herbstferien', '2025-10-27', '2025-10-31', 2025], ['Weihnachtsferien', '2025-12-24', '2026-01-06', 2025], ['Osterferien', '2026-03-28', '2026-04-06', 2026], ['Pfingstferien', '2026-05-23', '2026-05-25', 2026]]),
+    ...groups(2027, [['2027-02-01', '2027-02-06', ['N', 'W']], ['2027-02-08', '2027-02-13', ['B', 'K']], ['2027-02-15', '2027-02-20', ['O', 'S', 'St', 'T', 'V']]],
+      ['2027-07-03', '2027-09-05'], ['2027-07-10', '2027-09-12'],
+      [['Herbstferien', '2026-10-27', '2026-10-31', 2026], ['Weihnachtsferien', '2026-12-24', '2027-01-06', 2026], ['Osterferien', '2027-03-20', '2027-03-29', 2027], ['Pfingstferien', '2027-05-15', '2027-05-17', 2027]]),
+  ];
+  it.each(rows)('%i %s %s %s–%s', (y, region, title, first, last) => {
+    const r = schoolHolidaysAT(y, region).find((x) => x.title === title && x.start <= first && first < x.end);
+    expect(r).toBeDefined();
+    expect(last < r!.end).toBe(true);
+    // nächster regulärer Schultag (Mo–Fr, kein Feiertag, nicht Allerseelen) muss wieder Schule sein
+    let next = addDays(last, 1);
+    const off = (x: string) => [0, 6].includes(new Date(x + 'T00:00:00Z').getUTCDay()) || x.slice(5) === '11-02'
+      || holidaysAT(Number(x.slice(0, 4))).some((h) => h.start === x);
+    while (off(next)) next = addDays(next, 1);
+    expect(r!.end <= next).toBe(true);
+    expect(isSchoolFree(next, region)).toBe(false);
+  });
+  it('Region beeinflusst Schultage', () => {
+    expect(isSchoolFree('2026-02-03', 'W')).toBe(true);
+    expect(isSchoolFree('2026-02-03', 'O')).toBe(false);
+    expect(isSchoolFree('2026-07-06', 'N')).toBe(true);
+    expect(isSchoolFree('2026-07-06', 'O')).toBe(false);
   });
 });

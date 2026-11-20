@@ -256,7 +256,7 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
   const { persons, family, from, days } = opts;
   // Mitbringen aus dem Stundenplan (nur Tagesübersicht, nur an Schultagen)
   const schoolBring = new Map<string, string[]>(); // personId → Zeilen
-  if (days === 1 && opts.timetables && !isSchoolFree(from)) {
+  if (days === 1 && opts.timetables && !isSchoolFree(from, family?.ferienRegion)) {
     const free = expand(opts.events.filter((e) => e.schoolFree), from, addDays(from, 1));
     for (const tt of opts.timetables) {
       const kid = persons.find((p) => p.id === tt.id && p.hasTimetable);

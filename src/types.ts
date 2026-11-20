@@ -153,6 +153,8 @@ export interface FamilySettings {
   pinHash?: string;
   showHolidays: boolean;
   showSchoolHolidays: boolean;
+  /** Bundesland für die Schulferien (fehlt = Oberösterreich) */
+  ferienRegion?: import('./lib/holidays').FerienRegion;
   /** ntfy-Topic für Termine der ganzen Familie (ohne Person) */
   ntfyFamilyTopic?: string;
   /** Eigener ntfy-Server der Familie (leer = Server des Erinnerungsdienstes) */

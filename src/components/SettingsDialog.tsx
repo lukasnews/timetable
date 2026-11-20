@@ -16,8 +16,9 @@ import { FirebaseStore } from '../data/firebaseStore';
 import { DataTab } from './DataTab';
 import { checkForUpdate } from '../update';
 import { DEFAULT_PLACE, searchPlaces, type Place } from '../lib/weather';
-import { canNativeShare, exactAlarmStatus, isNative, nativeNotifyPermission, nativeReminderStatus, nativeShareText, nativeTestNotification, openExactAlarmSetting } from '../native';
+import { canNativeShare, exactAlarmStatus, isNative, nativeNotifyPermission, nativeReminderStatus, nativeShareText, nativeTestNotification, openExactAlarmSetting, pinWidget, widgetCount } from '../native';
 import { QuickLinksEditor } from './QuickLinks';
+import { FERIEN_REGIONS, regionName, type FerienRegion } from '../lib/holidays';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
@@ -269,6 +270,15 @@ function NotifyTab() {
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
   }, [native, device.reminders, device.dailyDigest, device.weeklyDigest]);
+  const [widgets, setWidgets] = useState<number | null>(null);
+  const [widgetMsg, setWidgetMsg] = useState('');
+  useEffect(() => {
+    if (!native) return;
+    const load = () => widgetCount().then(setWidgets);
+    load();
+    window.addEventListener('fk-resume', load);
+    return () => window.removeEventListener('fk-resume', load);
+  }, [native]);
   const [ntfyTest, setNtfyTest] = useState<{ busy?: boolean; error?: string; results?: { topic: string; ok: boolean; error?: string }[] } | null>(null);
   const runNtfyTest = async () => {
     const fid = loadCloudConfig()?.familyId;
@@ -345,6 +355,18 @@ function NotifyTab() {
           )}
           <Toggle checked={!!device.weeklyDigest} onChange={async (v) => { if (v && (await nativeNotifyPermission(true)) !== 'granted') return; setDevice({ weeklyDigest: v || undefined }); }}
             label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+          {widgets !== null && (
+            <div className="field">
+              <span className="label">📅 Widget „Nächste Termine“</span>
+              <div className="row">
+                <button className="btn small" onClick={async () => setWidgetMsg(await pinWidget()
+                  ? 'Bestätige am Startbildschirm „Hinzufügen“.'
+                  : 'Dein Startbildschirm kann das nicht automatisch: lange auf eine freie Stelle drücken → Widgets → Familienkalender.')}>
+                  Zum Startbildschirm hinzufügen</button>
+              </div>
+              <small className="hint">{widgetMsg || (widgets > 0 ? `Am Startbildschirm: ${widgets} ✓ – zeigt die nächsten Termine, auch offline.` : 'Zeigt die nächsten Termine direkt am Startbildschirm.')}</small>
+            </div>
+          )}
         </>
       )}
       <Toggle checked={device.changeHint !== false} onChange={(v) => setDevice({ changeHint: v })} label="Änderungen beim Öffnen zeigen"
@@ -644,11 +666,20 @@ function GeneralTab() {
 
       <h3>Feiertage und Ferien</h3>
       <Toggle checked={family.showHolidays} onChange={(v) => saveFamily({ showHolidays: v })} label="Feiertage Österreich anzeigen" />
-      <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label="Schulferien Oberösterreich anzeigen"
-        hint="Laut Bildungsministerium; schulautonome Tage bitte als eigenen Termin eintragen." />
+      <Toggle checked={family.showSchoolHolidays} onChange={(v) => saveFamily({ showSchoolHolidays: v })} label={`Schulferien ${regionName(family.ferienRegion)} anzeigen`}
+        hint="Laut Bildungsministerium; schulautonome Tage und Landespatron bitte als eigenen Termin eintragen." />
+      {family.showSchoolHolidays && (
+        <label className="field">
+          <span className="label">Bundesland für die Schulferien</span>
+          <select value={family.ferienRegion ?? 'O'} onChange={(e) => saveFamily({ ferienRegion: e.target.value as FerienRegion })}>
+            {FERIEN_REGIONS.map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+          </select>
+          <small className="hint">Gilt für Ferien im Kalender, den Countdown, die Schulzeiten und die Tagesübersicht.</small>
+        </label>
+      )}
       <details className="tips">
-        <summary>Anderes Bundesland oder Land?</summary>
-        <p className="hint">Die eingebauten Feiertage gelten für Österreich, die Ferien für Oberösterreich. Für andere Regionen beides hier ausschalten und
+        <summary>Außerhalb von Österreich?</summary>
+        <p className="hint">Die eingebauten Feiertage und Ferien gelten für Österreich. Für andere Länder beides hier ausschalten und
           stattdessen den offiziellen Ferien- bzw. Feiertagskalender eures Landes als Link importieren (⚙️ → Daten → Kalender importieren) –
           z. B. den „Feiertage“-Kalender aus Google Kalender oder einen Schulferien-Kalender als iCal-Link. Er aktualisiert sich dann jeden Tag von selbst.</p>
       </details>
