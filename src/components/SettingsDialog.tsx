@@ -253,15 +253,17 @@ function NotifyTab() {
   const withTopic = persons.filter((p) => p.ntfyTopic);
   return (
     <div className="settings-section">
-      <h3><Icon name="bell" size={18} /> Push per ntfy (für alle)</h3>
+      <h3><Icon name="bell" size={18} /> Push per ntfy (optional)</h3>
+      <p className="hint">Nicht nötig, wenn alle die <b>Android-App</b> nutzen – die erinnert direkt am Gerät (unten bei „Dieses Gerät“).
+        ntfy braucht ihr für Browser/iPhone sowie für Tages- und Wochenübersicht per Push.</p>
       <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
         {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
       <label className="field"><span className="label">ntfy-Server eurer Familie</span>
         <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
           onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
-        <small className={family.ntfyServer ? 'hint' : 'error'}>{family.ntfyServer
+        <small className="hint">{family.ntfyServer
           ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
-          : 'Ohne eigenen Server werden keine Push-Nachrichten verschickt. Am einfachsten: https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
+          : 'Leer = keine ntfy-Nachrichten. Wer sie möchte: z. B. https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
       </label>
       <label className="field"><span className="label">Zugangsschlüssel</span>
         <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
