@@ -22,6 +22,8 @@ interface Env {
   NTFY_TOKEN?: string;
   NTFY_SERVER?: string;
   APP_URL?: string;
+  /** Öffentliche Adresse des Dienstes (eigene Domain) – die workers.dev-Adresse leitet dorthin weiter */
+  PUBLIC_URL?: string;
 }
 
 interface Entry { id: string; familyId: string; feedToken?: string; at?: number; seen?: number }
@@ -168,6 +170,12 @@ export default {
   },
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
+    // Alte workers.dev-Adresse (enthält den Kontonamen): nur noch dauerhaft auf die eigene Domain weiterleiten,
+    // so ziehen bestehende Kalender-Abos (z. B. ICSx⁵) von selbst um
+    if (env.PUBLIC_URL && url.hostname.endsWith('.workers.dev')) {
+      return new Response(null, { status: req.method === 'GET' || req.method === 'HEAD' ? 301 : 308,
+        headers: { location: env.PUBLIC_URL.replace(/\/$/, '') + url.pathname + url.search, 'access-control-allow-origin': '*' } });
+    }
     const fam = url.searchParams.get('family');
     // Anmelden: POST /register?family=…
     if (url.pathname === '/register') {
