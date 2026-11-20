@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import { probeService, useData } from '../data/DataContext';
 import type { Person } from '../types';
-import { Avatar, Icon, Modal, Toggle } from './ui';
+import { Advanced, Avatar, Icon, Modal, Toggle } from './ui';
 import { PersonEditor } from './PersonEditor';
 import { ConfirmDialog } from './Dialogs';
 import { AVATAR_STYLES, PERSON_COLORS, randomSeed } from '../lib/avatars';
@@ -251,64 +251,15 @@ function NotifyTab() {
     return () => clearTimeout(t);
   }, [famTopic]); // eslint-disable-line react-hooks/exhaustive-deps
   const withTopic = persons.filter((p) => p.ntfyTopic);
+  const ntfyProblem = !!(service.ntfyError || service.blockedTopics);
   return (
     <div className="settings-section">
-      <h3><Icon name="bell" size={18} /> Push per ntfy (optional)</h3>
-      <p className="hint">Nicht nötig, wenn alle die <b>Android-App</b> nutzen – die erinnert direkt am Gerät (unten bei „Dieses Gerät“).
-        ntfy braucht ihr für Browser/iPhone sowie für Tages- und Wochenübersicht per Push.</p>
-      <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
-        {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
-      <label className="field"><span className="label">ntfy-Server eurer Familie</span>
-        <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
-        <small className="hint">{family.ntfyServer
-          ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
-          : 'Leer = keine ntfy-Nachrichten. Wer sie möchte: z. B. https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
-      </label>
-      <label className="field"><span className="label">Zugangsschlüssel</span>
-        <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyToken ?? '')) saveFamily({ ntfyToken: v || undefined }); }} />
-        <small className="hint">Token eines Benutzers auf eurem ntfy-Server, der auf eure Topics schreiben darf (ntfy: Konto → Zugangstoken; bei ntfy.sh dringend empfohlen wegen des Tageslimits). Nur eure Familie sieht ihn.</small>
-      </label>
-      {service.topicPrefix && (
-        <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
-          für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
-      )}
-      {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {!family.ntfyServer ? 'kein ntfy-Server eingetragen.' : service.topicPrefix ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : ''}</p>}
-      {service.ntfyError && <p className="error break">Letzter Versandfehler: {
-        /429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.'
-        : /ntfy 40[13]/.test(service.ntfyError) ? 'Der ntfy-Server lehnt ab (401/403) – Zugangsschlüssel fehlt, ist falsch oder darf nicht auf dieses Topic schreiben.'
-        : service.ntfyError}</p>}
-      <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
-        <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
-          onChange={(e) => setFamTopic(e.target.value)} /></label>
-      {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
-      <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
-        hint="Jeden Morgen die Termine des Tages und was mitzubringen ist" />
-      {!!family.ntfyDaily && (
-        <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
-          <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
-      )}
-      <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
-      {!!family.ntfyWeekly && (
-        <Toggle checked={family.ntfyWeeklyDrivers !== false} onChange={(v) => saveFamily({ ntfyWeeklyDrivers: v })} label="… mit Fahrdienst"
-          hint="„🚗 Fahrdienst diese Woche: Papa: Di 16:00 Schwimmen (Lena) …“ – jede Person bekommt ihre eigenen Fahrten" />
-      )}
-      <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Neue und geänderte Termine melden"
-        hint="An die betroffenen Personen – nicht an die Person, die geändert hat (siehe „Ich bin“)." />
-
       <h3>Dieses Gerät</h3>
-      <label className="field"><span className="label">Ich bin</span>
-        <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
-          <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>
-          {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </label>
       <Toggle checked={device.reminders} onChange={enableReminders} label={native ? 'Erinnerungen auf diesem Gerät' : 'Benachrichtigungen in der App'}
         hint={perm === 'denied'
           ? (native ? 'Benachrichtigungen sind blockiert – in den Android-Einstellungen bei „Familienkalender“ erlauben.' : 'Im Browser blockiert – bitte in den Browser-Einstellungen erlauben.')
           : native ? 'Kommen pünktlich, auch wenn die App geschlossen ist (für die nächsten 2 Wochen geplant; neue Termine anderer werden beim nächsten Öffnen übernommen).'
-          : 'Nur solange die App geöffnet ist. Am Wand-Tablet meist aus.'} />
+          : 'Nur solange die App geöffnet ist. Am Wand-Tablet meist aus. Für Erinnerungen bei geschlossener App: Android-App installieren.'} />
       {device.reminders && (
         <div className="field">
           <span className="label">Nur für</span>
@@ -326,6 +277,59 @@ function NotifyTab() {
           <small className="hint">{device.reminderPersons.length ? 'Plus Termine für die ganze Familie.' : 'Keine Auswahl = alle Termine.'}</small>
         </div>
       )}
+      <label className="field"><span className="label">Ich bin</span>
+        <select value={device.me ?? ''} onChange={(e) => setDevice({ me: e.target.value || undefined })}>
+          <option value="">Niemand bestimmtes (z. B. Wand-Tablet)</option>
+          {persons.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <small className="hint">Wer dieses Gerät nutzt – für „eingetragen von …“ und damit man über eigene Änderungen nicht benachrichtigt wird.</small>
+      </label>
+
+      <Advanced title={<><Icon name="bell" size={16} /> Push per ntfy</>}
+        status={ntfyProblem ? '⚠️ Problem beim Versand – aufklappen' : family.ntfyServer ? `eingerichtet ✓ (${family.ntfyServer.replace(/^https:\/\//, '')})` : 'nicht eingerichtet'}
+        warn={ntfyProblem}
+        hint="Für Fortgeschrittene: Push auch für Browser/iPhone sowie Tages- und Wochenübersicht. Mit der Android-App nicht nötig.">
+        <p className="hint">Kommt auch bei geschlossener App. Jede Person bekommt Nachrichten an das <b>ntfy-Topic in ihrem Profil</b>
+          {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
+        <label className="field"><span className="label">ntfy-Server eurer Familie</span>
+          <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
+          <small className="hint">{family.ntfyServer
+            ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
+            : 'Leer = keine ntfy-Nachrichten. Wer sie möchte: z. B. https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
+        </label>
+        <label className="field"><span className="label">Zugangsschlüssel</span>
+          <input type="password" defaultValue={family.ntfyToken ?? ''} placeholder="tk_…" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            onBlur={(e) => { const v = e.target.value.trim(); if (v !== (family.ntfyToken ?? '')) saveFamily({ ntfyToken: v || undefined }); }} />
+          <small className="hint">Token eines Benutzers auf eurem ntfy-Server, der auf eure Topics schreiben darf (ntfy: Konto → Zugangstoken; bei ntfy.sh dringend empfohlen wegen des Tageslimits). Nur eure Familie sieht ihn.</small>
+        </label>
+        {service.topicPrefix && (
+          <p className="hint">🔒 Eure Topics beginnen mit <b>{service.topicPrefix}-</b> (z. B. <code>{suggestTopic(service.topicPrefix, 'mama')}</code>) – nur so sind sie
+            für andere nicht erratbar. In der ntfy-App unter diesem Server abonnieren. Das Präfix nicht weitergeben.</p>
+        )}
+        {service.blockedTopics && <p className="error">Nicht gesendet an: {service.blockedTopics.join(', ')} – {!family.ntfyServer ? 'kein ntfy-Server eingetragen.' : service.topicPrefix ? `Topic muss mit „${service.topicPrefix}-“ beginnen.` : ''}</p>}
+        {service.ntfyError && <p className="error break">Letzter Versandfehler: {
+          /429|quota|limit/i.test(service.ntfyError) ? 'Tageslimit des ntfy-Servers erreicht – Zugangsschlüssel eintragen oder anderen Server verwenden.'
+          : /ntfy 40[13]/.test(service.ntfyError) ? 'Der ntfy-Server lehnt ab (401/403) – Zugangsschlüssel fehlt, ist falsch oder darf nicht auf dieses Topic schreiben.'
+          : service.ntfyError}</p>}
+        <label className="field"><span className="label">Familien-Topic (Termine ohne Person)</span>
+          <input value={famTopic} placeholder={service.topicPrefix ? suggestTopic(service.topicPrefix, 'familie') : 'leer = an alle Personen mit Topic'} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+            onChange={(e) => setFamTopic(e.target.value)} /></label>
+        {famTopic.trim() !== (family.ntfyFamilyTopic ?? '') && <small className="hint">Wird gespeichert …</small>}
+        <Toggle checked={!!family.ntfyDaily} onChange={(v) => saveFamily({ ntfyDaily: v ? '06:30' : '' })} label="Tagesübersicht"
+          hint="Jeden Morgen die Termine des Tages und was mitzubringen ist" />
+        {!!family.ntfyDaily && (
+          <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
+            <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
+        )}
+        <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
+        {!!family.ntfyWeekly && (
+          <Toggle checked={family.ntfyWeeklyDrivers !== false} onChange={(v) => saveFamily({ ntfyWeeklyDrivers: v })} label="… mit Fahrdienst"
+            hint="„🚗 Fahrdienst diese Woche: Papa: Di 16:00 Schwimmen (Lena) …“ – jede Person bekommt ihre eigenen Fahrten" />
+        )}
+        <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Neue und geänderte Termine melden"
+          hint="An die betroffenen Personen – nicht an die Person, die geändert hat (siehe „Ich bin“)." />
+      </Advanced>
     </div>
   );
 }
@@ -445,15 +449,6 @@ function SyncTab() {
               {'share' in navigator && <button className="btn" onClick={() => navigator.share({ title: 'Familienkalender', url: link }).catch(() => {})}>Teilen …</button>}
             </div>
           </div>
-          <p className="hint mono">Familien-ID: {cloud.familyId}</p>
-          <h3>Eigene Adresse (optional)</h3>
-          <p className="hint">Eure Familie unter einer eigenen Domain, z. B. <code>kalender.mueller.at</code>. Im Browser wechselt die App dann automatisch dorthin;
-            Einladungslinks, QR-Code und Kalender-Abo verwenden diese Adresse.</p>
-          <div className="row">
-            <input value={domainIn} onChange={(e) => setDomainIn(e.target.value)} placeholder="kalender.mueller.at" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-            <button className="btn" onClick={saveDomain}>{family.appDomain && domainIn.trim() === family.appDomain ? 'Erneut prüfen' : 'Prüfen & speichern'}</button>
-          </div>
-          {domainMsg && <p className={domainMsg.ok ? 'hint' : 'error'}>{domainMsg.text}</p>}
           <p className="hint">In diesem Kalender: {persons.length} Person(en), {events.length} Termin(e).</p>
           {persons.length === 0 && (
             <p className="error">Dieser Familienkalender ist leer. Falls auf einem anderen Gerät schon Daten sind: hier „Dieses Gerät trennen“ und danach den QR-Code bzw. Familien-Link des anderen Geräts öffnen.</p>
@@ -461,10 +456,27 @@ function SyncTab() {
           <button className="btn danger" onClick={() => setConfirmLeave(true)}>Dieses Gerät trennen</button>
           {confirmLeave && <ConfirmDialog text="Dieses Gerät von der Cloud trennen? Die Daten bleiben online erhalten; hier wird wieder der lokale Speicher genutzt." confirm="Trennen"
             onResult={(ok) => { setConfirmLeave(false); if (ok) { localStorage.setItem('fk.cloud.prev', JSON.stringify(cloud)); saveCloudConfig(null); switchStore(); } }} />}
-          <h3>Familienkalender löschen</h3>
-          <p className="hint">Löscht alle Personen, Termine, Stundenpläne, Einstellungen und Sicherungen dieses Familienkalenders in der Cloud – auf allen Geräten. Vorher am besten unter „Daten“ eine Sicherung herunterladen.</p>
-          <button className="btn danger" disabled={busy} onClick={() => setWipeStep(1)}>{busy ? 'Wird gelöscht …' : 'Familienkalender endgültig löschen'}</button>
-          {err && <p className="error">{err}</p>}
+
+          <Advanced title="Erweitert" status={family.appDomain ? `Eigene Adresse: ${family.appDomain}` : undefined}
+            hint="Familien-ID, eigene Adresse (Domain), Familienkalender löschen">
+            <h3>Familien-ID</h3>
+            <p className="hint mono">{cloud.familyId}</p>
+            <p className="hint">Steckt auch im Link/QR-Code. Wer sie kennt, sieht euren Kalender – nicht weitergeben.</p>
+
+            <h3>Eigene Adresse (Domain)</h3>
+            <p className="hint">Eure Familie unter einer eigenen Domain, z. B. <code>kalender.mueller.at</code>. Im Browser wechselt die App dann automatisch dorthin;
+              Einladungslinks, QR-Code und Kalender-Abo verwenden diese Adresse. Die Domain muss vorher einmal angeschlossen werden (DNS-Eintrag + Freischaltung).</p>
+            <div className="row">
+              <input value={domainIn} onChange={(e) => setDomainIn(e.target.value)} placeholder="kalender.mueller.at" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+              <button className="btn" onClick={saveDomain}>{family.appDomain && domainIn.trim() === family.appDomain ? 'Erneut prüfen' : 'Prüfen & speichern'}</button>
+            </div>
+            {domainMsg && <p className={domainMsg.ok ? 'hint' : 'error'}>{domainMsg.text}</p>}
+
+            <h3>Familienkalender löschen</h3>
+            <p className="hint">Löscht alle Personen, Termine, Stundenpläne, Einstellungen und Sicherungen dieses Familienkalenders in der Cloud – auf allen Geräten. Vorher am besten unter „Daten“ eine Sicherung herunterladen.</p>
+            <button className="btn danger" disabled={busy} onClick={() => setWipeStep(1)}>{busy ? 'Wird gelöscht …' : 'Familienkalender endgültig löschen'}</button>
+            {err && <p className="error">{err}</p>}
+          </Advanced>
           {wipeStep === 1 && <ConfirmDialog text="Den gesamten Familienkalender in der Cloud löschen? Alle Geräte der Familie verlieren damit ihre Daten." confirm="Weiter"
             onResult={(ok) => setWipeStep(ok ? 2 : 0)} />}
           {wipeStep === 2 && <ConfirmDialog text="Wirklich endgültig löschen? Das lässt sich nicht rückgängig machen." confirm="Endgültig löschen"
@@ -472,11 +484,13 @@ function SyncTab() {
         </>
       ) : (
         <>
-          <p>Damit Tablet und Handys denselben Kalender sehen, wird ein kostenloses Firebase-Projekt verwendet (Anleitung in <code>SETUP.md</code>). Offline funktioniert alles weiter, synchronisiert wird automatisch.</p>
+          <p>Damit Tablet und Handys denselben Kalender sehen, legt ihr einmal einen <b>Familienkalender</b> an (kostenlos) und verbindet weitere Geräte per QR-Code oder Link. Offline funktioniert alles weiter, abgeglichen wird automatisch.</p>
           {!buildCfg && (
-            <label className="field"><span className="label">Firebase-Konfiguration</span>
-              <textarea rows={6} className="mono" value={cfgText} onChange={(e) => setCfgText(e.target.value)}
-                placeholder={'{\n  apiKey: "…",\n  authDomain: "…",\n  projectId: "…",\n  appId: "…"\n}'} /></label>
+            <Advanced title="Eigenes Firebase-Projekt" hint="Nur für selbst betriebene Kopien der App" defaultOpen={!cfgText}>
+              <label className="field"><span className="label">Firebase-Konfiguration</span>
+                <textarea rows={6} className="mono" value={cfgText} onChange={(e) => setCfgText(e.target.value)}
+                  placeholder={'{\n  apiKey: "…",\n  authDomain: "…",\n  projectId: "…",\n  appId: "…"\n}'} /></label>
+            </Advanced>
           )}
           <div className="choice-list">
             <Toggle checked={takeLocal} onChange={setTakeLocal} label="Daten dieses Geräts übernehmen"

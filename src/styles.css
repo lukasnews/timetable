@@ -1006,3 +1006,19 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 @media print { .local-hint { display: none; } }
 
 .error.break, .hint.break { overflow-wrap: anywhere; }
+
+/* Erweitert-Bereiche in den Einstellungen */
+details.advanced { margin: 16px 0 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+details.advanced > summary { list-style: none; cursor: pointer; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
+details.advanced > summary::-webkit-details-marker { display: none; }
+details.advanced > summary::after { content: '▸'; grid-column: 2; grid-row: 1; color: var(--muted); transition: transform 0.15s; justify-self: end; }
+details.advanced[open] > summary::after { transform: rotate(90deg); }
+details.advanced .adv-title { font-weight: 600; }
+details.advanced .adv-status { grid-column: 1; font-size: 0.85rem; color: var(--muted); }
+details.advanced .adv-hint { grid-column: 1 / -1; font-size: 0.85rem; color: var(--muted); }
+details.advanced.warn > summary .adv-status { color: var(--danger); }
+details.advanced > .adv-body { padding: 0 14px 12px; border-top: 1px solid var(--border); }
+details.advanced > .adv-body > h3:first-child { margin-top: 12px; }
+details.tips { margin: 2px 0 8px; }
+details.tips > summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; }
+details.tips ul { margin: 6px 0 0; padding-left: 18px; }

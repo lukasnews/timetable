@@ -16,7 +16,7 @@ import { parseICS, toICS, type ImportResult } from '../lib/ics';
 import { todayLocal, uid } from '../lib/dates';
 import { EVENING_TIMES, SOURCE_REMINDERS, planSync, reminderFor, setSourceReminder, sourceReminderValue } from '../lib/icsSync';
 import { loadCloudConfig } from '../data/store';
-import { Avatar, Icon, Toggle } from './ui';
+import { Advanced, Avatar, Icon, Toggle } from './ui';
 import { ConfirmDialog } from './Dialogs';
 
 /** Erinnerung einer Quelle: Auswahl + ggf. Uhrzeit am Vorabend */
@@ -251,8 +251,16 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
           onResult={(ok) => { if (ok) doRestore(restore); setRestore(null); }} />
       )}
 
-      <h3><Icon name="up" size={18} /> Import (.ics)</h3>
-      <p className="hint">Z. B. den Müllkalender deiner Gemeinde: am besten den <b>Link</b> zur .ics-Datei (iCal) einfügen – dann wird er jeden Tag automatisch aktualisiert. Oder die Datei herunterladen und auswählen. Erneutes Importieren aktualisiert die Termine statt sie zu verdoppeln. Gemeinden mit Gem2Go-Webseite: bei „Abfuhrtermine“ die Straße suchen und den Link der Ergebnisseite (…/kalender.aspx?…) einfügen.</p>
+      <h3><Icon name="up" size={18} /> Kalender importieren</h3>
+      <p className="hint">Z. B. den Müllkalender eurer Gemeinde: <b>Link</b> zum Kalender einfügen – dann aktualisiert er sich jeden Tag von selbst. Oder eine Kalenderdatei auswählen.</p>
+      <details className="tips">
+        <summary>Tipps: Wo finde ich den Link?</summary>
+        <ul className="hint">
+          <li>Auf der Gemeinde-Webseite nach „iCal“, „.ics“ oder „Kalender abonnieren“ suchen und den Link kopieren (lange drücken → Link kopieren).</li>
+          <li>Gemeinden mit Gem2Go-Webseite: bei „Abfuhrtermine“ die Straße suchen und die Adresse der Ergebnisseite (…/kalender.aspx?…) einfügen.</li>
+          <li>Erneutes Importieren aktualisiert die Termine, statt sie zu verdoppeln.</li>
+        </ul>
+      </details>
       <input ref={fileRef} type="file" accept=".ics,text/calendar" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
       <div className="row">
         <button className="btn primary" onClick={() => fileRef.current?.click()}><Icon name="plus" size={18} /> Datei wählen</button>
@@ -356,7 +364,9 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
             setConfirmDel(null);
           }} />
       )}
-      <h3><Icon name="repeat" size={18} /> Kalender abonnieren</h3>
+      <Advanced title="In anderen Kalendern anzeigen" status={family.feedToken ? 'Abo-Link aktiv' : undefined}
+        hint="Für Fortgeschrittene: Abo-Link für Google/Outlook/Apple-Kalender und Export als .ics-Datei">
+        <h3><Icon name="repeat" size={18} /> Kalender abonnieren</h3>
       <p className="hint">Ein Link, über den Google-, Outlook- oder Apple-Kalender eure Termine laufend anzeigen (nur lesen). Diese Kalender holen Änderungen selbst ab – meist alle paar Stunden, bei Google bis zu einem Tag.</p>
       {!serviceUrl ? (
         <p className="hint">Der Abo-Link steht bereit, sobald der Erinnerungsdienst (Cloudflare) das nächste Mal eingerichtet wurde.</p>
@@ -386,6 +396,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
       <h3><Icon name="download" size={18} /> Export</h3>
       <p className="hint">Alle eigenen Termine (ohne importierte) als .ics-Datei, z. B. für Google- oder Outlook-Kalender oder als Sicherung. Geburtstage aus den Profilen sind dabei.</p>
       <button className="btn" onClick={exportIcs}><Icon name="download" size={18} /> Termine exportieren</button>
+      </Advanced>
 
       <h3>⭐ Vorlagen</h3>
       {templates.length === 0 ? (
