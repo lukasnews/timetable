@@ -11,7 +11,7 @@ interface Env {
   FIREBASE_API_KEY: string;
   FIREBASE_PROJECT_ID: string;
   FIREBASE_REFRESH_TOKEN: string;
-  /** Die „eigene“ Familie (bestehende ntfy-Topics ohne Präfix erlaubt) */
+  /** Familie, deren bestehende ntfy-Topics ohne Präfix erlaubt sind (sonst wie alle anderen) */
   FAMILY_ID: string;
   /** Geheimer Pfad des Verzeichnisses aller angemeldeten Familien (nur der Dienst kennt ihn) */
   REGISTRY_ID?: string;
@@ -67,9 +67,10 @@ function config(env: Env, familyId = env.FAMILY_ID, prefix?: string): Config {
 
 /** Konfiguration für eine Familie: fremde Familien nur mit Topic-Präfix */
 async function familyConfig(env: Env, familyId: string, entry?: Entry): Promise<Config> {
+  // Einzige Ausnahme (auf Wunsch): die Familie aus FAMILY_ID darf ihre bisherigen Topics ohne Präfix behalten
   const cfg = config(env, familyId, familyId === env.FAMILY_ID ? undefined : await topicPrefix(familyId));
-  // Andere Familien: Links in Nachrichten führen zu IHRER App-Adresse, nie zur Adresse der eigenen Familie
-  if (familyId !== env.FAMILY_ID) cfg.appUrl = entry?.appUrl || env.PUBLIC_APP_URL || undefined;
+  // Links in Nachrichten: zur App-Adresse der Familie (ihre eigene Adresse aus den Einstellungen hat Vorrang, siehe run())
+  cfg.appUrl = entry?.appUrl || env.PUBLIC_APP_URL || undefined;
   return cfg;
 }
 
@@ -83,36 +84,40 @@ async function registry(env: Env, token: string, fresh = false): Promise<Entry[]
 }
 
 async function isKnown(env: Env, token: string, familyId: string): Promise<boolean> {
-  if (familyId === env.FAMILY_ID) return true;
   return (await registry(env, token)).some((e) => e.familyId === familyId);
 }
 
-/** Alle 5 Minuten: eigene Familie zuerst, dann reihum so viele angemeldete, wie das Budget erlaubt */
-async function check(env: Env, log: (s: string) => void = console.log) {
+/** Alle 5 Minuten: alle angemeldeten Familien reihum – so viele, wie das Budget erlaubt (für alle gleich) */
+async function check(env: Env) {
   calls = 0;
-  const base = config(env);
-  const token = await idToken(base, env);
-  let mainError: unknown = null;
-  try { await run(base, token, new Date(), log, { by: 'cloudflare' }); } catch (e) { mainError = e; }
-  const others = (await registry(env, token, true).catch(() => [] as Entry[])).filter((e) => e.familyId !== env.FAMILY_ID);
-  const budget = Number(env.SUBREQUEST_BUDGET) || 45;
+  const token = await idToken(config(env), env);
+  if (!validId(env.REGISTRY_ID ?? null)) { console.log('REGISTRY_ID fehlt – keine Familien'); return; }
+  const regCfg = config(env, env.REGISTRY_ID);
+  let entries = await registry(env, token, true);
+  // Umstellung: die Familie aus FAMILY_ID einmalig ins Verzeichnis übernehmen (danach meldet ihre App sich selbst)
+  if (validId(env.FAMILY_ID) && !entries.some((e) => e.familyId === env.FAMILY_ID)) {
+    const e: Entry = { id: await registryKey(env.FAMILY_ID), familyId: env.FAMILY_ID, at: Date.now(), seen: Date.now() };
+    await commit(regCfg, token, 'meta', [e]);
+    entries = [...entries, e];
+    regCache = null;
+  }
   // Zähler für Anmeldungen vom Vortag löschen (einmal am Tag)
   const today = new Date().toISOString().slice(0, 10);
-  if (lastCleanup !== today && validId(env.REGISTRY_ID ?? null)) {
+  if (lastCleanup !== today) {
     lastCleanup = today;
-    const regCfg = config(env, env.REGISTRY_ID);
     const oldRl = (await list<{ id: string }>(regCfg, token, 'backups').catch(() => [])).filter((d) => d.id.startsWith('rl-') && !d.id.startsWith(`rl-${today}`));
     if (oldRl.length) await commit(regCfg, token, 'backups', [], oldRl.map((d) => d.id)).catch(() => {});
   }
   // Verlassene Familien entfernen (auch Schutz davor, das Verzeichnis mit Schein-Familien zu füllen)
-  const stale = others.filter((e) => Date.now() - (e.seen ?? e.at ?? 0) > STALE_MS);
+  const stale = entries.filter((e) => Date.now() - (e.seen ?? e.at ?? 0) > STALE_MS);
   if (stale.length) {
-    await commit(config(env, env.REGISTRY_ID), token, 'meta', [], stale.map((e) => e.id)).catch(() => {});
+    await commit(regCfg, token, 'meta', [], stale.map((e) => e.id)).catch(() => {});
     regCache = null;
     console.log(`${stale.length} Familie(n) seit 60 Tagen inaktiv – aus dem Verzeichnis entfernt`);
   }
-  const active = others.filter((e) => !stale.includes(e));
-  if (!active.length) { if (mainError) throw mainError; return; }
+  const active = entries.filter((e) => !stale.includes(e));
+  if (!active.length) return;
+  const budget = Number(env.SUBREQUEST_BUDGET) || 45;
   const startAt = Math.floor(Date.now() / 300_000) % active.length;
   for (let i = 0; i < active.length; i++) {
     if (calls + 8 > budget) { console.log(`Budget erreicht – ${active.length - i} Familie(n) beim nächsten Lauf`); break; }
@@ -120,13 +125,12 @@ async function check(env: Env, log: (s: string) => void = console.log) {
     try { await run(await familyConfig(env, e.familyId, e), token, new Date(), () => {}, { by: 'cloudflare', dropIfEmpty: true }); }
     catch (err) {
       if (String(err).includes('FAMILY_GONE')) {
-        await commit(config(env, env.REGISTRY_ID), token, 'meta', [], [e.id]).catch(() => {});
+        await commit(regCfg, token, 'meta', [], [e.id]).catch(() => {});
         regCache = null;
         console.log(`Familie ${e.id.slice(0, 6)}: keine Daten mehr – aus dem Verzeichnis entfernt`);
-      } else console.log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`); // nur ins Server-Protokoll, nie in die Ausgabe einer anderen Familie
+      } else console.log(`Familie ${e.id.slice(0, 6)}: ${String(err).slice(0, 200)}`); // nur ins Server-Protokoll
     }
   }
-  if (mainError) throw mainError;
 }
 
 /** Ein Feld in meta/reminders setzen, ohne den Rest zu überschreiben */
@@ -148,9 +152,9 @@ async function register(env: Env, familyId: string, serviceUrl: string, clientIp
   const key = await registryKey(familyId);
   const known = all.find((e) => e.id === key);
   const max = Number(env.MAX_FAMILIES) || 50;
-  if (!known && familyId !== env.FAMILY_ID && all.length >= max) return new Response('Der Dienst ist derzeit voll', { status: 503, headers: cors });
+  if (!known && all.length >= max) return new Response('Der Dienst ist derzeit voll', { status: 503, headers: cors });
   // Schutz vor Massen-Anmeldungen: höchstens NEW_PER_IP neue Familien pro Absender und Tag (IP nur gehasht, nach 1 Tag gelöscht)
-  if (!known && familyId !== env.FAMILY_ID && clientIp) {
+  if (!known && clientIp) {
     const day = new Date().toISOString().slice(0, 10);
     const id = `rl-${day}-${(await registryKey(clientIp + ':' + env.REGISTRY_ID)).slice(0, 16)}`;
     const regCfg = config(env, env.REGISTRY_ID);
@@ -160,12 +164,12 @@ async function register(env: Env, familyId: string, serviceUrl: string, clientIp
   }
   const feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
   const appUrl = /^https:\/\/[a-z0-9.-]+$/i.test(appOrigin) ? appOrigin + '/' : known?.appUrl;
-  if (familyId !== env.FAMILY_ID && (!known || (known.feedToken ?? '') !== feedToken || (known.appUrl ?? '') !== (appUrl ?? '') || Date.now() - (known.seen ?? 0) > 86400_000)) {
+  if ((!known || (known.feedToken ?? '') !== feedToken || (known.appUrl ?? '') !== (appUrl ?? '') || Date.now() - (known.seen ?? 0) > 86400_000)) {
     await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now(), ...(appUrl ? { appUrl } : {}) } as Entry]);
     regCache = null;
   }
   // Präfix sofort in der App anzeigen (nicht erst nach dem ersten Lauf)
-  if (familyId !== env.FAMILY_ID && !known) await setStateField(cfg, token, 'topicPrefix', await topicPrefix(familyId));
+  if (familyId !== env.FAMILY_ID && !known) await setStateField(cfg, token, 'topicPrefix', await topicPrefix(familyId)); // FAMILY_ID: Topics ohne Präfix (Wunsch)
   if (meta.find((m) => m.id === 'service')?.url !== serviceUrl) await commit(cfg, token, 'meta', [{ id: 'service', url: serviceUrl } as { id: string }]);
   return new Response('ok', { headers: cors });
 }
@@ -197,14 +201,11 @@ export default {
     if (url.pathname === '/run' && validId(fam)) {
       const lines: string[] = [];
       try {
-        if (fam === env.FAMILY_ID) await check(env, (s) => lines.push(s));
-        else {
-          const token = await idToken(config(env), env);
-          const entry = (await registry(env, token)).find((e) => e.familyId === fam);
-          if (!entry) return new Response('Nicht angemeldet', { status: 403 });
-          const cfg = await familyConfig(env, fam, entry);
-          await run(cfg, token, new Date(), (s) => lines.push(s), { by: 'cloudflare', dropIfEmpty: true });
-        }
+        // Nur die eigene Familie – für alle gleich
+        const token = await idToken(config(env), env);
+        const entry = (await registry(env, token)).find((e) => e.familyId === fam);
+        if (!entry) return new Response('Nicht angemeldet', { status: 403 });
+        await run(await familyConfig(env, fam, entry), token, new Date(), (s) => lines.push(s), { by: 'cloudflare', dropIfEmpty: true });
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
       } catch (e) {
         return new Response('Fehler: ' + String(e), { status: 500 });
@@ -227,9 +228,10 @@ export default {
     if (m) {
       try {
         const token = await idToken(config(env), env);
-        // Welche Familie? Im Verzeichnis steht der Abo-Schlüssel – sonst die eigene Familie
+        // Welche Familie? Im Verzeichnis steht der Abo-Schlüssel (meldet die App bei der Anmeldung)
         const entry = (await registry(env, token)).find((e) => e.feedToken === m[1]);
-        const cfg = config(env, entry?.familyId ?? env.FAMILY_ID);
+        if (!entry) return new Response('Nicht gefunden', { status: 404 });
+        const cfg = config(env, entry.familyId);
         const settings = (await list<FamilySettings>(cfg, token, 'meta')).find((x) => x.id === 'settings');
         if (!settings?.feedToken || settings.feedToken !== m[1]) return new Response('Nicht gefunden', { status: 404 });
         const [events, persons] = await Promise.all([list<CalEvent>(cfg, token, 'events'), list<Person>(cfg, token, 'persons')]);

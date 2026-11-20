@@ -85,7 +85,7 @@ describe('Tagesübersicht spät am Abend', () => {
       if (url.endsWith(':runQuery')) return new Response('[{}]');
       if (url.includes('/events')) return new Response(JSON.stringify({ documents: [{ name: 'x/e1', fields: { title: sv('Abendtermin'), start: sv('2026-11-13T23:00'), end: sv('2026-11-13T23:30'), allDay: { booleanValue: false }, personIds: { arrayValue: {} } } }] }));
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
-      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/settings', fields: { ntfyDaily: sv('22:30') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/settings', fields: { ntfyDaily: sv('22:30'), ntfyServer: sv('https://ntfy.example') } }] }));
       if (url === 'https://ntfy.example') sent.push(JSON.parse(init!.body as string));
       return new Response('{}');
     });
@@ -107,7 +107,8 @@ describe('Lauf gegen gemockte APIs', () => {
         title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
         personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }, { readTime: 'x' }]));
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
-      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.example'), ntfyToken: sv('TOK') } }] }));
       return new Response('{}');
     });
     const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: 'https://ntfy.example', ntfyToken: 'TOK', timezone: 'Europe/Vienna' };
@@ -174,7 +175,8 @@ describe('Versandfehler', () => {
         title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
         personIds: { arrayValue: { values: [sv('mama')] } }, reminderMinutes: { integerValue: '30' } } } }]));
       if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
-      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T09:20'), sent: { arrayValue: {} } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.example'), ntfyToken: sv('TOK') } }] }));
       if (url.endsWith('/meta/reminders')) saves.push(JSON.parse(init!.body as string));
       return new Response('{}');
     });

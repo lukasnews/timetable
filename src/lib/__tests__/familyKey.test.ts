@@ -34,12 +34,10 @@ describe('Trennung zwischen Familien', () => {
     expect(eigen.allowed('mama')).toBe(false);
     expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'https://ntfy.sh', ntfyToken: 'tk_fam' }).cfg.ntfyToken).toBe('tk_fam');
     expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'http://unsicher.example' }).missingServer).toBe(true);
-    // eigene Familie: Server/Schlüssel aus den Einstellungen
+    // Familie ohne Präfix-Pflicht: sonst gleiche Regeln – Server/Schlüssel nur aus den Einstellungen
     expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example', ntfyToken: 'tk_neu' }).cfg.ntfyToken).toBe('tk_neu');
-    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example/' }).cfg.ntfyToken).toBe('geheim'); // gleicher Server, kein eigener Schlüssel
-    expect(ntfyFor(cfg, { ntfyServer: 'https://anders.example' }).cfg.ntfyToken).toBeUndefined(); // Dienst-Token nie an fremde Server
-    // eigene Familie ohne Eintrag: wie bisher
-    expect(ntfyFor(cfg, {}).allowed('mama')).toBe(true);
-    expect(ntfyFor(cfg, {}).cfg.ntfyToken).toBe('geheim');
+    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example', ntfyToken: 'tk_neu' }).allowed('mama')).toBe(true);
+    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example/' }).cfg.ntfyToken).toBeUndefined(); // nie der Token des Dienstes
+    expect(ntfyFor(cfg, {}).missingServer).toBe(true); // ohne eigenen Server: nichts
   });
 });

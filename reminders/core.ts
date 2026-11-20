@@ -1,5 +1,5 @@
 /**
- * Erinnerungen per ntfy – Kernlogik (läuft in GitHub Actions, siehe reminders/run.ts).
+ * Erinnerungen per ntfy – Kernlogik (läuft im Cloudflare Worker, siehe reminders/worker.ts).
  * Liest Termine aus Firestore, berechnet fällige Erinnerungen im Zeitfenster
  * (letzter Lauf, jetzt] und schickt sie an den ntfy-Server.
  */
@@ -203,25 +203,17 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
 const normServer = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase();
 
 /**
- * Versand-Einstellungen für eine Familie.
- * - Eigene Familie (kein topicPrefix): Server des Dienstes mit Token, eigene Topics.
- * - Fremde Familien: nur ihr EIGENER Server (ohne den Token des Dienstes) – der Server des Dienstes
- *   ist für sie gesperrt, auch wenn sie ihn eintragen. Topics nur mit dem geheimen Präfix der Familie,
- *   damit sie auf öffentlichen Servern (z. B. ntfy.sh) nicht erratbar sind.
+ * Versand-Einstellungen für eine Familie – für alle gleich: ntfy-Server und Zugangsschlüssel aus den
+ * Einstellungen der Familie. Ohne eigenen Server wird nichts verschickt. Der Server des Dienstes ist für
+ * Familien mit Topic-Präfix gesperrt; Topics brauchen das Präfix der Familie (außer der Ausnahme ohne Präfix).
  */
 export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean; missingServer?: boolean } {
   const own = family?.ntfyServer?.trim();
-  const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && normServer(own) !== normServer(cfg.ntfyServer);
   const prefix = cfg.topicPrefix;
-  if (!prefix) {
-    // Eigene Familie: Server/Schlüssel aus den Einstellungen; ohne Eintrag wie bisher die des Dienstes
-    const valid = !!own && /^https:\/\/[^\s/]+/i.test(own);
-    if (!valid) return { cfg, allowed: () => true };
-    const same = normServer(own!) === normServer(cfg.ntfyServer);
-    return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || (same ? cfg.ntfyToken : undefined) }, allowed: () => true };
-  }
+  const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && (!prefix || normServer(own) !== normServer(cfg.ntfyServer));
   if (!ownOk) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
-  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined }, allowed: (t) => t === prefix || t.startsWith(prefix + '-') };
+  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined },
+    allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */
