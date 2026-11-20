@@ -10,6 +10,35 @@ import { displayTitle } from './lib/categories';
 
 export const isNative = () => Capacitor.isNativePlatform();
 
+/* ---------------- Teilen / Speichern in der Android-App ---------------- */
+// Die Android-WebView kann weder navigator.share noch Downloads – dafür die Capacitor-Plugins (ab App 1.0.10).
+
+/** Kann die App über das Android-Teilen-Menü teilen? */
+export const canNativeShare = () => isNative() && Capacitor.isPluginAvailable('Share');
+
+/** Text über das Android-Teilen-Menü teilen (false = nicht möglich) */
+export async function nativeShareText(title: string, text: string, url?: string): Promise<boolean> {
+  if (!canNativeShare()) return false;
+  const { Share } = await import('@capacitor/share');
+  try { await Share.share({ title, text, url, dialogTitle: title }); } catch { /* abgebrochen */ }
+  return true;
+}
+
+/** Datei über das Android-Teilen-Menü teilen bzw. speichern (Dateien, Drive, WhatsApp …) – false = nicht möglich */
+export async function nativeShareFile(file: File, title = 'Familienkalender'): Promise<boolean> {
+  if (!canNativeShare() || !Capacitor.isPluginAvailable('Filesystem')) return false;
+  const [{ Filesystem, Directory }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')]);
+  const data = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] ?? '');
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+  const { uri } = await Filesystem.writeFile({ path: file.name, data, directory: Directory.Cache });
+  try { await Share.share({ title, files: [uri], dialogTitle: title }); } catch { /* abgebrochen */ }
+  return true;
+}
+
 /** Wie weit im Voraus geplant wird (Android erlaubt nur eine begrenzte Zahl geplanter Alarme) */
 const DAYS_AHEAD = 14;
 const MAX_SCHEDULED = 80;
