@@ -11,7 +11,7 @@ interface Env {
   FIREBASE_API_KEY: string;
   FIREBASE_PROJECT_ID: string;
   FIREBASE_REFRESH_TOKEN: string;
-  /** Familie, deren bestehende ntfy-Topics ohne Präfix erlaubt sind (sonst wie alle anderen) */
+  /** Familie, deren alte ntfy-Topics ohne Präfix übergangsweise noch erlaubt sind (sonst wie alle anderen) */
   FAMILY_ID: string;
   /** Geheimer Pfad des Verzeichnisses aller angemeldeten Familien (nur der Dienst kennt ihn) */
   REGISTRY_ID?: string;
@@ -67,8 +67,9 @@ function config(env: Env, familyId = env.FAMILY_ID, prefix?: string): Config {
 
 /** Konfiguration für eine Familie: fremde Familien nur mit Topic-Präfix */
 async function familyConfig(env: Env, familyId: string, entry?: Entry): Promise<Config> {
-  // Einzige Ausnahme (auf Wunsch): die Familie aus FAMILY_ID darf ihre bisherigen Topics ohne Präfix behalten
-  const cfg = config(env, familyId, familyId === env.FAMILY_ID ? undefined : await topicPrefix(familyId));
+  // Alle Familien haben ein Präfix. Übergang (auf Wunsch): FAMILY_ID darf alte Topics ohne Präfix noch nutzen
+  const cfg = config(env, familyId, await topicPrefix(familyId));
+  if (familyId === env.FAMILY_ID) cfg.allowUnprefixed = true;
   // Links in Nachrichten: zur App-Adresse der Familie (ihre eigene Adresse aus den Einstellungen hat Vorrang, siehe run())
   cfg.appUrl = entry?.appUrl || env.PUBLIC_APP_URL || undefined;
   return cfg;
@@ -169,7 +170,7 @@ async function register(env: Env, familyId: string, serviceUrl: string, clientIp
     regCache = null;
   }
   // Präfix sofort in der App anzeigen (nicht erst nach dem ersten Lauf)
-  if (familyId !== env.FAMILY_ID && !known) await setStateField(cfg, token, 'topicPrefix', await topicPrefix(familyId)); // FAMILY_ID: Topics ohne Präfix (Wunsch)
+  if (!known) await setStateField(cfg, token, 'topicPrefix', await topicPrefix(familyId));
   if (meta.find((m) => m.id === 'service')?.url !== serviceUrl) await commit(cfg, token, 'meta', [{ id: 'service', url: serviceUrl } as { id: string }]);
   return new Response('ok', { headers: cors });
 }

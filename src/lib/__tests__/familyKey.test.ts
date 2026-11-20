@@ -20,24 +20,23 @@ describe('Trennung zwischen Familien', () => {
     expect(topicAllowed('mama', p)).toBe(false);
     expect(topicAllowed(`${p}x-mama`, p)).toBe(false);
   });
-  it('Versand: fremde Familien nur über ihren eigenen Server, ohne Token des Dienstes, nur mit Präfix', () => {
-    const ohne = ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, {});
+  it('Versand: nur über den Server aus den Einstellungen, nie mit Token des Dienstes, Topics mit Präfix', () => {
+    const p = { ...cfg, topicPrefix: 'fk-abc' };
+    const ohne = ntfyFor(p, {});
     expect(ohne.missingServer).toBe(true);
     expect(ohne.allowed('fk-abc-mama')).toBe(false);
     expect(ohne.cfg.ntfyToken).toBeUndefined();
-    const dienstServer = ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'https://ntfy.example/' });
-    expect(dienstServer.missingServer).toBe(true); // der Server des Dienstes ist für Fremde gesperrt
-    const eigen = ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'https://ntfy.sh' });
+    expect(ntfyFor(p, { ntfyServer: 'http://unsicher.example' }).missingServer).toBe(true);
+    const eigen = ntfyFor(p, { ntfyServer: 'https://ntfy.sh', ntfyToken: 'tk_fam' });
     expect(eigen.cfg.ntfyServer).toBe('https://ntfy.sh');
-    expect(eigen.cfg.ntfyToken).toBeUndefined();
+    expect(eigen.cfg.ntfyToken).toBe('tk_fam');
     expect(eigen.allowed('fk-abc-mama')).toBe(true);
     expect(eigen.allowed('mama')).toBe(false);
-    expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'https://ntfy.sh', ntfyToken: 'tk_fam' }).cfg.ntfyToken).toBe('tk_fam');
-    expect(ntfyFor({ ...cfg, topicPrefix: 'fk-abc' }, { ntfyServer: 'http://unsicher.example' }).missingServer).toBe(true);
-    // Familie ohne Präfix-Pflicht: sonst gleiche Regeln – Server/Schlüssel nur aus den Einstellungen
-    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example', ntfyToken: 'tk_neu' }).cfg.ntfyToken).toBe('tk_neu');
-    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example', ntfyToken: 'tk_neu' }).allowed('mama')).toBe(true);
-    expect(ntfyFor(cfg, { ntfyServer: 'https://ntfy.example/' }).cfg.ntfyToken).toBeUndefined(); // nie der Token des Dienstes
-    expect(ntfyFor(cfg, {}).missingServer).toBe(true); // ohne eigenen Server: nichts
+    expect(eigen.allowed('fk-abcx-mama')).toBe(false);
+    expect(ntfyFor(p, { ntfyServer: 'https://ntfy.sh' }).cfg.ntfyToken).toBeUndefined(); // nie der Token des Dienstes
+    // Übergang: alte Topics ohne Präfix noch erlaubt
+    const ueb = ntfyFor({ ...p, allowUnprefixed: true }, { ntfyServer: 'https://ntfy.example' });
+    expect(ueb.allowed('mama')).toBe(true);
+    expect(ueb.allowed('fk-abc-mama')).toBe(true);
   });
 });
