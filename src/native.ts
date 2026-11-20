@@ -152,6 +152,22 @@ export async function openExactAlarmSetting(): Promise<void> {
   await LocalNotifications.changeExactNotificationSetting();
 }
 
+/** Was ist am Gerät eingeplant? (für die Anzeige in den Einstellungen) */
+export async function nativeReminderStatus(): Promise<{ count: number; next?: { at: Date; title: string }; permission: string; exact: string } | null> {
+  if (!isNative()) return null;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  const [pending, permission, exact] = await Promise.all([
+    LocalNotifications.getPending().catch(() => ({ notifications: [] as { id: number; title?: string; schedule?: { at?: Date | string } }[] })),
+    nativeNotifyPermission(false).catch(() => 'unknown'),
+    exactAlarmStatus(),
+  ]);
+  const items = pending.notifications
+    .map((n) => ({ at: n.schedule?.at ? new Date(n.schedule.at) : null, title: n.title ?? '' }))
+    .filter((x): x is { at: Date; title: string } => !!x.at && !isNaN(x.at.getTime()))
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+  return { count: pending.notifications.length, next: items[0], permission, exact };
+}
+
 const TEST_ID = 1_999_999_001;
 /** Test: in einer Minute eine Benachrichtigung am Gerät */
 export async function nativeTestNotification(): Promise<'ok' | 'denied'> {
