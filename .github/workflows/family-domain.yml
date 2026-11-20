@@ -44,6 +44,7 @@ jobs:
           DOMAIN=$(printf %s "$DOMAIN_IN" | tr 'A-Z' 'a-z' | tr -d '[:space:]' | sed -e 's#^https\?://##' -e 's#/.*$##')
           TARGET=$(curl -s "${AUTH[@]}" "$API" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);console.log(j.result?.subdomain||'')})")
           [ -n "$TARGET" ] || { echo "::error::Pages-Projekt $PROJECT nicht gefunden"; exit 1; }
+          export TARGET
           show() { node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(!j.success){console.log('Fehler: '+(j.errors||[]).map(e=>e.code+' '+e.message).join('; '));process.exit(1)}const r=[].concat(j.result||[]);for(const d of r)console.log('- '+d.name+': '+d.status+(d.validation_data?.status?' (Prüfung: '+d.validation_data.status+')':'')+(d.verification_data?.error_message?' – '+d.verification_data.error_message:''));if(!r.length)console.log('(keine)')})"; }
           case "$AKTION" in
             anzeigen)
@@ -51,9 +52,28 @@ jobs:
               curl -s "${AUTH[@]}" "$API/domains" | show | tee -a "$GITHUB_STEP_SUMMARY" ;;
             hinzufügen|entfernen)
               if ! printf %s "$DOMAIN" | grep -Eq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'; then echo "::error::„$DOMAIN_IN“ ist keine gültige Domain"; exit 1; fi
-              case "$DOMAIN" in *chaoten.online|*.pages.dev|*.workers.dev) echo "::error::Diese Domain ist reserviert"; exit 1;; esac
+              case "$DOMAIN" in *.pages.dev|*.workers.dev) echo "::error::Diese Domain ist reserviert"; exit 1;; esac
               if [ "$AKTION" = "hinzufügen" ]; then
-                curl -s -X POST "${AUTH[@]}" "$API/domains" -d "{\"name\":\"$DOMAIN\"}" | show
+                curl -s -X POST "${AUTH[@]}" "$API/domains" -d "{\"name\":\"$DOMAIN\"}" | show || true
+                # Liegt die Domain in diesem Cloudflare-Konto (z. B. die eigene), DNS-Eintrag gleich selbst setzen
+                CF=https://api.cloudflare.com/client/v4
+                ZONE=""; Z="$DOMAIN"
+                while [ -z "$ZONE" ] && printf %s "$Z" | grep -q '\.'; do
+                  ZONE=$(curl -s "${AUTH[@]}" "$CF/zones?name=$Z" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).result?.[0]?.id??'')}catch{console.log('')}})")
+                  Z="${Z#*.}"
+                done
+                if [ -n "$ZONE" ]; then
+                  REC=$(curl -s "${AUTH[@]}" "$CF/zones/$ZONE/dns_records?name=$DOMAIN" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);if(!j.success){console.log('ERR '+(j.errors||[]).map(e=>e.code+' '+e.message).join('; '));return}console.log((j.result||[]).map(r=>r.id+':'+r.type+':'+r.content).join(' '))})")
+                  echo "Bestehende DNS-Einträge: ${REC:-keine}"
+                  case "$REC" in ERR*) echo "::warning::DNS nicht lesbar ($REC) – CNAME bitte selbst auf $TARGET setzen";;
+                    *)
+                      for r in $REC; do id=${r%%:*}; t=$(echo "$r" | cut -d: -f2); if [ "$t" != "CNAME" ]; then curl -s -X DELETE "${AUTH[@]}" "$CF/zones/$ZONE/dns_records/$id" > /dev/null; fi; done
+                      CID=$(for r in $REC; do if [ "$(echo "$r" | cut -d: -f2)" = "CNAME" ]; then echo "${r%%:*}"; fi; done | head -1 || true)
+                      BODY="{\"type\":\"CNAME\",\"name\":\"$DOMAIN\",\"content\":\"$TARGET\",\"proxied\":true}"
+                      if [ -n "$CID" ]; then R=$(curl -s -X PUT "${AUTH[@]}" "$CF/zones/$ZONE/dns_records/$CID" -d "$BODY"); else R=$(curl -s -X POST "${AUTH[@]}" "$CF/zones/$ZONE/dns_records" -d "$BODY"); fi
+                      echo "$R" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s);console.log(j.success?'DNS gesetzt: CNAME → '+process.env.TARGET:'DNS-Fehler: '+(j.errors||[]).map(e=>e.code+' '+e.message).join('; '))})" ;;
+                  esac
+                fi
                 {
                   echo "## $DOMAIN hinzugefügt"
                   echo
