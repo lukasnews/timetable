@@ -21,8 +21,10 @@ export interface Config {
   ntfyToken?: string;
   timezone: string;
   appUrl?: string;
-  /** Wenn gesetzt: auf dem Standard-Server nur Topics mit diesem Präfix (Schutz zwischen Familien) */
+  /** Topics dieser Familie brauchen dieses Präfix (Schutz zwischen Familien) */
   topicPrefix?: string;
+  /** Übergang: alte Topics ohne Präfix noch zulassen */
+  allowUnprefixed?: boolean;
 }
 
 export interface ReminderState {
@@ -200,20 +202,17 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
   throw new Error(`ntfy ${r.status}${hint}: ${await r.text()}`);
 }
 
-const normServer = (u: string) => u.trim().replace(/\/+$/, '').toLowerCase();
-
 /**
  * Versand-Einstellungen für eine Familie – für alle gleich: ntfy-Server und Zugangsschlüssel aus den
- * Einstellungen der Familie. Ohne eigenen Server wird nichts verschickt. Der Server des Dienstes ist für
- * Familien mit Topic-Präfix gesperrt; Topics brauchen das Präfix der Familie (außer der Ausnahme ohne Präfix).
+ * Einstellungen der Familie (ohne Server: nichts). Topics brauchen das Präfix der Familie
+ * (Übergang: allowUnprefixed lässt alte Topics ohne Präfix noch zu).
  */
 export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean; missingServer?: boolean } {
   const own = family?.ntfyServer?.trim();
   const prefix = cfg.topicPrefix;
-  const ownOk = !!own && /^https:\/\/[^\s/]+/i.test(own) && (!prefix || normServer(own) !== normServer(cfg.ntfyServer));
-  if (!ownOk) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
-  return { cfg: { ...cfg, ntfyServer: own!, ntfyToken: family?.ntfyToken?.trim() || undefined },
-    allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
+  if (!own || !/^https:\/\/[^\s/]+/i.test(own)) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
+  return { cfg: { ...cfg, ntfyServer: own, ntfyToken: family?.ntfyToken?.trim() || undefined },
+    allowed: (t) => !prefix || !!cfg.allowUnprefixed || t === prefix || t.startsWith(prefix + '-') };
 }
 
 /* ---------------- Logik ---------------- */

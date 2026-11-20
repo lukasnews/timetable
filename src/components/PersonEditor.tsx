@@ -73,8 +73,13 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
             <input type="date" value={p.birthday ?? ''} onChange={(e) => set({ birthday: e.target.value || undefined })} /></label>
           <label className="field"><span className="label">🔔 ntfy-Topic für Erinnerungen</span>
             <input value={p.ntfyTopic ?? ''} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={prefix ? suggestTopic(prefix, p.name || 'name') : 'z. B. mama'} onChange={(e) => set({ ntfyTopic: e.target.value.trim() || undefined })} />
-            {prefix && p.ntfyTopic && !topicAllowed(p.ntfyTopic, prefix) && <small className="error">Muss mit „{prefix}-“ beginnen, sonst wird nichts gesendet (Schutz vor fremden Familien).</small>}
-            {prefix && !p.ntfyTopic && <button type="button" className="btn small" onClick={() => set({ ntfyTopic: suggestTopic(prefix, p.name || 'person') })}>Sicheres Topic erzeugen</button>}
+            {prefix && p.ntfyTopic && !topicAllowed(p.ntfyTopic, prefix) && <small className="error">Sollte mit „{prefix}-“ beginnen (Schutz vor fremden Familien) – sonst kommen keine Nachrichten an.</small>}
+            {prefix && (!p.ntfyTopic || !topicAllowed(p.ntfyTopic, prefix)) && (
+              <button type="button" className="btn small" onClick={() => set({ ntfyTopic: suggestTopic(prefix, p.name || 'person') })}>Sicheres Topic erzeugen</button>
+            )}
+            {prefix && p.ntfyTopic && topicAllowed(p.ntfyTopic, prefix) && (
+              <button type="button" className="btn small" onClick={() => navigator.clipboard?.writeText(p.ntfyTopic!)}>Topic kopieren</button>
+            )}
           </label>
         </div>
         {p.birthday && (
