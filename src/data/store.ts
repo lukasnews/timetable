@@ -52,11 +52,18 @@ export function saveCloudConfig(c: CloudConfig | null) {
 }
 
 /** Einladungslink: #join=<base64(JSON)> */
-export function makeJoinLink(c: CloudConfig): string {
+/** Einladungslink – mit der eigenen Adresse der Familie, falls eingetragen */
+export function makeJoinLink(c: CloudConfig, appDomain?: string): string {
   const payload: Partial<CloudConfig> = { familyId: c.familyId };
   if (!buildTimeFirebase()) payload.firebase = c.firebase;
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  return `${location.origin}${location.pathname}#join=${b64}`;
+  return `${appDomain ? `https://${appDomain}/` : location.origin + location.pathname}#join=${b64}`;
+}
+
+/** Domain-Eingabe vereinheitlichen: „https://Kalender.Mueller.at/“ → „kalender.mueller.at“ (oder null) */
+export function normalizeDomain(input: string): string | null {
+  const d = input.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/[/?#].*$/, '');
+  return /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/.test(d) ? d : null;
 }
 
 export function readJoinLink(): CloudConfig | null {

@@ -243,6 +243,6 @@ export default {
         return new Response('Fehler: ' + String(e), { status: 500 });
       }
     }
-    return new Response('Familienkalender-Erinnerungen laufen.\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    return new Response('Familienkalender-Erinnerungen laufen.\n', { headers: { 'content-type': 'text/plain; charset=utf-8', 'access-control-allow-origin': '*' } });
   },
 };

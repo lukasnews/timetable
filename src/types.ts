@@ -155,6 +155,8 @@ export interface FamilySettings {
   ntfyFamilyTopic?: string;
   /** Eigener ntfy-Server der Familie (leer = Server des Erinnerungsdienstes) */
   ntfyServer?: string;
+  /** Eigene Adresse der Familie (Domain, z. B. kalender.mueller.at) – Einladungslinks, Abo-Link und Browser nutzen sie */
+  appDomain?: string;
   /** Zugangsschlüssel für den eigenen ntfy-Server (z. B. ntfy.sh-Konto) – nur für die eigene Familie sichtbar */
   ntfyToken?: string;
   /** Geheimer Schlüssel für den Abo-Link (Kalender in Google/Outlook abonnieren) */
