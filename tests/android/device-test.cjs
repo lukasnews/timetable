@@ -42,7 +42,8 @@ setTimeout(() => {
   };
   const tapNode = async (re) => {
     for (let i = 0; i < 10; i++) {
-      const n = (await nodes()).find((x) => re.test(x.text) || re.test(x.desc));
+      const all = (await nodes()).filter((x) => re.test(x.text) || re.test(x.desc));
+      const n = all.find((x) => /Button/.test(x.cls)) || all[0]; // Schaltfläche vor gleichlautender Überschrift
       if (n) { await sh(`input tap ${n.x} ${n.y}`); return n; }
       await sleep(1000);
     }
