@@ -1,3 +1,4 @@
+import { remindersOf } from './reminderList';
 /**
  * iCalendar (.ics) lesen und schreiben.
  * Import: einfache Serien (täglich/wöchentlich/monatlich/jährlich) bleiben Serien,
@@ -320,8 +321,8 @@ export function toICS(events: CalEvent[], persons: Person[], timezone?: string):
     if (ev.location) lines.push(`LOCATION:${escape(ev.location)}`);
     if (desc) lines.push(`DESCRIPTION:${escape(desc)}`);
     lines.push(...extra);
-    if (ev.reminderMinutes != null) {
-      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escape(title)}`, `TRIGGER:-PT${ev.reminderMinutes}M`, 'END:VALARM');
+    for (const mins of remindersOf(ev)) {
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escape(title)}`, `TRIGGER:-PT${mins}M`, 'END:VALARM');
     }
     lines.push('END:VEVENT');
   };

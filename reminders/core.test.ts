@@ -264,3 +264,15 @@ describe('Wochenübersicht mit Fahrdienst', () => {
     expect(off.find((n) => n.topic === 'familie')!.message).not.toContain('🚗 Fahrdienst');
   });
 });
+
+describe('Mehrere Erinnerungen im Dienst', () => {
+  it('schickt 30 und 5 Minuten vorher je einmal, mit eigenem Schlüssel', () => {
+    const e = ev({ reminderMinutes: 30, extraReminders: [5] });
+    const persons = [{ id: 'mama', name: 'Mama', color: '#f00', ntfyTopic: 'fk-x' } as never];
+    const a = dueNotifications({ events: [e], persons, from: '2026-11-13T09:29', to: '2026-11-13T09:30', sent: new Set() });
+    const b = dueNotifications({ events: [e], persons, from: '2026-11-13T09:54', to: '2026-11-13T09:55', sent: new Set(a.map((x) => x.key)) });
+    expect(a.map((x) => x.key)).toEqual(['e1|2026-11-13T10:00|30']);
+    expect(b.map((x) => x.key)).toEqual(['e1|2026-11-13T10:00|5']);
+    expect(b[0].n.priority).toBe(4);
+  });
+});

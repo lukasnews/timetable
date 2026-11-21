@@ -1,3 +1,4 @@
+import { remindersOf } from './lib/reminderList';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import type { CalEvent, DeviceSettings, Person } from './types';
 import { expand } from './lib/recurrence';
@@ -81,12 +82,11 @@ export function useReminders(events: CalEvent[], persons: Person[], device: Devi
         id: 'bday-' + p.id, title: '🎂 ' + p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [],
         reminderMinutes: p.birthdayReminder, recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
       }));
-      const occs = expand([...events.filter((e) => e.reminderMinutes != null), ...bdays], addDays(today, -1), addDays(today, 4));
+      const occs = expand([...events.filter((e) => remindersOf(e).length), ...bdays], addDays(today, -1), addDays(today, 11));
       for (const o of occs) {
         const ev = o.event;
         const start = o.event.allDay ? `${o.start}T08:00` : o.start;
-        const at = addMinutes(start, -(ev.reminderMinutes ?? 0));
-        if (at <= since || at > now) continue;
+        if (!remindersOf(ev).some((m) => { const at = addMinutes(start, -m); return at > since && at <= now; })) continue;
         const sel = device.reminderPersons;
         if (sel.length && ev.personIds.length && !ev.personIds.some((id) => sel.includes(id))) continue;
         const names = ev.personIds.map((id) => persons.find((p) => p.id === id)?.name).filter(Boolean).join(', ');

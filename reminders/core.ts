@@ -12,6 +12,7 @@ import { fetchRisIcs, isRisKalender } from '../src/lib/risMuell';
 import { displayTitle } from '../src/lib/categories';
 import { isKidDayOff, lessonsForDay } from '../src/lib/calendarEvents';
 import { isSchoolFree } from '../src/lib/holidays';
+import { remindersOf } from '../src/lib/reminderList';
 
 export interface Config {
   apiKey: string;
@@ -345,14 +346,15 @@ export function dueNotifications(opts: {
   const { events, persons, from, to } = opts;
   const out: { key: string; n: Notification }[] = [];
   const day = to.slice(0, 10);
-  const occs = expand([...events.filter((e) => e.reminderMinutes != null), ...profileBirthdays(persons).filter((e) => e.reminderMinutes != null)],
-    addDays(from.slice(0, 10), -1), addDays(day, 4));
+  const occs = expand([...events.filter((e) => remindersOf(e).length), ...profileBirthdays(persons).filter((e) => e.reminderMinutes != null)],
+    addDays(from.slice(0, 10), -1), addDays(day, 11));
   for (const o of occs) {
     const ev = o.event;
     const start = ev.allDay ? `${o.start}T${ALL_DAY_TIME}` : o.start;
-    const at = addMinutes(start, -(ev.reminderMinutes ?? 0));
+    for (const mins of remindersOf(ev)) {
+    const at = addMinutes(start, -mins);
     if (!(at > from && at <= to)) continue;
-    const key = `${ev.id}|${o.occStart}|${ev.reminderMinutes}`;
+    const key = `${ev.id}|${o.occStart}|${mins}`;
     if (opts.sent.has(key)) continue;
 
     const ps = persons.filter((p) => ev.personIds?.includes(p.id));
@@ -372,11 +374,12 @@ export function dueNotifications(opts: {
         key,
         n: {
           topic, title, message,
-          priority: (ev.reminderMinutes ?? 0) <= 15 && !ev.allDay ? 4 : 3,
+          priority: mins <= 15 && !ev.allDay ? 4 : 3,
           tags: [isBirthday ? 'birthday' : 'calendar'],
           ...(opts.appUrl ? { click: opts.appUrl } : {}),
         },
       });
+    }
     }
   }
   return out;
