@@ -1,6 +1,6 @@
 name: Android-Gerätetest
 
-# Startet die Android-App in einem echten Android-Emulator (Pixel, Android 12/14/15, Zeitzone Wien) und prüft:
+# Startet die Android-App in einem echten Android-Emulator (Pixel, Android 11/12/14/15, Zeitzone Wien) und prüft:
 # Benachrichtigungen bei geschlossener App zur richtigen Uhrzeit, Tages-/Wochenübersicht, Teilen-Menü
 # („Sicherung speichern“) und das Startbildschirm-Widget. Bericht + Bildschirmfotos unter „Artifacts“.
 # Läuft nach jedem neuen Android-Build und per „Run workflow“. Nutzt eine Test-Variante (debug) derselben App
@@ -10,7 +10,7 @@ on:
     inputs:
       apis:
         description: 'Android-API-Stufen als JSON-Liste, z. B. [29] oder [31, 34, 35]'
-        default: '[31, 34, 35]'
+        default: '[30, 31, 34, 35]'
   workflow_run:
     workflows: ['Android-App bauen']
     types: [completed]
@@ -30,9 +30,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Android 12, 14, 15 – Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version.
+        # Android 11, 12, 14, 15 – Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version.
         # (Android-10-Abbilder haben eine WebView von 2019, die das Test-Werkzeug nicht mehr steuern kann.)
-        api: ${{ fromJSON(github.event.inputs.apis || '[31, 34, 35]') }}
+        api: ${{ fromJSON(github.event.inputs.apis || '[30, 31, 34, 35]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
