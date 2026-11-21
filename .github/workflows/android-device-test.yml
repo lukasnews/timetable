@@ -10,7 +10,7 @@ on:
     inputs:
       apis:
         description: 'Android-API-Stufen als JSON-Liste, z. B. [29] oder [31, 34, 35]'
-        default: '[30, 31, 34, 35]'
+        default: '[29, 30, 31, 34, 35]'
   workflow_run:
     workflows: ['Android-App bauen']
     types: [completed]
@@ -30,9 +30,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Android 11, 12, 14, 15 – Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version.
-        # (Android-10-Abbilder haben eine WebView von 2019, die das Test-Werkzeug nicht mehr steuern kann.)
-        api: ${{ fromJSON(github.event.inputs.apis || '[30, 31, 34, 35]') }}
+        # Android 10, 11, 12, 14, 15 – Rechte für Benachrichtigungen/Alarme unterscheiden sich je Version.
+        # Android 10: WebView von 2019 lässt sich nicht per Playwright steuern → Kurztest über die Bedienungshilfen (smoke-uia.cjs).
+        api: ${{ fromJSON(github.event.inputs.apis || '[29, 30, 31, 34, 35]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,7 +67,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -timezone Europe/Vienna
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-            OUT=android-test node tests/android/device-test.cjs
+            if [ ${{ matrix.api }} -lt 30 ]; then OUT=android-test node tests/android/smoke-uia.cjs; else OUT=android-test node tests/android/device-test.cjs; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

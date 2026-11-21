@@ -49,8 +49,8 @@ export default defineConfig({
   ],
   build: {
     // Auch ältere Android-WebViews/iPads unterstützen (Syntax wird bei Bedarf umgeschrieben)
-    target: ['es2020', 'chrome87', 'safari14', 'firefox78', 'edge88'],
-    cssTarget: ['chrome87', 'safari14', 'firefox78', 'edge88'],
+    target: ['es2019', 'chrome74', 'safari13', 'firefox78', 'edge88'],
+    cssTarget: ['chrome74', 'safari13', 'firefox78', 'edge88'],
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
