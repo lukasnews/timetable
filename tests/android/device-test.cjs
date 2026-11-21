@@ -207,7 +207,9 @@ setTimeout(() => {
       await sleep(1500);
     }
     await snap('startbildschirm');
-    throw new Error('Termin nicht im Widget');
+    const all = (await nodes()).map((x) => `${x.text || x.desc}`).filter(Boolean).slice(0, 40).join(' | ');
+    const aw = (await sh('dumpsys appwidget | grep -A3 -i "com.javuno.timetable" | head -20')).replace(/\s+/g, ' ').slice(0, 600);
+    throw new Error('Termin nicht im Widget. Bildschirm: ' + all + ' || appwidget: ' + aw);
   });
 
   const delivered = async (re) => {
