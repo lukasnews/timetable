@@ -55,7 +55,9 @@ setTimeout(() => {
   console.log('System-WebView:', (await sh('dumpsys package com.google.android.webview | grep versionName | head -1')).trim());
   console.log('Zeitzone Gerät:', (await sh('getprop persist.sys.timezone')).trim(), '·', (await sh('date')).trim());
 
-  await sh(`am start -W -n ${PKG}/.MainActivity`);
+  console.log('starte App …');
+  await sh(`am start -n ${PKG}/.MainActivity`);
+  console.log('App gestartet, verbinde mit WebView …');
   // Beim allerersten Start lädt sich die App nach dem Einrichten des Offline-Speichers ggf. einmal neu –
   // dabei geht die Verbindung zur WebView verloren, also neu verbinden, bis der Kalender sichtbar ist.
   const errors = [];
