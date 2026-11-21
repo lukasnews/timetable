@@ -52,8 +52,10 @@ export interface CalEvent {
   driverIds?: string[];
   location?: string;
   notes?: string;
-  /** Minuten vor Beginn, null = keine Erinnerung */
+  /** Minuten vor Beginn, null = keine Erinnerung (bei mehreren: die früheste) */
   reminderMinutes?: number | null;
+  /** Weitere Erinnerungen (Minuten vor Beginn), z. B. [5] zusätzlich zu 30 */
+  extraReminders?: number[];
   kind?: 'event' | 'birthday';
   /** Bei Geburtstagen: Geburtsjahr für die Altersanzeige */
   birthYear?: number;
@@ -250,6 +252,7 @@ export interface EventTemplate {
   driverIds?: string[];
   location?: string;
   reminderMinutes?: number | null;
+  extraReminders?: number[];
   category?: string;
   bring?: string;
 }

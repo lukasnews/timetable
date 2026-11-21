@@ -6,6 +6,8 @@ import { Avatar, Icon, Modal, Toggle } from './ui';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { addDays, addMinutes, diffMinutes, fromNative, todayLocal, uid, weekdayMo0 } from '../lib/dates';
 import { parseQuick } from '../lib/quickAdd';
+import { reminderLabel, remindersOf, withReminders } from '../lib/reminderList';
+import { ReminderPicker } from './ReminderPicker';
 import { ShareSheet } from './ShareSheet';
 
 export interface EditDraft {
@@ -16,18 +18,6 @@ export interface EditDraft {
   singleOccurrence?: boolean;
 }
 
-const REMINDERS: [number | null, string][] = [
-  [null, 'Keine'],
-  [0, 'Zum Beginn'],
-  [5, '5 Minuten vorher'],
-  [15, '15 Minuten vorher'],
-  [30, '30 Minuten vorher'],
-  [60, '1 Stunde vorher'],
-  [120, '2 Stunden vorher'],
-  [840, 'Am Vorabend, 18:00'],
-  [1440, '1 Tag vorher'],
-  [2880, '2 Tage vorher'],
-];
 
 export function EventDialog(props: {
   draft: EditDraft;
@@ -112,13 +102,13 @@ export function EventDialog(props: {
     const d = ev.start.slice(0, 10);
     const start = t.allDay ? d : `${d}T${t.time ?? (ev.allDay ? '09:00' : ev.start.slice(11, 16))}`;
     set({ title: t.title, allDay: t.allDay, start, end: addMinutes(start, t.durationMin, t.allDay), personIds: t.personIds.filter((id) => props.persons.some((p) => p.id === id)),
-      driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, reminderMinutes: t.reminderMinutes ?? null, category: t.category, bring: t.bring });
+      driverIds: t.driverIds?.length ? t.driverIds : undefined, location: t.location, ...withReminders(remindersOf(t)), category: t.category, bring: t.bring });
     if (t.location || t.bring || t.driverIds?.length) setMoreOpen(true);
     setCatAuto(false);
   };
   const saveAsTemplate = () => {
     const t: EventTemplate = { id: uid(), title: ev.title.trim(), durationMin: diffMinutes(ev.start, ev.end), allDay: ev.allDay, time: ev.allDay ? undefined : ev.start.slice(11, 16),
-      personIds: ev.personIds, driverIds: ev.driverIds, location: ev.location || undefined, reminderMinutes: ev.reminderMinutes ?? null, category: ev.category, bring: ev.bring };
+      personIds: ev.personIds, driverIds: ev.driverIds, location: ev.location || undefined, ...withReminders(remindersOf(ev)), category: ev.category, bring: ev.bring };
     props.onSaveTemplates([...props.templates.filter((x) => x.title.toLowerCase() !== t.title.toLowerCase()), t]);
     setTplSaved(true);
   };
@@ -292,15 +282,17 @@ export function EventDialog(props: {
           </div>
         )}
 
-        <label className="field"><span className="label"><Icon name="bell" size={16} /> Erinnerung</span>
-          <select value={ev.reminderMinutes ?? ''} onChange={(e) => set({ reminderMinutes: e.target.value === '' ? null : Number(e.target.value) })}>
-            {REMINDERS.filter(([v]) => ev.allDay ? v === null || v === 0 || v === 840 || v === 1440 || v === 2880 || v === ev.reminderMinutes : v !== 840 || v === ev.reminderMinutes)
-              .map(([v, l]) => <option key={l} value={v ?? ''}>{ev.allDay ? ({ 0: 'Am Tag, 08:00', 1440: '1 Tag vorher, 08:00', 2880: '2 Tage vorher, 08:00' } as Record<number, string>)[v as number] ?? l : l}</option>)}
-          </select>
-          {ev.reminderMinutes != null && !ev.recurrence && addMinutes(ev.allDay ? `${ev.start.slice(0, 10)}T08:00` : ev.start, -ev.reminderMinutes) <= fromNative(new Date(), false) && (
-            <small className="error">Dieser Erinnerungszeitpunkt ist schon vorbei – es kommt keine Erinnerung.</small>
-          )}
-        </label>
+        <div className="field"><span className="label"><Icon name="bell" size={16} /> Erinnerung</span>
+          <ReminderPicker value={remindersOf(ev)} allDay={ev.allDay} onChange={(list) => set(withReminders(list))} />
+          {(() => {
+            if (ev.recurrence) return null;
+            const past = remindersOf(ev).filter((m) => addMinutes(ev.allDay ? `${ev.start.slice(0, 10)}T08:00` : ev.start, -m) <= fromNative(new Date(), false));
+            if (!past.length) return null;
+            return <small className="error">{past.length === remindersOf(ev).length
+              ? (past.length === 1 ? 'Dieser Erinnerungszeitpunkt ist schon vorbei – es kommt keine Erinnerung.' : 'Diese Erinnerungszeitpunkte sind schon vorbei – es kommt keine Erinnerung.')
+              : `Schon vorbei, kommt nicht mehr: ${past.map((m) => reminderLabel(m, ev.allDay)).join(', ')}`}</small>;
+          })()}
+        </div>
 
         <details className="form-more" open={moreOpen} onToggle={(e) => setMoreOpen((e.target as HTMLDetailsElement).open)}>
           <summary>

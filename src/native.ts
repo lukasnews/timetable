@@ -1,3 +1,4 @@
+import { remindersOf } from './lib/reminderList';
 /**
  * Android-App (Capacitor): Erinnerungen direkt am Gerät und die Zurück-Taste.
  * Im Browser passiert hier nichts.
@@ -65,10 +66,11 @@ export function plannedReminders(events: CalEvent[], persons: Person[], device: 
   }));
   const sel = device.reminderPersons;
   const out: { id: number; at: string; title: string; body: string }[] = [];
-  for (const o of expand([...events.filter((e) => e.reminderMinutes != null), ...bdays], addDays(today, -3), addDays(today, DAYS_AHEAD + 3))) {
+  for (const o of expand([...events.filter((e) => remindersOf(e).length), ...bdays], addDays(today, -10), addDays(today, DAYS_AHEAD + 10))) {
     const ev = o.event;
     if (sel.length && (ev.personIds.length || ev.driverIds?.length) && ![...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id))) continue;
-    const at = addMinutes(ev.allDay ? `${o.start}T08:00` : o.start, -(ev.reminderMinutes ?? 0));
+    for (const mins of remindersOf(ev)) {
+    const at = addMinutes(ev.allDay ? `${o.start}T08:00` : o.start, -mins);
     if (at <= now || at > `${addDays(today, DAYS_AHEAD)}T23:59`) continue;
     const day = o.start.slice(0, 10);
     const dayText = day === at.slice(0, 10) ? 'Heute' : day === addDays(at.slice(0, 10), 1) ? 'Morgen' : day.split('-').reverse().join('.');
@@ -76,12 +78,13 @@ export function plannedReminders(events: CalEvent[], persons: Person[], device: 
     const drivers = persons.filter((p) => ev.driverIds?.includes(p.id)).map((p) => p.name).join(', ');
     const age = ev.kind === 'birthday' && ev.birthYear ? Number(day.slice(0, 4)) - ev.birthYear : 0;
     out.push({
-      id: hashId(`${ev.id}|${o.occStart}|${ev.reminderMinutes}`),
+      id: hashId(`${ev.id}|${o.occStart}|${mins}`),
       at,
       title: ev.kind === 'birthday' ? `🎂 ${ev.title}${age > 0 ? ` wird ${age}` : ''}` : displayTitle(ev),
       body: [`${dayText}, ${ev.allDay ? 'ganztägig' : `${o.start.slice(11)} Uhr`}`, names, drivers && `🚗 ${drivers}`, ev.bring && `🎒 ${ev.bring}`, ev.location && `📍 ${ev.location}`]
         .filter(Boolean).join(' · '),
     });
+    }
   }
   return out.sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_SCHEDULED);
 }

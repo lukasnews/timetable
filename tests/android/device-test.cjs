@@ -135,18 +135,23 @@ setTimeout(() => {
     await page.locator('.title-input').fill('Gerätetest jetzt');
     await page.locator('.modal input[type=time]').first().fill(soon);
     await page.locator('.modal input[type=time]').nth(1).fill(hhmm(Math.min(mins + 30, 24 * 60 - 5)));
-    await page.locator('.modal select').filter({ has: page.locator('option', { hasText: 'Zum Beginn' }) }).first().selectOption('0');
+    await page.getByRole('button', { name: 'Erinnerung hinzufügen' }).click();
+    await page.getByRole('button', { name: 'Zum Beginn', exact: true }).click();
     await page.locator('.modal').getByRole('button', { name: 'Speichern' }).click();
     await sleep(1500);
     if (!(await page.locator('body').innerText()).includes('Gerätetest jetzt')) throw new Error('nicht im Kalender');
   });
 
-  await step('Wöchentlichen Termin ab morgen 10:00 mit Erinnerung 15 Minuten vorher anlegen', async () => {
+  await step('Wöchentlichen Termin ab morgen 10:00 mit Erinnerungen 1 Stunde und 15 Minuten vorher anlegen', async () => {
     await page.getByLabel('Neuer Termin').first().click();
     await page.locator('.title-input').fill('Morgen 10 Uhr Gerätetest');
     await sleep(500);
     await page.getByRole('button', { name: 'Wöchentl.' }).click();
-    await page.locator('.modal select').filter({ has: page.locator('option', { hasText: '15 Minuten vorher' }) }).first().selectOption('15');
+    // Zwei Erinnerungen: 15 Minuten und 1 Stunde vorher
+    await page.getByRole('button', { name: 'Erinnerung hinzufügen' }).click();
+    await page.getByRole('button', { name: '15 Minuten vorher', exact: true }).click();
+    await page.getByRole('button', { name: 'Erinnerung hinzufügen' }).click();
+    await page.getByRole('button', { name: '1 Stunde vorher', exact: true }).click();
     await page.locator('.modal').getByRole('button', { name: 'Speichern' }).click();
     await sleep(3000);
   });
@@ -159,7 +164,7 @@ setTimeout(() => {
     await sum.click();
     planned = await page.locator('details.tips', { has: sum }).innerText();
     await snap('eingeplant');
-    const need = [[soon, 'Gerätetest jetzt'], ['09:45', 'Gerätetest'], ['06:30', 'Heute:']];
+    const need = [[soon, 'Gerätetest jetzt'], ['09:00', 'Gerätetest'], ['09:45', 'Gerätetest'], ['06:30', 'Heute:']];
     const miss = need.filter(([t, s]) => !planned.split('\n').some((l) => l.includes(t) && l.includes(s)));
     if (miss.length) throw new Error('fehlt: ' + miss.map((x) => x.join(' ')).join('; ') + ' | Liste: ' + planned.replace(/\n/g, ' / ').slice(0, 400));
     return planned.split('\n').length - 2 + ' Einträge';
