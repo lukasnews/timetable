@@ -41,3 +41,31 @@ describe('Mehrere Erinnerungen', () => {
     expect(ics).toContain('TRIGGER:-PT15M');
   });
 });
+
+import { digest } from '../../../reminders/core';
+import { plannedDigests } from '../../native';
+import { timeOnDay } from '../dayLine';
+
+describe('Termine über mehrere Tage in der Tagesübersicht', () => {
+  const urlaub: CalEvent = { id: 'u', title: 'Urlaub', start: '2026-11-20', end: '2026-11-25', allDay: true, personIds: [] };
+  const seminar: CalEvent = { id: 't', title: 'Seminar', start: '2026-11-21T09:00', end: '2026-11-23T17:00', allDay: false, personIds: [] };
+  const persons = [{ id: 'm', name: 'Mama', color: '#f00', ntfyTopic: 'fk-m' } as never];
+  it('Uhrzeit-Text je Tag', () => {
+    const o = { start: seminar.start, end: seminar.end, event: seminar };
+    expect([timeOnDay(o, '2026-11-21'), timeOnDay(o, '2026-11-22'), timeOnDay(o, '2026-11-23')]).toEqual(['ab 09:00', 'ganztägig', 'bis 17:00']);
+  });
+  it('App: an jedem Tag dabei, richtig beschriftet', () => {
+    const plan = plannedDigests([urlaub, seminar], [], { reminderPersons: [], dailyDigest: '06:30' }, '2026-11-21T05:00');
+    const day = (d: string) => plan.find((x) => x.at === `${d}T06:30`)?.largeBody;
+    expect(day('2026-11-21')).toBe('ganztägig Urlaub\nab 09:00 Seminar');
+    expect(day('2026-11-22')).toBe('ganztägig Urlaub\nganztägig Seminar');
+    expect(day('2026-11-23')).toBe('ganztägig Urlaub\nbis 17:00 Seminar');
+    expect(day('2026-11-25')).toBeUndefined();
+  });
+  it('ntfy: an jedem Tag dabei, richtig beschriftet', () => {
+    const msg = (d: string) => digest({ events: [urlaub, seminar], persons, from: d, days: 1, title: 'Heute' })[0]?.message;
+    expect(msg('2026-11-22')).toBe('Urlaub\nganztägig Seminar');
+    expect(msg('2026-11-23')).toBe('Urlaub\nbis 17:00 Seminar');
+    expect(msg('2026-11-24')).toBe('Urlaub');
+  });
+});
