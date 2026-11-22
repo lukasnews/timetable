@@ -22,6 +22,14 @@ import { FERIEN_REGIONS, regionName, type FerienRegion } from '../lib/holidays';
 
 const HOURS = Array.from({ length: 25 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
+/** „2026-11-22 06:30 · …“ → „So., 22.11., 06:30 · …“ */
+function fmtInfo(info: string): string {
+  const m = info.match(/^(\d{4}-\d\d-\d\d) (\d\d:\d\d)(.*)$/);
+  if (!m) return info;
+  const d = new Date(m[1] + 'T12:00:00').toLocaleDateString('de-AT', { weekday: 'short', day: 'numeric', month: 'numeric' });
+  return `${d}, ${m[2]}${m[3]}`;
+}
+
 export type SettingsTab = 'persons' | 'device' | 'notify' | 'sync' | 'data' | 'general';
 
 export function SettingsDialog({ tab: initial, onClose, onPrint }: { tab: SettingsTab; onClose: () => void; onPrint?: () => void }) {
@@ -348,7 +356,7 @@ function NotifyTab() {
       {native && (
         <>
           <Toggle checked={!!device.dailyDigest} onChange={async (v) => { if (v && (await nativeNotifyPermission(true)) !== 'granted') return; setDevice({ dailyDigest: v ? '06:30' : undefined }); }}
-            label="Tagesübersicht" hint="Jeden Morgen eine Benachrichtigung mit den Terminen des Tages (nur an Tagen mit Terminen)" />
+            label="Tagesübersicht" hint="Jeden Morgen eine Benachrichtigung mit den Terminen des Tages – nur an Tagen mit Terminen. Wird am Handy vorausgeplant; Termine, die andere eintragen, kommen beim nächsten Öffnen der App dazu." />
           {!!device.dailyDigest && (
             <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
               <input type="time" value={device.dailyDigest} onChange={(e) => e.target.value && setDevice({ dailyDigest: e.target.value })} /></label>
@@ -436,11 +444,13 @@ function NotifyTab() {
           <label className="field"><span className="label">Uhrzeit der Tagesübersicht</span>
             <input type="time" value={family.ntfyDaily} onChange={(e) => e.target.value && saveFamily({ ntfyDaily: e.target.value })} /></label>
         )}
+        {!!family.ntfyDaily && service.dailyInfo && <small className="hint">Zuletzt: {fmtInfo(service.dailyInfo)}</small>}
         <Toggle checked={!!family.ntfyWeekly} onChange={(v) => saveFamily({ ntfyWeekly: v })} label="Wochenübersicht" hint="Sonntag um 18:00: die Termine der kommenden Woche" />
         {!!family.ntfyWeekly && (
           <Toggle checked={family.ntfyWeeklyDrivers !== false} onChange={(v) => saveFamily({ ntfyWeeklyDrivers: v })} label="… mit Fahrdienst"
             hint="„🚗 Fahrdienst diese Woche: Papa: Di 16:00 Schwimmen (Lena) …“ – jede Person bekommt ihre eigenen Fahrten" />
         )}
+        {!!family.ntfyWeekly && service.weeklyInfo && <small className="hint">Zuletzt: {fmtInfo(service.weeklyInfo)}</small>}
         <Toggle checked={!!family.ntfyChanges} onChange={(v) => saveFamily({ ntfyChanges: v })} label="Neue und geänderte Termine melden"
           hint="An die betroffenen Personen – nicht an die Person, die geändert hat (siehe „Ich bin“)." />
       </Advanced>

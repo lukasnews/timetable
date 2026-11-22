@@ -37,6 +37,9 @@ export interface ReminderState {
   /** Datum der letzten Tages-/Wochenübersicht */
   lastDaily?: string;
   lastWeekly?: string;
+  /** Ergebnis der letzten Tages-/Wochenübersicht für die Anzeige, z. B. „2026-11-22 06:30 · 2 gesendet“ */
+  dailyInfo?: string;
+  weeklyInfo?: string;
   /** Änderungen seit (ms) bereits gemeldet */
   changesAt?: number;
   /** Datum des letzten täglichen Abgleichs der importierten Kalender */
@@ -171,6 +174,8 @@ export async function saveState(cfg: Config, token: string, s: ReminderState) {
     at: { integerValue: String(s.at ?? Date.now()) },
     lastDaily: { stringValue: s.lastDaily ?? '' },
     lastWeekly: { stringValue: s.lastWeekly ?? '' },
+    dailyInfo: { stringValue: s.dailyInfo ?? '' },
+    weeklyInfo: { stringValue: s.weeklyInfo ?? '' },
     changesAt: { integerValue: String(s.changesAt ?? 0) },
     lastIcsSync: { stringValue: s.lastIcsSync ?? '' },
     icsStatus: toValue(s.icsStatus ?? []),
@@ -526,13 +531,25 @@ export async function run(cfg: Config, token: string, now = new Date(), log = co
   const wantWeekly = !!family?.ntfyWeekly && isSunday && state.lastWeekly !== today && within('18:00');
   if (wantDaily || wantWeekly) {
     const [all, timetables] = await Promise.all([list<CalEvent>(cfg, token, 'events'), list<Timetable>(cfg, token, 'timetables')]);
+    const stamp = to.replace('T', ' ');
+    // Erledigt erst, wenn alles verschickt ist – sonst beim nächsten Lauf (alle 5 min, bis zu 3 h) erneut versuchen
+    const deliver = async (list: Notification[]) => {
+      if (nt.missingServer) return { done: true, info: `${stamp} · kein ntfy-Server eingetragen` };
+      if (!list.length) return { done: true, info: `${stamp} · keine Termine – nichts gesendet` };
+      let ok = 0;
+      for (const n of list) if (await send(n)) ok++;
+      return ok === list.length ? { done: true, info: `${stamp} · an ${ok} ${ok === 1 ? 'Topic' : 'Topics'} gesendet` }
+        : { done: false, info: `${stamp} · ${list.length - ok} von ${list.length} nicht gesendet – wird erneut versucht` };
+    };
     if (wantDaily) {
-      for (const n of digest({ events: all, persons, family, from: today, days: 1, title: 'Heute im Kalender', appUrl: cfg.appUrl, timetables })) await send(n);
-      next.lastDaily = today;
+      const r = await deliver(digest({ events: all, persons, family, from: today, days: 1, title: 'Heute im Kalender', appUrl: cfg.appUrl, timetables }));
+      if (r.done) next.lastDaily = today;
+      next.dailyInfo = r.info;
     }
     if (wantWeekly) {
-      for (const n of digest({ events: all, persons, family, from: addDays(today, 1), days: 7, title: 'Nächste Woche im Kalender', appUrl: cfg.appUrl, drivers: family?.ntfyWeeklyDrivers !== false })) await send(n);
-      next.lastWeekly = today;
+      const r = await deliver(digest({ events: all, persons, family, from: addDays(today, 1), days: 7, title: 'Nächste Woche im Kalender', appUrl: cfg.appUrl, drivers: family?.ntfyWeeklyDrivers !== false }));
+      if (r.done) next.lastWeekly = today;
+      next.weeklyInfo = r.info;
     }
   }
 
