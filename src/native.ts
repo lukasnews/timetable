@@ -1,4 +1,5 @@
 import { remindersOf } from './lib/reminderList';
+import { occursOn, timeOnDay } from './lib/dayLine';
 /**
  * Android-App (Capacitor): Erinnerungen direkt am Gerät und die Zurück-Taste.
  * Im Browser passiert hier nichts.
@@ -107,20 +108,20 @@ export function plannedDigests(events: CalEvent[], persons: Person[], device: Pi
     .filter((o) => { const ev = o.event; return !sel.length || !(ev.personIds.length || ev.driverIds?.length) || [...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id)); })
     .sort((a, b) => Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start));
   const names = (ev: CalEvent) => persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
-  const line = (o: (typeof occ)[number], withDay: boolean) => {
+  const line = (o: (typeof occ)[number], day: string, withDay: boolean) => {
     const ev = o.event;
-    const day = o.start.slice(0, 10);
     const who = names(ev);
-    return `${withDay ? wdOf(day) + ' ' : ''}${ev.allDay ? 'ganztägig' : o.start.slice(11, 16)} ${ev.kind === 'birthday' ? ev.title : displayTitle(ev)}${who ? ` (${who})` : ''}`;
+    return `${withDay ? wdOf(day) + ' ' : ''}${timeOnDay(o, day)} ${ev.kind === 'birthday' ? ev.title : displayTitle(ev)}${who ? ` (${who})` : ''}`;
   };
-  const onDay = (d: string) => occ.filter((o) => (o.event.allDay ? o.start.slice(0, 10) <= d && o.end.slice(0, 10) > d : o.start.slice(0, 10) === d));
+  // Mehrtägige Termine (auch mit Uhrzeit) an jedem ihrer Tage
+  const onDay = (d: string) => occ.filter((o) => occursOn(o, d));
   for (let i = 0; i <= DAYS_AHEAD; i++) {
     const d = addDays(today, i);
     if (daily) {
       const at = `${d}T${daily}`;
       const list = onDay(d);
       if (at > now && list.length) {
-        const lines = list.map((o) => line(o, false));
+        const lines = list.map((o) => line(o, d, false));
         out.push({ id: hashId('digest-d|' + d), at, title: `Heute: ${list.length} ${list.length === 1 ? 'Termin' : 'Termine'}`,
           body: lines.slice(0, 3).join(' · ') + (lines.length > 3 ? ' …' : ''), largeBody: lines.join('\n') });
       }
@@ -130,7 +131,7 @@ export function plannedDigests(events: CalEvent[], persons: Person[], device: Pi
       const week = Array.from({ length: 7 }, (_, k) => addDays(d, k + 1));
       const list = week.flatMap((w) => onDay(w).map((o) => ({ o, w })));
       if (at > now && list.length) {
-        const lines = list.map(({ o, w }) => line({ ...o, start: o.event.allDay ? w : o.start }, true));
+        const lines = list.map(({ o, w }) => line(o, w, true));
         out.push({ id: hashId('digest-w|' + d), at, title: `Nächste Woche: ${list.length} ${list.length === 1 ? 'Termin' : 'Termine'}`,
           body: lines.slice(0, 3).join(' · ') + (lines.length > 3 ? ' …' : ''), largeBody: lines.join('\n') });
       }

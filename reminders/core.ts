@@ -13,6 +13,7 @@ import { displayTitle } from '../src/lib/categories';
 import { isKidDayOff, lessonsForDay } from '../src/lib/calendarEvents';
 import { isSchoolFree } from '../src/lib/holidays';
 import { remindersOf } from '../src/lib/reminderList';
+import { occursOn, timeOnDay } from '../src/lib/dayLine';
 
 export interface Config {
   apiKey: string;
@@ -271,12 +272,16 @@ export function digest(opts: { events: CalEvent[]; persons: Person[]; family?: P
       if (items.length) schoolBring.set(kid.id, [`🎒 ${kid.name}: ${items.join(', ')}`]);
     }
   }
-  const occs = expand([...opts.events, ...profileBirthdays(persons)], from, addDays(from, days)).sort((a, b) => a.start.localeCompare(b.start));
+  const raw = expand([...opts.events, ...profileBirthdays(persons)], from, addDays(from, days));
+  // Tagesübersicht: Termine mit Uhrzeit über mehrere Tage erscheinen an jedem Tag („bis 17:00“); Woche: einmal, am ersten Tag im Zeitraum
+  const occs = raw.map((o) => ({ ...o, day: days > 1 && o.start.slice(0, 10) >= from ? o.start.slice(0, 10) : from }))
+    .filter((o) => days > 1 || occursOn(o, from))
+    .sort((a, b) => Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start));
   const line = (o: (typeof occs)[number]) => {
     const ev = o.event;
     const names = persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
-    const dayPart = days > 1 ? dateText(o.start.slice(0, 10) < from ? from : o.start.slice(0, 10), '') + ' ' : '';
-    const t = ev.allDay ? '' : o.start.slice(11) + ' ';
+    const dayPart = days > 1 ? dateText(o.day, '') + ' ' : '';
+    const t = ev.allDay ? '' : timeOnDay(o, o.day) + ' ';
     const drv = persons.filter((p) => ev.driverIds?.includes(p.id)).map((p) => p.name).join(', ');
     return `${dayPart}${t}${displayTitle(ev)}${names ? ` (${names})` : ''}${drv ? ` 🚗 ${drv}` : ''}${ev.bring ? ` 🎒 ${ev.bring}` : ''}`;
   };
