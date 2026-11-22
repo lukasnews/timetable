@@ -276,3 +276,47 @@ describe('Mehrere Erinnerungen im Dienst', () => {
     expect(b[0].n.priority).toBe(4);
   });
 });
+
+describe('Tagesübersicht per ntfy', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const sv = (s: string) => ({ stringValue: s });
+  const setup = (ntfyStatus: number, withEvent: boolean) => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url === 'https://ntfy.example') return new Response(ntfyStatus === 200 ? '{}' : 'down', { status: ntfyStatus });
+      if (url.endsWith(':runQuery')) return new Response(JSON.stringify([{ readTime: 'x' }]));
+      if (url.includes('/events?')) return new Response(JSON.stringify({ documents: withEvent ? [{ name: 'x/e1', fields: {
+        title: sv('Zahnärztin'), start: sv('2026-11-13T10:00'), end: sv('2026-11-13T10:30'), allDay: { booleanValue: false },
+        personIds: { arrayValue: { values: [sv('mama')] } } } }] : [] }));
+      if (url.includes('/persons')) return new Response(JSON.stringify({ documents: [{ name: 'x/mama', fields: { name: sv('Mama'), ntfyTopic: sv('mama') } }] }));
+      if (url.includes('/meta?')) return new Response(JSON.stringify({ documents: [{ name: 'x/reminders', fields: { lastRun: sv('2026-11-13T07:30'), sent: { arrayValue: {} } } },
+        { name: 'x/settings', fields: { ntfyServer: sv('https://ntfy.example'), ntfyDaily: sv('06:30') } }] }));
+      if (url.includes('/timetables')) return new Response(JSON.stringify({ documents: [] }));
+      return new Response('{}');
+    });
+    return calls;
+  };
+  const cfg: Config = { apiKey: 'k', projectId: 'p', familyId: 'f', ntfyServer: '', timezone: 'Europe/Vienna' };
+  const saved = (calls: { url: string; init?: RequestInit }[]) => JSON.parse(calls.filter((c) => c.url.endsWith('/meta/reminders')).pop()!.init!.body as string).fields;
+
+  it('schickt die Übersicht und merkt sich das Ergebnis', async () => {
+    const calls = setup(200, true);
+    await run(cfg, 'id', new Date('2026-11-13T05:35:00Z'), () => {}); // 06:35 in Wien
+    expect(calls.some((c) => c.url === 'https://ntfy.example' && JSON.parse(c.init!.body as string).title === 'Heute im Kalender')).toBe(true);
+    expect(saved(calls).lastDaily.stringValue).toBe('2026-11-13');
+    expect(saved(calls).dailyInfo.stringValue).toBe('2026-11-13 06:35 · an 1 Topic gesendet');
+  });
+  it('ohne Termine: nichts senden, aber anzeigen warum', async () => {
+    const calls = setup(200, false);
+    await run(cfg, 'id', new Date('2026-11-13T05:35:00Z'), () => {});
+    expect(calls.some((c) => c.url === 'https://ntfy.example')).toBe(false);
+    expect(saved(calls).dailyInfo.stringValue).toContain('keine Termine');
+  });
+  it('Versand gescheitert: nicht als erledigt markieren (wird erneut versucht)', async () => {
+    const calls = setup(500, true);
+    await run(cfg, 'id', new Date('2026-11-13T05:35:00Z'), () => {}).catch(() => {});
+    expect(saved(calls).lastDaily.stringValue).toBe('');
+    expect(saved(calls).dailyInfo.stringValue).toContain('erneut versucht');
+  });
+});
