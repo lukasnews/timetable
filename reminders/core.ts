@@ -207,14 +207,31 @@ export async function sendNtfy(cfg: Config, n: Notification): Promise<void> {
   throw new Error(`ntfy ${r.status}${hint}: ${await r.text()}`);
 }
 
+/** ntfy-Server nur als https-Ursprung ohne Pfad/Query (sonst ließe sich über den Pfad ein fremdes Topic beschreiben) */
+export function ntfyOrigin(raw?: string): string {
+  try {
+    const u = new URL((raw ?? '').trim());
+    if (u.protocol !== 'https:' || u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== '')) return '';
+    return isPublicHost(u.hostname) ? u.origin : '';
+  } catch { return ''; }
+}
+
+/** Nur öffentliche Namen: keine IP-Adressen, kein localhost, keine internen Endungen */
+export function isPublicHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  if (!h.includes('.') || h.startsWith('[') || h.includes(':')) return false;
+  if (/^\d+(\.\d+){0,3}$/.test(h) || /^0x/i.test(h)) return false;
+  return !/(^|\.)(localhost|local|internal|lan|home|intranet|corp|arpa)$/.test(h);
+}
+
 /**
  * Versand-Einstellungen für eine Familie – für alle gleich: ntfy-Server und Zugangsschlüssel aus den
  * Einstellungen der Familie (ohne Server: nichts). Topics brauchen das Präfix der Familie.
  */
 export function ntfyFor(cfg: Config, family?: Partial<FamilySettings>): { cfg: Config; allowed: (topic: string) => boolean; missingServer?: boolean } {
-  const own = family?.ntfyServer?.trim();
+  const own = ntfyOrigin(family?.ntfyServer);
   const prefix = cfg.topicPrefix;
-  if (!own || !/^https:\/\/[^\s/]+/i.test(own)) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
+  if (!own) return { cfg: { ...cfg, ntfyServer: '', ntfyToken: undefined }, allowed: () => false, missingServer: true };
   return { cfg: { ...cfg, ntfyServer: own, ntfyToken: family?.ntfyToken?.trim() || undefined },
     allowed: (t) => !prefix || t === prefix || t.startsWith(prefix + '-') };
 }
@@ -401,11 +418,29 @@ export function dueNotifications(opts: {
 const MAX_ICS_BYTES = 5 * 1024 * 1024;
 
 /** Antwort als Text lesen – mit Zeitlimit und Größengrenze */
+/** Abruf-Ziel prüfen: nur http(s) zu öffentlichen Namen, ohne Zugangsdaten in der Adresse */
+export function checkFetchUrl(raw: string): string {
+  let u: URL;
+  try { u = new URL(raw); } catch { throw new Error('Ungültiger Link'); }
+  if (!/^https?:$/.test(u.protocol) || u.username || u.password || !isPublicHost(u.hostname) || (u.port && !['80', '443', '8080', '8443'].includes(u.port))) {
+    throw new Error('Dieser Link ist nicht erlaubt (nur öffentliche http/https-Adressen)');
+  }
+  return u.toString();
+}
+
 async function readLimited(u: string, accept: string, ua: string): Promise<string> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 20_000);
   try {
-    const r = await fetch(u, { headers: { accept, 'user-agent': ua }, signal: ctrl.signal, redirect: 'follow' });
+    let target = checkFetchUrl(u);
+    let r: Response;
+    for (let hop = 0; ; hop++) {
+      r = await fetch(target, { headers: { accept, 'user-agent': ua }, signal: ctrl.signal, redirect: 'manual' });
+      const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
+      if (!loc) break;
+      if (hop >= 5) throw new Error('Zu viele Weiterleitungen');
+      target = checkFetchUrl(new URL(loc, target).toString());
+    }
     if (!r.ok) throw new Error(`Server antwortet mit ${r.status}`);
     const len = Number(r.headers.get('content-length') ?? 0);
     if (len > MAX_ICS_BYTES) throw new Error('Kalenderdatei ist zu groß (über 5 MB)');

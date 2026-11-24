@@ -395,9 +395,9 @@ function NotifyTab() {
           {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
         <label className="field"><span className="label">ntfy-Server eurer Familie</span>
           <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
+            onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\/[^/?#\s]+$/i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
           <small className="hint">{family.ntfyServer
-            ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
+            ? 'Hier hin schickt der Dienst eure Push-Nachrichten – nur die Adresse des Servers, mit https:// und ohne Topic dahinter.'
             : 'Leer = keine ntfy-Nachrichten. Wer sie möchte: z. B. https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
         </label>
         <label className="field"><span className="label">Zugangsschlüssel</span>

@@ -320,3 +320,28 @@ describe('Tagesübersicht per ntfy', () => {
     expect(saved(calls).dailyInfo.stringValue).toContain('erneut versucht');
   });
 });
+
+describe('Sicherheit: Adressen', () => {
+  it('ntfy-Server nur als Ursprung (kein Pfad = kein fremdes Topic)', async () => {
+    const { ntfyOrigin } = await import('./core');
+    expect(ntfyOrigin('https://ntfy.sh')).toBe('https://ntfy.sh');
+    expect(ntfyOrigin('https://ntfy.example.org/')).toBe('https://ntfy.example.org');
+    expect(ntfyOrigin('https://ntfy.sh/fremdes-topic')).toBe('');
+    expect(ntfyOrigin('https://ntfy.sh/?x=1')).toBe('');
+    expect(ntfyOrigin('http://ntfy.sh')).toBe('');
+    expect(ntfyOrigin('https://127.0.0.1')).toBe('');
+    expect(ntfyOrigin('https://user:pw@ntfy.sh')).toBe('');
+  });
+  it('Kalender-Abruf nur an öffentliche Adressen', async () => {
+    const { checkFetchUrl } = await import('./core');
+    expect(checkFetchUrl('https://calendar.google.com/x.ics')).toContain('calendar.google.com');
+    for (const bad of ['http://localhost/x', 'http://169.254.169.254/latest', 'http://[::1]/', 'http://10.0.0.1/', 'http://router.local/', 'https://a.b:22/', 'ftp://x.org/', 'http://2130706433/'])
+      expect(() => checkFetchUrl(bad), bad).toThrow();
+  });
+  it('Weiterleitung auf interne Adresse wird abgelehnt', async () => {
+    const { fetchIcs } = await import('./core');
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/' } }));
+    await expect(fetchIcs('https://example.org/cal.ics')).rejects.toThrow(/nicht erlaubt/);
+    vi.unstubAllGlobals();
+  });
+});
