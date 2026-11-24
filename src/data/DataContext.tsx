@@ -208,10 +208,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // erst wenn die Einstellungen geladen sind (sonst wüssten wir nicht, ob schon eine Zeitzone gewählt ist)
   const settingsLoaded = metaLoaded;
   useEffect(() => {
-    if (store.mode !== 'cloud' || !settingsLoaded || family.timezone) return;
+    // nur mit bestätigtem Server-Stand (ein neues Gerät, das offline startet, kennt die gewählte Zeitzone noch nicht)
+    if (store.mode !== 'cloud' || !settingsLoaded || family.timezone || status !== 'synced') return;
     const t = setTimeout(() => store.patch('meta', 'settings', { timezone: deviceTimezone() }), 4000);
     return () => clearTimeout(t);
-  }, [store, settingsLoaded, family.timezone]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [store, settingsLoaded, family.timezone, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Beim Erinnerungsdienst anmelden (einmal am Tag bzw. wenn sich der Abo-Schlüssel ändert) – nur mit der eigenen geheimen ID
   const hasData = persons.length > 0;
@@ -257,7 +258,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
           put: touched.map((id) => byId.get(id)).filter(Boolean) as CalEvent[],
           del: m.put.map((e) => e.id).filter((id) => !byId.has(id)),
         };
-        m.put.forEach((e) => store.put('events', { ...e, createdAt: e.createdAt ?? (byId.has(e.id) ? byId.get(e.id)!.createdAt ?? 1 : Date.now()), changedBy: device.me || undefined, changedOn: deviceTag() }));
+        const stamp = { changedBy: device.me || undefined, changedOn: deviceTag() };
+        m.put.forEach((e) => {
+          const old = byId.get(e.id);
+          if (!old) { store.put('events', { ...e, createdAt: e.createdAt ?? Date.now(), ...stamp }); return; }
+          // Bestehender Termin: nur geänderte Felder schreiben, ausgenommene Vorkommen als Listen-Änderung –
+          // so überschreibt ein Gerät nicht, was ein anderes gleichzeitig (oder offline) geändert hat
+          const fields: Record<string, unknown> = {};
+          for (const k of new Set([...Object.keys(old), ...Object.keys(e)])) {
+            if (k === 'exdates' || k === 'updatedAt' || k === 'id') continue;
+            const a = (old as unknown as Record<string, unknown>)[k], b = (e as unknown as Record<string, unknown>)[k];
+            if (JSON.stringify(a) !== JSON.stringify(b)) fields[k] = b;
+          }
+          const was = new Set(old.exdates ?? []), now = new Set(e.exdates ?? []);
+          const add = [...now].filter((x) => !was.has(x)), remove = [...was].filter((x) => !now.has(x));
+          if (!Object.keys(fields).length && !add.length && !remove.length) return;
+          store.update('events', e.id, { ...fields, ...stamp, ...(old.createdAt ? {} : { createdAt: 1 }) }, { add: { exdates: add }, remove: { exdates: remove } });
+        });
         m.del.forEach((id) => store.remove('events', id));
         return undo;
       },
@@ -265,7 +282,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       deletePerson: (id) => {
         store.remove('persons', id);
         store.remove('timetables', id);
-        events.filter((e) => e.personIds.includes(id)).forEach((e) => store.put('events', { ...e, personIds: e.personIds.filter((x) => x !== id) }));
+        // nur die Person austragen (nicht den ganzen Termin aus dem lokalen Stand zurückschreiben)
+        events.filter((e) => e.personIds.includes(id) || e.driverIds?.includes(id)).forEach((e) => store.update('events', e.id, {},
+          { remove: { personIds: [id], ...(e.driverIds?.includes(id) ? { driverIds: [id] } : {}) } }));
+        // auch aus Kalender-Abos und Vorlagen (sonst trägt der tägliche Abgleich sie wieder ein)
+        if (family.icsSources?.some((s) => s.personIds?.includes(id))) {
+          store.patch('meta', 'settings', { icsSources: family.icsSources.map((s) => ({ ...s, personIds: (s.personIds ?? []).filter((x) => x !== id) })) });
+        }
+        if (templates.some((t) => t.personIds.includes(id) || t.driverIds?.includes(id))) {
+          store.put('meta', { id: 'templates', items: templates.map((t) => ({ ...t, personIds: t.personIds.filter((x) => x !== id), driverIds: t.driverIds?.filter((x) => x !== id) })) });
+        }
       },
       saveTimetable: (t) => store.put('timetables', t),
       saveFamily: (f) => store.patch('meta', 'settings', f as Record<string, unknown>),
