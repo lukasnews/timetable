@@ -64,6 +64,7 @@ export function expand(events: CalEvent[], from: string, to: string): Occurrence
     // Vorkommen, die vor "from" beginnen, aber hineinragen, mitnehmen
     const searchFrom = new Date(fromD.getTime() - Math.max(dur, 0) * 60000 - 1);
     for (const d of rule.between(searchFrom, toD, true)) {
+      if (d >= toD) continue; // Bereich ist [from, to) – between() schließt das Ende mit ein
       const s = fmtLike(d, ev.allDay);
       if (ex.has(s)) continue;
       const e = addMinutes(s, dur, ev.allDay);
@@ -187,8 +188,17 @@ export function applyChange(
   const newDur = diffMinutes(change.start, change.end);
 
   if (scope === 'all') {
-    const newStart = change.allDay === series.allDay ? addMinutes(series.start, deltaMin, change.allDay) : change.start;
-    const rec = patch.recurrence ?? shiftRecurrence(series.recurrence, dayShift);
+    const switched = change.allDay !== series.allDay;
+    // Ganztägig ↔ mit Uhrzeit: Serienbeginn bleibt am selben Tag (nicht auf das angeklickte Vorkommen springen)
+    const timeOf = (x: string) => (change.allDay ? '' : `T${(x.length > 10 ? x : change.start).slice(11, 16)}`);
+    const newStart = switched ? `${series.start.slice(0, 10)}${change.allDay ? '' : timeOf(change.start)}` : addMinutes(series.start, deltaMin, change.allDay);
+    const rec = patch.recurrence ?? (switched ? series.recurrence : shiftRecurrence(series.recurrence, dayShift));
+    // Gelöschte Vorkommen und Einzeländerungen mitverschieben statt verwerfen
+    const move = (x: string) => (switched ? `${x.slice(0, 10)}${change.allDay ? '' : timeOf(newStart)}` : addMinutes(x, deltaMin, change.allDay));
+    const rule = toRRule(newStart, rec);
+    const inRule = (x: string) => { const t = parseLocal(x).getTime(); return rule.between(new Date(t - 1), new Date(t + 1), true).length > 0; };
+    const ruleChanged = !!patch.recurrence && JSON.stringify(patch.recurrence) !== JSON.stringify(series.recurrence);
+    const keep = (x: string) => !ruleChanged || inRule(x);
     const updated: CalEvent = {
       ...series,
       ...patch,
@@ -196,11 +206,18 @@ export function applyChange(
       end: addMinutes(newStart, newDur, change.allDay),
       allDay: change.allDay,
       recurrence: rec,
-      // Ausnahmen passen nach Zeitverschiebung nicht mehr
-      exdates: deltaMin === 0 ? series.exdates : [],
+      exdates: (series.exdates ?? []).map(move).filter(keep),
     };
-    const overrides = allEvents.filter((e) => e.seriesId === series.id).map((e) => e.id);
-    return { put: [updated], del: deltaMin === 0 ? [] : overrides };
+    if (!updated.exdates?.length) delete updated.exdates;
+    const put: CalEvent[] = [updated];
+    const del: string[] = [];
+    for (const o of allEvents.filter((e) => e.seriesId === series.id)) {
+      const orig = move(o.originalStart ?? o.start);
+      // Vorkommen gibt es nach der neuen Regel nicht mehr (früheres Ende, anderer Wochentag …): Einzeländerung entfernen
+      if (!keep(orig)) del.push(o.id);
+      else if (orig !== o.originalStart) put.push({ ...o, originalStart: orig });
+    }
+    return { put, del };
   }
 
   // scope === 'following': Serie abschneiden und neue Serie ab hier

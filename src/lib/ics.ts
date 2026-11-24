@@ -127,7 +127,8 @@ export function mapRRule(rule: string, start: string): Recurrence | null {
       if (!m || DAYS.indexOf(m[2]) !== wd) return null;
       const n = Number(m[1]);
       const startN = nthOfMonth(start);
-      if (!(n === startN || (n === -1 && startN >= 4))) return null;
+      // „letzter“ (-1) nur, wenn der Starttag auch der 5. ist – sonst würde daraus „4.“ (in Einzeltermine auflösen)
+      if (!(n === startN || (n === -1 && startN === 5))) return null;
       rec.monthlyMode = 'nthWeekday';
     } else if (freq === 'daily' || parts.length) {
       return null;
@@ -250,7 +251,10 @@ function buildEvent(props: Prop[], source: string, expandUntil: string):
   // Komplexe Regel: in Einzeltermine auflösen (bis expandUntil)
   const durMin = Math.round((parseLocal(end).getTime() - parseLocal(s.value).getTime()) / 60000);
   const dt = s.value.replace(/[-:]/g, '') + (allDay ? '' : '00');
-  const rule = rrulestr(`DTSTART:${allDay ? dt + 'T000000' : dt}\nRRULE:${rrule.replace(/UNTIL=(\d{8})(?!T)/, 'UNTIL=$1T235959')}`);
+  // UNTIL in UTC (…Z) in die Wanduhrzeit umrechnen – DTSTART ist hier ebenfalls Wanduhrzeit
+  const until = rrule.replace(/UNTIL=(\d{8}T\d{6})Z/, (_, v: string) => `UNTIL=${parseIcsDate(v + 'Z').value.replace(/[-:]/g, '')}59`)
+    .replace(/UNTIL=(\d{8})(?!T)/, 'UNTIL=$1T235959');
+  const rule = rrulestr(`DTSTART:${allDay ? dt + 'T000000' : dt}\nRRULE:${until}`);
   const ex = new Set(exdates);
   const events = rule.between(parseLocal(s.value), parseLocal(expandUntil), true).slice(0, 500)
     .map((d) => fmtLike(d, allDay))
@@ -322,7 +326,9 @@ export function toICS(events: CalEvent[], persons: Person[], timezone?: string):
     if (desc) lines.push(`DESCRIPTION:${escape(desc)}`);
     lines.push(...extra);
     for (const mins of remindersOf(ev)) {
-      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escape(title)}`, `TRIGGER:-PT${mins}M`, 'END:VALARM');
+      // Ganztägig: die App erinnert ab 08:00 (TRIGGER bezieht sich auf 00:00 des Tages)
+      const off = ev.allDay ? 480 - mins : -mins;
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escape(title)}`, `TRIGGER:${off < 0 ? '-' : ''}PT${Math.abs(off)}M`, 'END:VALARM');
     }
     lines.push('END:VEVENT');
   };

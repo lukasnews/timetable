@@ -161,7 +161,8 @@ export function EventDialog(props: {
   const save = () => {
     if (!valid) return;
     // „Morgen 10 Uhr Zahnarzt“ getippt und gleich gespeichert: Vorschlag übernehmen (außer Datum/Uhrzeit wurden von Hand gesetzt)
-    const out = quickUseful && !whenTouched ? { ...ev, ...quickPatch() } : ev;
+    const q = quickUseful && !whenTouched ? { ...ev, ...quickPatch() } : ev;
+    const out = q.end > q.start ? q : ev;
     props.onSave({ ...out, title: out.title.trim() });
   };
 

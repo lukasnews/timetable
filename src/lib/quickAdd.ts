@@ -100,9 +100,12 @@ export function parseQuick(input: string, persons: Person[], today: string): Qui
     const [h1, m1, h2, m2] = [Number(m[2]), Number(m[3] ?? 0), Number(m[6]), Number(m[7] ?? 0)];
     const sure = !!(m[1] || m[3] || m[4] || m[7] || m[8] || m[5] === 'bis');
     if (!sure || !okTime(h1, m1) || !okTime(h2, m2)) return false;
-    out.start = hm(h1, m1);
-    out.end = hm(h2, m2);
-    return out.end > out.start;
+    // „17 bis 24 Uhr“ → bis 23:59; über Mitternacht („20 bis 1 Uhr“) nicht erkennen statt Ende vor Beginn zu liefern
+    const s = hm(h1, m1), e = h2 === 24 && m2 === 0 ? '23:59' : hm(h2, m2);
+    if (e <= s) return false;
+    out.start = s;
+    out.end = e;
+    return true;
   });
   // Einzelzeit: 15 Uhr, 15:30, 15.30 Uhr, um 15
   cut(rx(`(?:${B}(?:um|ab)\\s+)?${B}(\\d{1,2})(?:[:.](\\d{2}))?\\s*uhr${E}`), (m) => setStart(m[1], m[2]));

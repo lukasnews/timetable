@@ -1,3 +1,4 @@
+import { withFeb29 } from './lib/birthdays';
 import { remindersOf } from './lib/reminderList';
 import { occursOn, timeOnDay } from './lib/dayLine';
 /**
@@ -67,7 +68,10 @@ export function plannedReminders(events: CalEvent[], persons: Person[], device: 
   }));
   const sel = device.reminderPersons;
   const out: { id: number; at: string; title: string; body: string }[] = [];
-  for (const o of expand([...events.filter((e) => remindersOf(e).length), ...bdays], addDays(today, -10), addDays(today, DAYS_AHEAD + 10))) {
+  // Bereich so weit, dass auch lange Vorlaufzeiten (z. B. „4 Wochen vorher“) ins Planungsfenster fallen
+  const withRem = [...events.filter((e) => remindersOf(e).length), ...withFeb29(bdays, today)];
+  const lead = Math.ceil(Math.max(0, ...withRem.flatMap((e) => remindersOf(e))) / 1440) + 1;
+  for (const o of expand(withRem, addDays(today, -1), addDays(today, DAYS_AHEAD + lead))) {
     const ev = o.event;
     if (sel.length && (ev.personIds.length || ev.driverIds?.length) && ![...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id))) continue;
     for (const mins of remindersOf(ev)) {
@@ -104,7 +108,7 @@ export function plannedDigests(events: CalEvent[], persons: Person[], device: Pi
     id: 'bday-' + p.id, title: '🎂 ' + p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [], kind: 'birthday',
     recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
   }));
-  const occ = expand([...events, ...bdays], today, addDays(today, DAYS_AHEAD + 8))
+  const occ = expand([...events, ...withFeb29(bdays, today)], today, addDays(today, DAYS_AHEAD + 8))
     .filter((o) => { const ev = o.event; return !sel.length || !(ev.personIds.length || ev.driverIds?.length) || [...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id)); })
     .sort((a, b) => Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start));
   const names = (ev: CalEvent) => persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
@@ -274,7 +278,7 @@ export function widgetItems(events: CalEvent[], persons: Person[], now: string, 
     id: 'bday-' + p.id, title: p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [p.id], kind: 'birthday',
     birthYear: Number(p.birthday!.slice(0, 4)), recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
   }));
-  return expand([...events, ...bdays], today, addDays(today, days))
+  return expand([...events, ...withFeb29(bdays, today)], today, addDays(today, days))
     .filter((o) => (o.event.allDay ? `${o.end}T00:00` : o.end) > now)
     .sort((a, b) => {
       const da = a.start.slice(0, 10) < today ? today : a.start.slice(0, 10);

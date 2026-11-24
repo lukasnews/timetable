@@ -1,5 +1,6 @@
 package com.javuno.timetable;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
@@ -32,15 +33,56 @@ public class UpcomingWidget extends AppWidgetProvider {
     private static final int[] TITLE = { R.id.title0, R.id.title1, R.id.title2, R.id.title3, R.id.title4, R.id.title5 };
     private static final int[] WHO = { R.id.who0, R.id.who1, R.id.who2, R.id.who3, R.id.who4, R.id.who5 };
 
+    static final String ACTION_MIDNIGHT = "com.javuno.timetable.WIDGET_MIDNIGHT";
+
     static void refreshAll(Context ctx) {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
         int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, UpcomingWidget.class));
         for (int id : ids) render(ctx, mgr, id);
+        if (ids.length > 0) scheduleMidnight(ctx);
+    }
+
+    /** Kurz nach Mitternacht neu zeichnen, damit „Heute/Morgen“ und das Datum stimmen (ungenau reicht, schont den Akku) */
+    static void scheduleMidnight(Context ctx) {
+        try {
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            Calendar c = Calendar.getInstance();
+            c.add(Calendar.DATE, 1);
+            c.set(Calendar.HOUR_OF_DAY, 0);
+            c.set(Calendar.MINUTE, 1);
+            c.set(Calendar.SECOND, 0);
+            am.set(AlarmManager.RTC, c.getTimeInMillis(), midnightIntent(ctx));
+        } catch (Exception ignored) { }
+    }
+
+    private static PendingIntent midnightIntent(Context ctx) {
+        Intent i = new Intent(ctx, UpcomingWidget.class).setAction(ACTION_MIDNIGHT);
+        return PendingIntent.getBroadcast(ctx, 7, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    @Override
+    public void onReceive(Context ctx, Intent intent) {
+        String a = intent.getAction();
+        if (ACTION_MIDNIGHT.equals(a) || Intent.ACTION_TIME_CHANGED.equals(a) || Intent.ACTION_TIMEZONE_CHANGED.equals(a) || Intent.ACTION_DATE_CHANGED.equals(a)) {
+            refreshAll(ctx);
+            return;
+        }
+        super.onReceive(ctx, intent);
     }
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
         for (int id : ids) render(ctx, mgr, id);
+        scheduleMidnight(ctx);
+    }
+
+    @Override
+    public void onDisabled(Context ctx) {
+        try {
+            AlarmManager am = (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
+            if (am != null) am.cancel(midnightIntent(ctx));
+        } catch (Exception ignored) { }
     }
 
     @Override
