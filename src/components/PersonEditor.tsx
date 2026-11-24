@@ -15,7 +15,7 @@ export function PersonEditor(props: { person: Person; isNew: boolean; onSave: (p
   const options = useMemo(() => Array.from({ length: 11 }, (_, i) => `${seedBase}-${i}`), [seedBase]);
 
   return (
-    <Modal title={props.isNew ? 'Neue Person' : `Profil: ${props.person.name}`} onClose={props.onClose} wide
+    <Modal title={props.isNew ? 'Neue Person' : `Profil: ${props.person.name}`} onClose={props.onClose} wide dirty={JSON.stringify(p) !== JSON.stringify(props.person)}
       footer={<>
         {props.onDelete && <button className="btn danger" onClick={props.onDelete}><Icon name="trash" size={18} /> Entfernen</button>}
         <span className="spacer" />

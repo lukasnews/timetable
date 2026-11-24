@@ -170,6 +170,7 @@ export function EventDialog(props: {
     <Modal
       title={props.draft.isNew ? 'Neuer Termin' : 'Termin bearbeiten'}
       onClose={props.onClose}
+      dirty={JSON.stringify(ev) !== JSON.stringify(e0)}
       footer={
         <>
           {props.onDelete && (

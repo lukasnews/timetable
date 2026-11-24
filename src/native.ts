@@ -223,17 +223,19 @@ export async function syncNativeReminders(events: CalEvent[], persons: Person[],
       .sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_SCHEDULED) : [];
   const key = JSON.stringify(plan);
   if (key === lastPlan) return;
-  lastPlan = key;
+  // Erst nach Erfolg als erledigt merken – sonst würde nach einem Fehler nie neu geplant
+  lastPlan = '';
   const pending = await LocalNotifications.getPending();
   const old = pending.notifications.filter((n) => n.id !== TEST_ID); // Test-Benachrichtigung nicht wegräumen
   if (old.length) await LocalNotifications.cancel({ notifications: old.map((n) => ({ id: n.id })) });
-  if (!plan.length) return;
+  if (!plan.length) { lastPlan = key; return; }
   await LocalNotifications.schedule({
     notifications: plan.map((n) => ({
       id: n.id, title: n.title, body: n.body, ...((n as { largeBody?: string }).largeBody ? { largeBody: (n as { largeBody?: string }).largeBody } : {}), schedule: { at: deviceTime(n.at), allowWhileIdle: true },
       smallIcon: 'ic_stat_notify', iconColor: '#b8611c',
     })),
   });
+  lastPlan = key;
 }
 
 /** Zurück-Taste: offenen Dialog schließen, sonst die App in den Hintergrund */
@@ -243,9 +245,17 @@ export async function setupBackButton() {
   App.addListener('backButton', () => {
     if (document.querySelector('.modal-backdrop, .modal')) {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    } else {
-      App.minimizeApp();
+      return;
     }
+    // Offene Menüs, „+n weitere“ und Bildschirmschoner schließen statt die App wegzulegen
+    const popClose = document.querySelector<HTMLElement>('.fc-popover .fc-popover-close');
+    if (popClose) { popClose.click(); return; }
+    const saver = document.querySelector<HTMLElement>('.saver');
+    if (saver) { saver.click(); return; }
+    if (document.querySelector('.ql-menu')) { window.dispatchEvent(new PointerEvent('pointerdown')); return; }
+    // Wand-Tablet: nie in den Hintergrund
+    if (document.querySelector('.app.kiosk')) return;
+    App.minimizeApp();
   });
   // Beim Zurückkehren in die App: Erinnerungen neu planen (z. B. nach Änderungen anderer Familienmitglieder)
   App.addListener('resume', () => window.dispatchEvent(new Event('fk-resume')));
@@ -313,8 +323,8 @@ export async function syncWidget(events: CalEvent[], persons: Person[]) {
   await loadWidgetPlugin();
   const items = JSON.stringify(widgetItems(events, persons, fromNative(new Date(), false)));
   if (items === lastWidget) return;
-  lastWidget = items;
   await widgetPlugin!.update({ items });
+  lastWidget = items;
 }
 
 /* ---------------- Kiosk: Status- und Navigationsleiste ausblenden ---------------- */

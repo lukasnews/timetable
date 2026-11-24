@@ -162,6 +162,8 @@ export default function App() {
   }, [undo]);
   const [scopeAsk, setScopeAsk] = useState<{ action: 'edit' | 'move' | 'delete'; resolve: (s: Scope | null) => void } | null>(null);
   const [pinAsk, setPinAsk] = useState<((ok: boolean) => void) | null>(null);
+  const scopeAskRef = useRef(scopeAsk); scopeAskRef.current = scopeAsk;
+  const pinAskRef = useRef(pinAsk); pinAskRef.current = pinAsk;
   const unlockedUntil = useRef(0);
 
   const askScope = (action: 'edit' | 'move' | 'delete') => new Promise<Scope | null>((resolve) => setScopeAsk({ action, resolve }));
@@ -208,6 +210,8 @@ export default function App() {
   const now = useClock();
   useWakeLock(device.kiosk && device.wakeLock);
   useIdle(device.idleReturnMinutes, device.kiosk, () => {
+    // Offene Abfragen sauber beenden (z. B. verschobenen Serientermin zurücksetzen), nicht nur ausblenden
+    scopeAskRef.current?.resolve(null); pinAskRef.current?.(false);
     setDraft(null); setSettings(null); setScopeAsk(null); setDetail(null); setSearching(false);
     data.setDevice({ locked: true });
     setHidden(new Set()); // wieder alle Personen zeigen
@@ -264,6 +268,14 @@ export default function App() {
   useIdle(device.saverMinutes || 5, device.saverDay || device.saverNight, () => {
     if (!document.querySelector('.modal-backdrop')) setSaverOn('idle');
   });
+  // Wer das Tablet benutzt, beendet den (unsichtbaren) Leerlauf – sonst springt z. B. der Nacht-Schoner um 22:00 mitten in der Bedienung auf
+  useEffect(() => {
+    if (saverOn !== 'idle' || saverVariant) return;
+    const wake = () => setSaverOn(false);
+    window.addEventListener('pointerdown', wake);
+    window.addEventListener('keydown', wake);
+    return () => { window.removeEventListener('pointerdown', wake); window.removeEventListener('keydown', wake); };
+  }, [saverOn, saverVariant]);
   useEffect(() => {
     const preview = () => setSaverOn('preview');
     window.addEventListener('fk-saver', preview);
@@ -541,6 +553,8 @@ export default function App() {
           <span className={'countdowns' + (cdShort ? ' short' : '')} ref={cdRef}>
             {countdowns.map((c) => (
               <span key={c.title + c.date} className="countdown" title={`bis ${c.title} (${c.date.split('-').reverse().join('.')})`}
+                role={cdShort ? 'button' : undefined} tabIndex={cdShort ? 0 : undefined}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') (e.currentTarget as HTMLElement).click(); }}
                 onClick={(e) => {
                   if (!cdShort) return;
                   const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
