@@ -13,6 +13,11 @@ export interface Store {
   put<T extends Item>(col: Collection, item: T): void;
   /** Nur diese Felder eines Dokuments setzen (undefined = Feld löschen) – andere Felder bleiben, auch wenn ein anderes Gerät sie gerade ändert */
   patch(col: Collection, id: string, fields: Record<string, unknown>): void;
+  /**
+   * Bestehendes Dokument ändern: nur diese Felder, Listen-Einträge hinzufügen/entfernen ohne die ganze Liste zu ersetzen
+   * (so gehen gleichzeitige Änderungen anderer Geräte nicht verloren). Existiert das Dokument nicht mehr, passiert nichts.
+   */
+  update(col: Collection, id: string, fields: Record<string, unknown>, lists?: { add?: Record<string, unknown[]>; remove?: Record<string, unknown[]> }): void;
   remove(col: Collection, id: string): void;
   /** Einmal lesen (ohne Live-Verbindung), z. B. die automatischen Sicherungen */
   fetchAll<T extends Item>(col: Collection): Promise<T[]>;

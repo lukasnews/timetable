@@ -10,6 +10,9 @@ import {
   setDoc,
   deleteDoc,
   deleteField,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
   type Firestore,
   getDocsFromServer,
 } from 'firebase/firestore';
@@ -129,6 +132,23 @@ export class FirebaseStore implements Store {
     for (const [k, v] of Object.entries(fields)) data[k] = v === undefined ? deleteField() : JSON.parse(JSON.stringify(v));
     // nur die genannten Felder ersetzen (keine tiefe Zusammenführung, keine anderen Felder überschreiben)
     setDoc(doc(this.col(c), id), data, { mergeFields: Object.keys(data) }).catch((e) => console.error('Speichern fehlgeschlagen', e));
+  }
+
+  update(c: Collection, id: string, fields: Record<string, unknown>, lists: { add?: Record<string, unknown[]>; remove?: Record<string, unknown[]> } = {}) {
+    const data: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [k, v] of Object.entries(fields)) data[k] = v === undefined ? deleteField() : JSON.parse(JSON.stringify(v));
+    const ref = doc(this.col(c), id);
+    // Firestore erlaubt pro Feld nur eine Listen-Operation je Schreibvorgang: Entfernen und Hinzufügen nacheinander
+    const rem = Object.entries(lists.remove ?? {}).filter(([, v]) => v.length);
+    const add = Object.entries(lists.add ?? {}).filter(([, v]) => v.length);
+    for (const [k, v] of add) if (!rem.some(([r]) => r === k)) data[k] = arrayUnion(...v);
+    const first = updateDoc(ref, data);
+    const later = add.filter(([k]) => rem.some(([r]) => r === k));
+    const chain = rem.length
+      ? first.then(() => updateDoc(ref, Object.fromEntries(rem.map(([k, v]) => [k, arrayRemove(...v)]))))
+        .then(() => (later.length ? updateDoc(ref, Object.fromEntries(later.map(([k, v]) => [k, arrayUnion(...v)]))) : undefined))
+      : first;
+    chain.catch((e) => console.warn('Ändern übersprungen (Eintrag gelöscht?)', e));
   }
 
   /** Mehrere Einträge hochladen und warten, bis der Server sie bestätigt hat */

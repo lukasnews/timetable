@@ -1,3 +1,4 @@
+import { withFeb29 } from './lib/birthdays';
 import { remindersOf } from './lib/reminderList';
 import { occursOn, timeOnDay } from './lib/dayLine';
 /**
@@ -67,7 +68,10 @@ export function plannedReminders(events: CalEvent[], persons: Person[], device: 
   }));
   const sel = device.reminderPersons;
   const out: { id: number; at: string; title: string; body: string }[] = [];
-  for (const o of expand([...events.filter((e) => remindersOf(e).length), ...bdays], addDays(today, -10), addDays(today, DAYS_AHEAD + 10))) {
+  // Bereich so weit, dass auch lange Vorlaufzeiten (z. B. „4 Wochen vorher“) ins Planungsfenster fallen
+  const withRem = [...events.filter((e) => remindersOf(e).length), ...withFeb29(bdays, today)];
+  const lead = Math.ceil(Math.max(0, ...withRem.flatMap((e) => remindersOf(e))) / 1440) + 1;
+  for (const o of expand(withRem, addDays(today, -1), addDays(today, DAYS_AHEAD + lead))) {
     const ev = o.event;
     if (sel.length && (ev.personIds.length || ev.driverIds?.length) && ![...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id))) continue;
     for (const mins of remindersOf(ev)) {
@@ -104,7 +108,7 @@ export function plannedDigests(events: CalEvent[], persons: Person[], device: Pi
     id: 'bday-' + p.id, title: '🎂 ' + p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [], kind: 'birthday',
     recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
   }));
-  const occ = expand([...events, ...bdays], today, addDays(today, DAYS_AHEAD + 8))
+  const occ = expand([...events, ...withFeb29(bdays, today)], today, addDays(today, DAYS_AHEAD + 8))
     .filter((o) => { const ev = o.event; return !sel.length || !(ev.personIds.length || ev.driverIds?.length) || [...ev.personIds, ...(ev.driverIds ?? [])].some((id) => sel.includes(id)); })
     .sort((a, b) => Number(b.event.allDay) - Number(a.event.allDay) || a.start.localeCompare(b.start));
   const names = (ev: CalEvent) => persons.filter((p) => ev.personIds.includes(p.id)).map((p) => p.name).join(', ');
@@ -223,17 +227,19 @@ export async function syncNativeReminders(events: CalEvent[], persons: Person[],
       .sort((a, b) => a.at.localeCompare(b.at)).slice(0, MAX_SCHEDULED) : [];
   const key = JSON.stringify(plan);
   if (key === lastPlan) return;
-  lastPlan = key;
+  // Erst nach Erfolg als erledigt merken – sonst würde nach einem Fehler nie neu geplant
+  lastPlan = '';
   const pending = await LocalNotifications.getPending();
   const old = pending.notifications.filter((n) => n.id !== TEST_ID); // Test-Benachrichtigung nicht wegräumen
   if (old.length) await LocalNotifications.cancel({ notifications: old.map((n) => ({ id: n.id })) });
-  if (!plan.length) return;
+  if (!plan.length) { lastPlan = key; return; }
   await LocalNotifications.schedule({
     notifications: plan.map((n) => ({
       id: n.id, title: n.title, body: n.body, ...((n as { largeBody?: string }).largeBody ? { largeBody: (n as { largeBody?: string }).largeBody } : {}), schedule: { at: deviceTime(n.at), allowWhileIdle: true },
       smallIcon: 'ic_stat_notify', iconColor: '#b8611c',
     })),
   });
+  lastPlan = key;
 }
 
 /** Zurück-Taste: offenen Dialog schließen, sonst die App in den Hintergrund */
@@ -243,9 +249,17 @@ export async function setupBackButton() {
   App.addListener('backButton', () => {
     if (document.querySelector('.modal-backdrop, .modal')) {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    } else {
-      App.minimizeApp();
+      return;
     }
+    // Offene Menüs, „+n weitere“ und Bildschirmschoner schließen statt die App wegzulegen
+    const popClose = document.querySelector<HTMLElement>('.fc-popover .fc-popover-close');
+    if (popClose) { popClose.click(); return; }
+    const saver = document.querySelector<HTMLElement>('.saver');
+    if (saver) { saver.click(); return; }
+    if (document.querySelector('.ql-menu')) { window.dispatchEvent(new PointerEvent('pointerdown')); return; }
+    // Wand-Tablet: nie in den Hintergrund
+    if (document.querySelector('.app.kiosk')) return;
+    App.minimizeApp();
   });
   // Beim Zurückkehren in die App: Erinnerungen neu planen (z. B. nach Änderungen anderer Familienmitglieder)
   App.addListener('resume', () => window.dispatchEvent(new Event('fk-resume')));
@@ -264,7 +278,7 @@ export function widgetItems(events: CalEvent[], persons: Person[], now: string, 
     id: 'bday-' + p.id, title: p.name, start: p.birthday!, end: addDays(p.birthday!, 1), allDay: true, personIds: [p.id], kind: 'birthday',
     birthYear: Number(p.birthday!.slice(0, 4)), recurrence: { freq: 'yearly', interval: 1, end: { type: 'never' } },
   }));
-  return expand([...events, ...bdays], today, addDays(today, days))
+  return expand([...events, ...withFeb29(bdays, today)], today, addDays(today, days))
     .filter((o) => (o.event.allDay ? `${o.end}T00:00` : o.end) > now)
     .sort((a, b) => {
       const da = a.start.slice(0, 10) < today ? today : a.start.slice(0, 10);
@@ -313,8 +327,8 @@ export async function syncWidget(events: CalEvent[], persons: Person[]) {
   await loadWidgetPlugin();
   const items = JSON.stringify(widgetItems(events, persons, fromNative(new Date(), false)));
   if (items === lastWidget) return;
-  lastWidget = items;
   await widgetPlugin!.update({ items });
+  lastWidget = items;
 }
 
 /* ---------------- Kiosk: Status- und Navigationsleiste ausblenden ---------------- */

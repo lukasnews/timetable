@@ -33,6 +33,10 @@ const STALE_MS = 60 * 86400_000;
 /** Neue Familien pro Absender (IP) und Tag */
 const NEW_PER_IP = 3;
 let lastCleanup = '';
+/** Manuelle Läufe je Familie (Bremse gegen Dauerfeuer) */
+const lastManualRun = new Map<string, number>();
+/** Abrufe über /ics je Familie in der laufenden Minute */
+const icsCalls = new Map<string, { min: number; n: number }>();
 
 let cached: { token: string; until: number } | null = null;
 
@@ -159,7 +163,9 @@ async function register(env: Env, familyId: string, serviceUrl: string, clientIp
     if ((doc?.count ?? 0) >= NEW_PER_IP) return new Response('Zu viele neue Familien von diesem Anschluss – bitte morgen erneut versuchen', { status: 429, headers: cors });
     await commit(regCfg, token, 'backups', [{ id, count: (doc?.count ?? 0) + 1 } as { id: string }]);
   }
-  const feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
+  let feedToken = meta.find((m) => m.id === 'settings')?.feedToken ?? '';
+  // Abo-Schlüssel muss eindeutig sein – sonst könnte eine Familie einen fremden (weitergegebenen) Link übernehmen
+  if (feedToken && all.some((e) => e.id !== key && e.feedToken === feedToken)) feedToken = '';
   const appUrl = /^https:\/\/[a-z0-9.-]+$/i.test(appOrigin) ? appOrigin + '/' : known?.appUrl;
   if ((!known || (known.feedToken ?? '') !== feedToken || (known.appUrl ?? '') !== (appUrl ?? '') || Date.now() - (known.seen ?? 0) > 86400_000)) {
     await commit(config(env, env.REGISTRY_ID), token, 'meta', [{ id: key, familyId, feedToken, at: known?.at ?? Date.now(), seen: Date.now(), ...(appUrl ? { appUrl } : {}) } as Entry]);
@@ -202,6 +208,8 @@ export default {
         const token = await idToken(config(env), env);
         const entry = (await registry(env, token)).find((e) => e.familyId === fam);
         if (!entry) return new Response('Nicht angemeldet', { status: 403 });
+        if (Date.now() - (lastManualRun.get(fam) ?? 0) < 30_000) return new Response('Bitte eine halbe Minute warten', { status: 429 });
+        lastManualRun.set(fam, Date.now());
         await run(await familyConfig(env, fam, entry), token, new Date(), (s) => lines.push(s), { by: 'cloudflare', dropIfEmpty: true });
         return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
       } catch (e) {
@@ -218,8 +226,11 @@ export default {
         const entry = (await registry(env, token)).find((e) => e.familyId === fam);
         if (!entry) return new Response(JSON.stringify({ error: 'Familie ist beim Dienst nicht angemeldet' }), { status: 403, headers: cors });
         const cfg = await familyConfig(env, fam, entry);
-        const [persons, meta] = await Promise.all([list<Person>(cfg, token, 'persons'), list<FamilySettings & { id: string }>(cfg, token, 'meta')]);
-        const family = meta.find((m) => m.id === 'settings');
+        const [persons, meta] = await Promise.all([list<Person>(cfg, token, 'persons'), list<{ id: string; ntfyTestAt?: string }>(cfg, token, 'meta')]);
+        const family = meta.find((m) => m.id === 'settings') as Partial<FamilySettings> | undefined;
+        const last = Number(meta.find((m) => m.id === 'reminders')?.ntfyTestAt ?? 0);
+        if (Date.now() - last < 30_000) return new Response(JSON.stringify({ error: 'Bitte eine halbe Minute warten, bevor du erneut testest.' }), { status: 429, headers: cors });
+        await setStateField(cfg, token, 'ntfyTestAt', String(Date.now()));
         const nt = ntfyFor(cfg, family);
         if (nt.missingServer) return new Response(JSON.stringify({ error: 'Kein ntfy-Server eingetragen (muss mit https:// beginnen)' }), { headers: cors });
         const topics = [...new Set([family?.ntfyFamilyTopic, ...persons.map((p) => p.ntfyTopic)].filter(Boolean) as string[])];
@@ -244,6 +255,11 @@ export default {
       if (!validId(fam) || !(await isKnown(env, await idToken(config(env), env), fam))) return new Response('Nicht erlaubt', { status: 403, headers: cors });
       const target = url.searchParams.get('url') ?? '';
       if (!/^(https?|webcal):\/\//i.test(target)) return new Response('Ungültiger Link', { status: 400, headers: cors });
+      const minute = Math.floor(Date.now() / 60_000);
+      const c = icsCalls.get(fam);
+      const n = c && c.min === minute ? c.n + 1 : 1;
+      icsCalls.set(fam, { min: minute, n });
+      if (n > 10) return new Response('Zu viele Abrufe – bitte kurz warten', { status: 429, headers: cors });
       try {
         return new Response(await fetchIcs(target), { headers: { ...cors, 'content-type': 'text/calendar; charset=utf-8' } });
       } catch (e) {
@@ -256,8 +272,9 @@ export default {
       try {
         const token = await idToken(config(env), env);
         // Welche Familie? Im Verzeichnis steht der Abo-Schlüssel (meldet die App bei der Anmeldung)
-        const entry = (await registry(env, token)).find((e) => e.feedToken === m[1]);
-        if (!entry) return new Response('Nicht gefunden', { status: 404 });
+        const matches = (await registry(env, token)).filter((e) => e.feedToken === m[1]);
+        if (matches.length !== 1) return new Response('Nicht gefunden', { status: 404 });
+        const entry = matches[0];
         const cfg = config(env, entry.familyId);
         const settings = (await list<FamilySettings>(cfg, token, 'meta')).find((x) => x.id === 'settings');
         if (!settings?.feedToken || settings.feedToken !== m[1]) return new Response('Nicht gefunden', { status: 404 });

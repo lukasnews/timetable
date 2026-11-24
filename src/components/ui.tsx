@@ -1,19 +1,42 @@
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import type { Person } from '../types';
 import { avatarUri, avatarsVersion, onAvatarsReady, tint } from '../lib/avatars';
 
-export function Modal(props: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
+/** Offene Dialoge, oberster zuletzt – Esc/Zurück schließt nur den obersten */
+const modalStack: object[] = [];
+
+export function Modal(props: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean;
+  /** Ungespeicherte Eingaben: vor dem Schließen nachfragen, Tippen daneben schließt nicht */
+  dirty?: boolean }) {
+  const me = useRef({});
+  const latest = useRef(props);
+  latest.current = props;
+  const requestClose = () => {
+    if (latest.current.dirty && !window.confirm('Ungespeicherte Änderungen verwerfen?')) return;
+    latest.current.onClose();
+  };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && props.onClose();
+    const id = me.current;
+    modalStack.push(id);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || modalStack[modalStack.length - 1] !== id) return;
+      e.stopImmediatePropagation();
+      requestClose();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [props.onClose]);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const i = modalStack.lastIndexOf(id);
+      if (i >= 0) modalStack.splice(i, 1);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && props.onClose()}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !props.dirty && props.onClose()}>
       <div className={'modal' + (props.wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label={props.title}>
         <header className="modal-head">
           <h2>{props.title}</h2>
-          <button className="icon-btn" onClick={props.onClose} aria-label="Schließen">
+          <button className="icon-btn" onClick={requestClose} aria-label="Schließen">
             <Icon name="close" />
           </button>
         </header>

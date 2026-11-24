@@ -94,7 +94,21 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
   const load = (text: string, fallbackName: string, link?: string) => {
     try {
       const r = parseICS(text, { source: fallbackName, timezone: family.timezone || deviceTimezone() });
-      const source = r.calendarName || fallbackName;
+      let source = r.calendarName || fallbackName;
+      // Gleicher Name, aber anderer Link (z. B. zweiter Gem2Go-Müllkalender): eigener Name, sonst löschen sich die Abos gegenseitig
+      if (link) {
+        const same = (n: string) => icsSources.find((x) => x.name === n);
+        const clash = (n: string) => { const k = same(n); return !!k && !!k.url && k.url !== link; };
+        if (clash(source)) {
+          let host = '';
+          try { host = new URL(link.replace(/^webcal:/i, 'https:')).hostname.replace(/^www\./, ''); } catch { /* egal */ }
+          const base = host && !clash(`${source} (${host})`) ? `${source} (${host})` : source;
+          let i = 2;
+          let name = base;
+          while (clash(name)) name = `${base} ${i++}`;
+          source = name;
+        }
+      }
       r.events.forEach((e) => (e.importSource = source));
       setPreview({ ...r, source, url: link });
       // Bekannte Quelle: bisherige Einstellungen übernehmen
@@ -187,7 +201,7 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
   const exportIcs = () => saveFile(new File([toICS(events.filter((e) => !e.importSource), persons, family.timezone || deviceTimezone())], `familienkalender-${today}.ics`, { type: 'text/calendar' }));
 
   const exportBackup = () => {
-    const backup: Backup = { format: 'familienkalender-backup', version: 1, exportedAt: new Date().toISOString(), persons, events, timetables, settings: family };
+    const backup: Backup = { format: 'familienkalender-backup', version: 1, exportedAt: new Date().toISOString(), persons, events, timetables, settings: family, templates };
     saveFile(new File([JSON.stringify(backup, null, 1)], `familienkalender-sicherung-${today}.json`, { type: 'application/json' }));
   };
 
@@ -212,7 +226,11 @@ export function DataTab({ onPrint }: { onPrint?: () => void }) {
     b.persons.forEach((x) => store.put('persons', x));
     b.events.forEach((x) => store.put('events', x));
     (b.timetables ?? []).forEach((x) => store.put('timetables', x));
-    if (b.settings) store.put('meta', { ...b.settings, id: 'settings' });
+    // Abo-Link, eigene Adresse und PIN bleiben auf dem aktuellen Stand (eine alte Sicherung soll keinen ungültig gemachten Link zurückbringen)
+    if (b.settings) {
+      const keepNow = { feedToken: family.feedToken, appDomain: family.appDomain, pinHash: family.pinHash };
+      store.put('meta', { ...b.settings, ...keepNow, id: 'settings' });
+    }
     if (b.templates) saveTemplates(b.templates);
     setMsg(`✓ Sicherung vom ${new Date(b.exportedAt).toLocaleDateString('de-AT')} wiederhergestellt: ${b.persons.length} Person(en), ${b.events.length} Termin(e).`);
   };

@@ -58,6 +58,17 @@ export class LocalStore implements Store {
     this.write(col, data);
   }
 
+  update(col: Collection, id: string, fields: Record<string, unknown>, lists: { add?: Record<string, unknown[]>; remove?: Record<string, unknown[]> } = {}) {
+    const data = this.read(col);
+    if (!data[id]) return;
+    const cur = { ...data[id] } as Record<string, unknown>;
+    for (const [k, v] of Object.entries(fields)) { if (v === undefined) delete cur[k]; else cur[k] = v; }
+    for (const [k, v] of Object.entries(lists.remove ?? {})) cur[k] = ((cur[k] as unknown[]) ?? []).filter((x) => !v.includes(x));
+    for (const [k, v] of Object.entries(lists.add ?? {})) cur[k] = [...new Set([...((cur[k] as unknown[]) ?? []), ...v])];
+    data[id] = JSON.parse(JSON.stringify({ ...cur, updatedAt: Date.now() }));
+    this.write(col, data);
+  }
+
   remove(col: Collection, id: string) {
     const data = this.read(col);
     delete data[id];

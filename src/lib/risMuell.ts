@@ -24,7 +24,7 @@ export const hasNextPage = (html: string) => /rel="Next"/i.test(html);
 const ymd = (s: string) => s.replace(/-/g, '');
 const nextDay = (s: string) => { const d = new Date(s + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,');
+const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,');
 
 export function risToIcs(rows: { date: string; title: string }[], host: string, name = 'Müll'): string {
   const seen = new Set<string>();

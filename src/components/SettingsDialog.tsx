@@ -395,9 +395,9 @@ function NotifyTab() {
           {withTopic.length ? ` (eingetragen: ${withTopic.map((p) => p.name).join(', ')})` : ' – noch bei niemandem eingetragen'}.</p>
         <label className="field"><span className="label">ntfy-Server eurer Familie</span>
           <input defaultValue={family.ntfyServer ?? ''} placeholder="https://ntfy.sh" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-            onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\//i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
+            onBlur={(e) => { const v = e.target.value.trim().replace(/\/+$/, ''); if (v !== (family.ntfyServer ?? '') && (!v || /^https:\/\/[^/?#\s]+$/i.test(v))) saveFamily({ ntfyServer: v || undefined }); }} />
           <small className="hint">{family.ntfyServer
-            ? 'Hier hin schickt der Dienst eure Push-Nachrichten (muss mit https:// beginnen).'
+            ? 'Hier hin schickt der Dienst eure Push-Nachrichten – nur die Adresse des Servers, mit https:// und ohne Topic dahinter.'
             : 'Leer = keine ntfy-Nachrichten. Wer sie möchte: z. B. https://ntfy.sh (kostenlos) oder ein eigener ntfy-Server.'}</small>
         </label>
         <label className="field"><span className="label">Zugangsschlüssel</span>
@@ -627,7 +627,15 @@ function SyncTab() {
           <p className="hint">Am einfachsten: am anderen Gerät den QR-Code scannen. Alternativ den Familien-Link oder die Familien-ID einfügen:</p>
           <div className="row">
             <input value={joinId} onChange={(e) => setJoinId(e.target.value.trim())} placeholder="Link oder Familien-ID" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
-            <button className="btn" disabled={!parseFamilyInput(joinId)} onClick={() => { const id = parseFamilyInput(joinId); if (id) connect(id, false); }}>Beitreten</button>
+            <button className="btn" disabled={!parseFamilyInput(joinId)} onClick={() => {
+              const id = parseFamilyInput(joinId);
+              if (!id) return;
+              // Eigene (nicht Beispiel-)Termine bleiben nur auf diesem Gerät – vorher darauf hinweisen
+              const own = store instanceof LocalStore ? store.all<{ id: string; title?: string }>('events').length : 0;
+              const demo = persons.some((p) => ['papa', 'mama', 'lena', 'max'].includes(p.id));
+              if (own && !demo && !window.confirm(`Die ${own} Termine auf diesem Gerät werden nicht in den Familienkalender übernommen – sie bleiben nur hier gespeichert (sichtbar nach „Dieses Gerät trennen“). Vorher sichern: ⚙️ → Daten → Sicherung speichern.\n\nTrotzdem beitreten?`)) return;
+              connect(id, false);
+            }}>Beitreten</button>
           </div>
           {joinId && !parseFamilyInput(joinId) && <small className="error">Das ist weder ein Familien-Link noch eine Familien-ID.</small>}
           {err && <p className="error">{err}</p>}
